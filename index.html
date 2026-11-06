@@ -1,0 +1,2703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>我在修仙界开宗门</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#141a16; font-family:"PingFang SC","Microsoft YaHei",sans-serif; }
+  #stage { position:absolute; inset:0; }
+  #game { position:absolute; inset:0; display:block; image-rendering:pixelated; }
+  #fxCanvas { position:fixed; inset:0; pointer-events:none; z-index:40; }
+  #flash { position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:41; }
+  /* HUD */
+  #hud { position:absolute; top:0; left:0; right:0; padding:10px 12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; z-index:5; pointer-events:none; }
+  .chip { background:rgba(20,26,22,.8); color:#f2ead8; font-size:13px; padding:6px 11px; border-radius:999px; white-space:nowrap; }
+  .chip b { color:#e9c46a; font-weight:600; }
+  .chip.alert b { color:#ff9c4a; }
+  #stamWrap { flex:1; max-width:160px; height:14px; background:rgba(20,26,22,.8); border-radius:999px; overflow:hidden; position:relative; }
+  #stamBar { height:100%; width:100%; background:#7fb069; transition:width .25s; }
+  #stamTxt { position:absolute; inset:0; font-size:10px; color:#fff; text-align:center; line-height:14px; }
+  .hudBtn { pointer-events:auto; background:rgba(20,26,22,.8); color:#f2ead8; border:1px solid rgba(255,255,255,.25);
+    font-size:12px; padding:5px 9px; border-radius:999px; white-space:nowrap; }
+  .hudBtn.alert { border-color:#ff9c4a; color:#ffcf5e; }
+  #seedBtn { position:absolute; right:38px; bottom:152px; z-index:6; display:none; padding:8px 10px; border-radius:999px;
+    background:rgba(20,26,22,.8); color:#f2ead8; border:1px solid rgba(255,255,255,.3); font-size:12px; }
+  #panel .cover { height:150px; border-radius:12px; margin-bottom:12px; background:#2c3a33 url('assets/e-cover-v1.png') center 18%/cover no-repeat; }
+  #panel .mini { font-size:12px; color:#7a7263; }
+  #panel button.act2 { padding:7px 12px; border:none; border-radius:9px; background:#38694c; color:#fff; font-size:13px; }
+  #panel button.act2:disabled { background:#b9b09a; color:#6b6455; }
+  #panel button.act2.ghost2 { background:#e8dfc8; color:#4a4436; }
+  #hint { position:absolute; left:50%; transform:translateX(-50%); bottom:182px; z-index:5; pointer-events:none;
+    background:rgba(20,26,22,.75); color:#f2ead8; font-size:13px; padding:7px 14px; border-radius:999px;
+    opacity:0; transition:opacity .3s; white-space:nowrap; max-width:92vw; }
+  /* 摇杆（尺寸/半径与原型一致） */
+  #joy { position:absolute; left:26px; bottom:34px; width:124px; height:124px; border-radius:50%;
+    background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.25); z-index:6; touch-action:none; }
+  #knob { position:absolute; left:50%; top:50%; width:54px; height:54px; border-radius:50%;
+    background:rgba(255,255,255,.35); border:2px solid rgba(255,255,255,.5); transform:translate(-50%,-50%); }
+  /* 互动键 */
+  #act { position:absolute; right:26px; bottom:46px; width:96px; height:96px; border-radius:50%; z-index:6;
+    background:#38694c; border:3px solid rgba(255,255,255,.35); color:#fff; font-size:19px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; text-align:center; line-height:1.25;
+    box-shadow:0 6px 18px rgba(0,0,0,.4); touch-action:none; user-select:none; }
+  #act:active { transform:scale(.93); }
+  #act.off { background:#5a6660; }
+  /* 面板骨架 */
+  #panelWrap { position:fixed; inset:0; z-index:30; display:none; align-items:flex-end; justify-content:center;
+    background:rgba(8,10,9,.45); }
+  #panelWrap.open { display:flex; }
+  #panel { width:100%; max-width:520px; max-height:62vh; overflow:auto; background:#f5eeda; color:#26302a;
+    border-radius:18px 18px 0 0; padding:18px 18px 26px; }
+  #panel h3 { font-size:17px; margin-bottom:4px; }
+  #panel .sub { font-size:12px; color:#7a7263; margin-bottom:10px; }
+  #panel .row { display:flex; justify-content:space-between; align-items:center; padding:9px 2px; border-bottom:1px solid #e2d7bd; font-size:14px; }
+  #panel .tag { font-size:11px; background:#38694c; color:#fff; border-radius:6px; padding:2px 7px; }
+  #panel .tag.grey { background:#8a8578; }
+  .pbtn { display:block; width:100%; margin-top:14px; padding:12px; border:none; border-radius:12px;
+    background:#38694c; color:#fff; font-size:15px; font-weight:700; }
+  .pbtn.ghost { background:#e8dfc8; color:#4a4436; }
+  #fade { position:absolute; inset:0; background:#0a0f0c; opacity:0; pointer-events:none; transition:opacity .8s; z-index:8; }
+  .floatTxt { position:fixed; z-index:42; pointer-events:none; font-weight:700; font-size:16px;
+    text-shadow:0 1px 3px rgba(0,0,0,.45); transform:translate(-50%,-50%); white-space:nowrap; }
+  /* M3：封面/加载 splash（E 厚涂只许出现在封面/加载/晋阶半屏三处，此为其一） */
+  #splash { position:fixed; inset:0; z-index:60; pointer-events:none; display:flex; flex-direction:column; align-items:center;
+    background:#1e2b24 url('assets/e-cover-v1.png') center top/cover no-repeat; transition:opacity .7s; }
+  #splash.done { opacity:0; }
+  #splash .sp-title { margin-top:9vh; font-family:"Songti SC","STSong","SimSun",serif; font-size:30px; font-weight:700;
+    color:#fff; letter-spacing:4px; text-shadow:0 2px 0 #26302a, 0 0 16px rgba(20,26,22,.6); }
+  #splash .sp-sub { margin-top:10px; font-size:13px; color:#f2ead8; letter-spacing:3px; text-shadow:0 1px 5px rgba(20,26,22,.85); }
+  .chip svg { vertical-align:-2px; margin-right:3px; }
+.icn{display:inline-block;width:16px;height:16px;background-image:url('assets/atlas_ground_v1.png');background-repeat:no-repeat;background-size:181.3px 133.0px;vertical-align:-4px}
+.icn-coin{background-position:-31.3px -30.0px}
+.icn-lingzhi{background-position:-47.7px -30.0px}
+.icn-ninglu{background-position:-64.0px -30.0px}
+.icn-xuanyu{background-position:-80.3px -30.0px}
+.icn-stamina{background-position:-96.7px -30.0px}
+.icn-build{background-position:-113.0px -30.0px}
+.icn-disciple{background-position:-129.3px -30.0px}
+.icn-order{background-position:-145.7px -30.0px}
+.icn-signin{background-position:-162.0px -30.0px}
+.icn-board{background-position:-0.3px -58.3px}
+.icn-dispatch{background-position:-16.7px -58.3px}
+.icn-recruit{background-position:-33.0px -58.3px}
+.icn-expand{background-position:-49.3px -58.3px}
+.icn-promote{background-position:-65.7px -58.3px}
+.icn-sleep{background-position:-82.0px -58.3px}
+.icn-bag{background-position:-98.3px -58.3px}
+.icnL{display:inline-block;width:24px;height:24px;background-image:url('assets/atlas_ground_v1.png');background-repeat:no-repeat;background-size:272.0px 199.5px;vertical-align:-4px}
+.icnL-coin{background-position:-47.0px -45.0px}
+.icnL-lingzhi{background-position:-71.5px -45.0px}
+.icnL-ninglu{background-position:-96.0px -45.0px}
+.icnL-xuanyu{background-position:-120.5px -45.0px}
+.icnL-stamina{background-position:-145.0px -45.0px}
+.icnL-build{background-position:-169.5px -45.0px}
+.icnL-disciple{background-position:-194.0px -45.0px}
+.icnL-order{background-position:-218.5px -45.0px}
+.icnL-signin{background-position:-243.0px -45.0px}
+.icnL-board{background-position:-0.5px -87.5px}
+.icnL-dispatch{background-position:-25.0px -87.5px}
+.icnL-recruit{background-position:-49.5px -87.5px}
+.icnL-expand{background-position:-74.0px -87.5px}
+.icnL-promote{background-position:-98.5px -87.5px}
+.icnL-sleep{background-position:-123.0px -87.5px}
+.icnL-bag{background-position:-147.5px -87.5px}
+  .chip .icn, .hudBtn .icn { margin-right:3px; }
+  #panel .icn, #panel .icnL { margin-right:3px; }
+  #act .icn { margin-right:2px; vertical-align:-3px; }
+  /* 双榜 */
+  #panel .lb-tabs { display:flex; gap:8px; margin-bottom:10px; }
+  #panel .lb-tab { flex:1; padding:9px; border:1px solid #cbbd97; border-radius:10px; background:#efe6cd;
+    color:#4a4436; font-size:14px; font-weight:700; }
+  #panel .lb-tab.active { background:#38694c; border-color:#38694c; color:#fff; }
+  #panel .lb-row { display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid #e2d7bd; font-size:14px; }
+  #panel .lb-row.me { background:#fdf3d0; border-radius:8px; }
+  #panel .lb-rank { width:30px; text-align:center; font-weight:700; color:#7a7263; flex:none; }
+  #panel .lb-row.top1 .lb-rank, #panel .lb-row.top2 .lb-rank, #panel .lb-row.top3 .lb-rank { color:#b07d2b; }
+  #panel .lb-ava { width:30px; height:30px; border-radius:50%; flex:none; object-fit:cover; background:#cbbd97; }
+  #panel .lb-ava.ph { display:flex; align-items:center; justify-content:center; color:#5d5540; font-size:13px; font-weight:700; }
+  #panel .lb-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #panel .lb-val { font-weight:700; color:#38694c; white-space:nowrap; }
+  #panel .lb-mine { margin-top:10px; font-size:13px; color:#7a5a17; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <span class="chip">第 <b id="day">1</b> 天</span>
+    <span class="chip"><span class="icn icn-coin"></span>灵石 <b id="coin">0</b></span>
+    <span class="chip"><span class="icn icn-lingzhi"></span>灵芝 <b id="herb">0</b></span>
+    <span class="chip alert" id="pendChip" style="display:none">待领结算</span>
+    <span class="chip"><span class="icn icn-stamina"></span></span>
+    <div id="stamWrap"><div id="stamBar"></div><div id="stamTxt">体力</div></div>
+    <button class="hudBtn" id="btnDisciples"><span class="icn icn-disciple"></span>弟子</button>
+    <button class="hudBtn" id="btnOrders"><span class="icn icn-order"></span>订单</button>
+    <button class="hudBtn" id="btnRoutine"><span class="icn icn-signin"></span>日常</button>
+    <button class="hudBtn" id="btnCodex">图鉴</button>
+    <button class="hudBtn" id="btnSect"><span class="icn icn-promote"></span>宗门</button>
+    <button class="hudBtn" id="btnBoard"><span class="icn icn-board"></span>榜单</button>
+  </div>
+  <button id="seedBtn">种：灵芝</button>
+  <div id="hint"></div>
+  <div id="joy"><div id="knob"></div></div>
+  <div id="act" class="off">…</div>
+  <div id="fade"></div>
+</div>
+<div id="splash"><div class="sp-title">我在修仙界开宗门</div><div class="sp-sub">青 云 宗</div></div>
+<div id="panelWrap"><div id="panel"></div></div>
+<canvas id="fxCanvas"></canvas>
+<div id="flash"></div>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const DEMO = new URLSearchParams(location.search).has('demo');
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+const nowMs = () => Date.now();
+
+/* ================================================================
+ * 模块：配置表 CONFIG（全游戏数值单一入口，禁散落魔法数）
+ * ================================================================ */
+const CONFIG = {
+  world: { w: 1600, h: 1200 },
+  player: { speed: 158, radius: 13, spawnAnchor: 'homeDoor' },   // 速度沿用原型已验手感
+  interaction: { plotRadius: 50, anchorRadius: 62, talkRadius: 46 }, // 半径沿用原型
+  stamina: {
+    max: 100,
+    costs: { hoe: 8, seed: 3, water: 5, harvest: 4 },            // 沿用一页纸 5.1 校准起点
+    offlineFullMs: 8 * 3600 * 1000,                              // 离线按 elapsed 恢复，满额 8h
+  },
+  // 五档周期（定案基线）：档1 30s–2min / 档2 8–15min / 档3 45min–2h / 档4 4–8h / 档5 22h 派遣
+  tiers: [
+    { tier: 1, durationMs: 60 * 1000 },
+    { tier: 2, durationMs: 10 * 60 * 1000 },
+    { tier: 3, durationMs: 60 * 60 * 1000 },
+    { tier: 4, durationMs: 6 * 3600 * 1000 },
+    { tier: 5, durationMs: 22 * 3600 * 1000 },
+  ],
+  farm: {
+    cols: 4, rows: 3, plotW: 56, plotH: 42, gap: 12, originX: 150, originY: 620,
+    defaultTier: 1, defaultCrop: 'lingzhi',
+    demoTier1Ms: 6000,                                           // 仅 ?demo=1 冒烟测试用
+  },
+  // 物品总表：sellable=false 的条目在账本层禁止进入任何出售/订单路径（派遣产物红线）
+  items: {
+    coin:       { name: '灵石', currency: true },
+    lingzhi:    { name: '灵芝', sellable: true },
+    ninglu:     { name: '凝露草', sellable: true },
+    linglu:     { name: '灵露', sellable: true },
+    xuanyu:     { name: '玄玉', sellable: true },
+    herb_seed:  { name: '药种', sellable: false },
+    forge_plan: { name: '坊图', sellable: false },
+    mine_charm: { name: '矿引', sellable: false },
+  },
+  // 作物表：每档产物必须是下一档输入或订单原料（互锁校验在 Production.validateChains）
+  crops: {
+    lingzhi: { name: '灵芝', itemId: 'lingzhi', tier: 1, inputs: {}, yieldQty: 1 },
+    ninglu:  { name: '凝露草', itemId: 'ninglu', tier: 2, inputs: { lingzhi: 1 }, yieldQty: 1 },
+  },
+  // 生产链配方（工位工单）：inputs/outputs 强互锁；时长走 tiers 档位
+  recipes: [
+    { id: 'r_linglu', station: 'forge', name: '淬炼灵露', tier: 3,
+      inputs: { lingzhi: 2, ninglu: 1 }, outputs: { linglu: 1 } },
+    { id: 'r_xuanyu', station: 'mine', name: '探采玄玉', tier: 4,
+      inputs: { linglu: 1, mine_charm: 1 }, outputs: { xuanyu: 1 } },
+  ],
+  stations: {
+    forge: { name: '淬炼坊', anchor: 'forge', maxRunning: 2 },
+    mine:  { name: '矿脉工位', anchor: 'mineWork', maxRunning: 2, needZone: 'mineZone' },
+  },
+  mastery: { bonusAt: 10, bonusQty: 1 },   // 隐藏精通：只埋点，达阈值单次产出 +1，不展示（二赛季显性化）
+  npc: {
+    walkSpeed: 78, carrySpeed: 70, patrolSpeed: 58,
+    workMs: 1200, stuckLimitMs: 6000, yieldPerCarryRound: 1, yieldCap: 6,
+    avoidRadius: 30, separationRadius: 26,
+  },
+  offline: {  // 双轨本地模拟（平台 timeflow BFF 接入点见 Offline.registerDefinition）
+    definitionVersion: 1,
+    rateBasePerHour: 49, ratePerBuildDegree: 0.2,                // M2 经 sim_offline 校准：人口加权离线占比 ≈51.6%（45–55% 带内）
+    capHours: 7, capFactor: 0.6,                                 // 存储上限＝产率×6–8h×0.6（取 7h）
+    offlineRateFactor: 0.6,                                      // 离线速率约为在线 60%
+    earlyBonusMs: 8 * 3600 * 1000, earlyBonusMul: 1.3,           // 8h 内早归 ×1.3
+    minSettleMs: 60 * 1000, track1Item: 'coin',
+  },
+  // 双榜（规模榜=宗门总建设度；效率榜=日均经营入账，口径见 Leaderboard 模块注释）
+  leaderboard: {
+    apiBase: '',                 // 【替换点】平台榜单网关 base：留空＝走本地适配层；接入时填 https://<envId>-1252166086.ap-shanghai.app.tcloudbase.com/api
+    envId: '',                   // 【替换点】与 apiBase 同批填入（母本口径：cloud.request 需带 envId）
+    boards: { scale: 'kz_scale', efficiency: 'kz_efficiency' },
+    reportMinIntervalMs: 60 * 1000,   // 提交节流：同值摘要未变直接跳过，变化后至少间隔此时长
+    fetchTimeoutMs: 5000,
+    effPriorDays: 2,                  // 效率平滑：分母加先验天数，压小样本单日冲高（防刷口径）
+    localSeeds: {                     // 本地适配层同道种子行（本地演示数据，非全服真实玩家；平台接入后不再使用）
+      scale: [ ['邻峰道友', 120], ['山外来客', 95], ['卖茶老翁', 80], ['半山樵子', 64],
+               ['溪畔钓翁', 47], ['云游货郎', 30], ['挑水阿牛', 18], ['过路书生', 9] ],
+      efficiency: [ ['邻峰道友', 46], ['卖茶老翁', 38], ['溪畔钓翁', 31], ['山外来客', 25],
+                    ['云游货郎', 19], ['半山樵子', 12], ['过路书生', 7], ['挑水阿牛', 3] ],
+    },
+  },
+  fx: { poolSize: 512, hardCap: 400, dtClampMs: 33, degradeFrameMs: 20, dprCap: 1.5 },
+  save: { key: 'kaizongmen_save', lastGoodKey: 'kaizongmen_save_lastgood', version: 2, autosaveMs: 5000 },
+  buildings: [ // 建设度可由建筑状态重算（ sect.recomputeBuildDegree 的输入）
+    { id: 'hall',  name: '大殿',   level: 1, degreePerLevel: 10 },
+    { id: 'home',  name: '掌门居', level: 1, degreePerLevel: 10 },
+    { id: 'forge', name: '淬炼坊', level: 1, degreePerLevel: 10 },
+    { id: 'quarters', name: '弟子居舍', level: 0, degreePerLevel: 10 },
+  ],
+  // 扩建报价：按建筑下一等级查表；mineUnlock 为后山矿口解锁工程（走 Sect.upgrade 特例）
+  upgrades: {
+    hall:     { 2: { coin: 120 }, 3: { coin: 260 } },
+    home:     { 2: { coin: 80 },  3: { coin: 180 } },
+    forge:    { 2: { coin: 100, items: { forge_plan: 1 } }, 3: { coin: 240 } },
+    quarters: { 1: { coin: 60 },  2: { coin: 110 }, 3: { coin: 200 } },
+    mineUnlock: { coin: 150 },
+  },
+  mineBuilding: { id: 'mine', name: '矿脉工位', degreePerLevel: 15 },
+  // 宗门品级阶梯（身份跃迁命名，过词库）：need 为晋阶所需建设度
+  ranks: [
+    { name: '无名小派', need: 0 },
+    { name: '小有名气', need: 50 },
+    { name: '一方宗门', need: 90 },
+    { name: '名门大派', need: 130 },
+  ],
+  promoteRewardBase: 50,   // 晋阶礼金＝base × 新品级序
+  // 弟子生成池（A1 随机三件套＋C1 狗血来历＋C2 反差公式；文案全量过词库）
+  discipleGen: {
+    recruitCost: 50, rosterCap: 8,
+    surnames: ['陈','陆','沈','林','苏','顾','江','许','何','罗','郑','冯'],
+    givenNames: ['禾','青','砚','舟','岚','芷','衡','澈','谦','遥','朴','耕'],
+    robes: ['#5b7fa6','#8a6d4f','#6a8a5f','#7a6a9a','#a65b5b','#5b8a8a'],
+    qualities: [ // 权重抽品质；attrs 在 [min,max] 内随机
+      { name: '寻常', w: 50, min: 20, max: 50 },
+      { name: '良好', w: 32, min: 40, max: 70 },
+      { name: '上佳', w: 14, min: 60, max: 85 },
+      { name: '绝佳', w: 4,  min: 80, max: 99 },
+    ],
+    attrNames: ['悟性','根骨','手艺'],
+    personalities: ['踏实','机灵','沉稳','爽利','慢热','好胜'],
+    fates: [ // 命格（中性占位命名，效果只作用于对应工种的 NPC 移速/工时）
+      { name: '药缘深厚', desc: '照料药圃格外用心', job: 'water', mul: 1.2 },
+      { name: '手稳心细', desc: '做细活从不出错', job: 'carry', mul: 1.15 },
+      { name: '脚程快', desc: '走山路如履平地', job: 'move', mul: 1.18 },
+      { name: '力气大', desc: '扛两担水不喘气', job: 'carry', mul: 1.2 },
+      { name: '记性好', desc: '账目过目不忘', job: null, mul: 1 },
+      { name: '嗓门洪亮', desc: '喊一嗓子全山都听得见', job: null, mul: 1 },
+      { name: '手巧', desc: '修补器物一把好手', job: null, mul: 1 },
+      { name: '耐得住性子', desc: '守炉三日不合眼也行', job: null, mul: 1 },
+      { name: '眼神好', desc: '老远就能认出谁是谁', job: 'patrol', mul: 1.15 },
+      { name: '爱干净', desc: '工位永远收拾得齐整', job: null, mul: 1 },
+      { name: '福缘不浅', desc: '总能遇上些小便宜', job: null, mul: 1 },
+      { name: '耳聪', desc: '风吹草动都瞒不过', job: 'patrol', mul: 1.1 },
+    ],
+    originOpenings: ['山下柳溪村人','邻县石桥镇出身','自幼跟着祖母长大','本是镇上的铁匠学徒',
+      '曾在药行当了三年学徒','是个走街串巷的货郎','在渡口扛了两年包','原是私塾先生的儿子','跟着商队跑了两年腿'],
+    originBridges: ['赶考落榜后改了主意','家中田产遭了水患','被未婚妻家退了亲，只想换个地方重新开始',
+      '下山采药时跌下山崖，大难不死，反倒在崖底拾到一本旧册子','原是镖局的趟子手，厌倦了常年奔波的日子',
+      '师父临终前把一本手札托付给他','在镇上摆摊卖草药，被人砸了摊子','替人放了十年羊，攒够了拜师的束脩',
+      '家乡闹了虫灾，庄稼颗粒无收','在书院读书时写得一手好字，被先生举荐出来见见世面'],
+    originEndings: ['听闻青云宗招收弟子，步行三日赶来','慕名投奔，自带干粮','经同乡引荐上了山',
+      '在山门外等了半日，只求收留','把全部家当换成束脩，铁了心要学本事','只想寻个清净地方，把日子过出个样子'],
+    contrastChance: 0.08, // C2 反差公式低概率触发
+    contrastBodies: ['身形魁梧','个子小小','嗓门洪亮','走路带风'],
+    contrastTraits: ['心细如发','胆子极小','嗜睡如命','慢条斯理'],
+  },
+  // 22h 派遣（档5）：产物只能是下级链启动材料，sellable=false（见 items 表）
+  dispatch: {
+    dests: [
+      { id: 'herbField', name: '山下药圃', item: 'herb_seed', qty: 1 },
+      { id: 'streamWorks', name: '溪边工坊', item: 'forge_plan', qty: 1 },
+      { id: 'oldMine', name: '旧矿洞', item: 'mine_charm', qty: 1 },
+    ],
+  },
+  // 订单三节奏（A7）：日常/定时/急单；需求只许引用 sellable 产物
+  orders: {
+    dailyCount: 3, timedCount: 2, timedBatchMs: 4 * 3600 * 1000,
+    rushAliveMs: 2 * 3600 * 1000, rushRespawnMs: 2 * 3600 * 1000, freeRefreshPerDay: 1,
+    pools: {
+      daily: [ { needs: { lingzhi: 3 }, reward: 30 }, { needs: { lingzhi: 5 }, reward: 52 },
+               { needs: { ninglu: 2 }, reward: 36 }, { needs: { lingzhi: 2, ninglu: 1 }, reward: 40 } ],
+      timed: [ { needs: { ninglu: 3 }, reward: 58 }, { needs: { linglu: 1 }, reward: 48 },
+               { needs: { lingzhi: 4, ninglu: 2 }, reward: 66 } ],
+      rush:  [ { needs: { linglu: 2 }, reward: 96 }, { needs: { xuanyu: 1 }, reward: 90 },
+               { needs: { ninglu: 2, linglu: 1 }, reward: 110 } ],
+    },
+  },
+  // 日常：签到（B5 累计型，断签只停滞不清零）＋周挑战三条滚动＋每日短清单
+  routine: {
+    signInRewards: [10, 15, 20, 25, 30, 40, 60],
+    weeklyChallenges: [
+      { kind: 'order', name: '本周交付订单', need: 5, reward: 40 },
+      { kind: 'harvest', name: '本周收获作物', need: 10, reward: 30 },
+      { kind: 'dispatch', name: '本周完成派遣', need: 1, reward: 50 },
+    ],
+  },
+  // 广告四件套＋可选双倍（全主动触发，绝不插屏）；软封顶：第1–6次满额/7–8次50%/9次起0
+  ads: {
+    points: {
+      offline_double: { name: '离线双倍' }, job_speedup: { name: '工单加速' },
+      order_refresh: { name: '刷新订单' }, stamina_refill: { name: '补体力' },
+      promote_double: { name: '晋阶双倍' },
+    },
+    fullSeq: 6, halfSeq: 8,
+    staminaRefill: 50,
+    pendingTtlMs: 3 * 60 * 1000, maxChecks: 2,   // P0：未落定标记时限与核对次数上限
+    mockWatchMs: 900,                            // 本地模拟适配层「观看」时长（替换点：真实 SDK 回调）
+  },
+  // 打脸线脚本事件（C5）：首月 3–4 次；数字读账本真实累计入账；之后低频由 day 间隔控制
+  faceEvents: [
+    { id: 'face1', day: 2, needEarned: 50, reward: 20,
+      text: '青竹坊的管事曾当众说，咱们这小派撑不过一季。如今宗门入账已达 {earned} 灵石，他今日亲自登门，赔笑奉上贺礼。弟子们都在山门边看着，腰杆挺得笔直。' },
+    { id: 'face2', day: 4, needEarned: 200, reward: 40,
+      text: '曾拒收咱们药材的行商又找上门来——如今坊市都在打听青云宗的货。他搓着手说上次是他看走了眼，愿以高价长期收货。入账 {earned} 灵石，就是最硬的回话。' },
+    { id: 'face3', day: 6, needEarned: 500, reward: 80,
+      text: '邻山大派来访，本想挑些毛病，绕宗门走了一圈，只说了一句「后生可畏」。临走留下贺礼，说下季的坊市大会，给青云宗留个席位。' },
+    { id: 'face4', day: 8, needEarned: 1000, reward: 120,
+      text: '当年说「这山头养不活人」的老猎户，如今逢人就讲青云宗的故事。宗门入账破 {earned} 灵石的消息传遍了山下三镇，慕名上山的人排到了山门外。' },
+  ],
+  rumors: [ // C3 宗门传闻（模板拼接：双弟子＋日常小事）
+    '{a}和{b}为了谁浇的地更匀，拌了两句嘴，最后一起把整片药圃都浇了。',
+    '{a}说{b}搬东西时哼的调子跑得没边，{b}说那是新学的山歌。',
+    '{a}在淬炼坊守了一夜，出来时眉毛差点被火燎掉，还说不碍事。',
+    '{b}把{a}的工具藏了起来，最后自己先忘了藏在哪。',
+    '{a}和{b}比赛谁先把水缸挑满，赢的人多吃了一个馒头。',
+    '{a}说山后那棵老松今年又粗了一圈，{b}不信，约好明日一起去量。',
+  ],
+};
+if (DEMO) CONFIG.tiers[0].durationMs = CONFIG.farm.demoTier1Ms;
+
+/* ================================================================
+ * 模块：合规 lexicon（词库 v1 骨架；正式扫描在提审阶段全量跑）
+ * ================================================================ */
+const Lexicon = {
+  version: 1,
+  blacklist: ['轮回','阴兵','噬魂','冥婚','画符','作法','九幽','堕天','招魂','勾魂','摄魂','索命',
+    '夺舍','炼尸','借尸','黄泉','奈何','阎罗','地府','转世','投胎','附体','通灵','请神','血祭',
+    '诅咒','降头','占卜','算卦','风水','命理','八字','炼丹','灵田','飞升'],
+  validateCopy(text){ return this.blacklist.filter(w => String(text).includes(w)); },
+};
+
+/* ================================================================
+ * 运行时状态（唯一状态根；持久化经存档层，资源经账本）
+ * ================================================================ */
+function freshState(){
+  return {
+    ver: CONFIG.save.version,
+    createdAt: nowMs(), savedAt: 0, lastSeenAt: nowMs(),
+    player: { x: 0, y: 0, facing: 1 },
+    camera: { x: 0, y: 0 },
+    unlockedZones: ['frontYard', 'herbZone'],
+    day: { dayIndex: 1, stamina: CONFIG.stamina.max, staminaAnchorAt: nowMs(), dailyKey: '' },
+    balances: { coin: 0 },
+    inventory: { lingzhi: 0 },
+    transactions: [],
+    plots: [],
+    workstations: [], jobs: [], mastery: {},
+    disciples: [],
+    orders: [], ordersMeta: { dailyKey: '', timedBatchAt: 0, nextRushAt: 0, freeRefreshLeft: CONFIG.orders.freeRefreshPerDay },
+    buildings: CONFIG.buildings.map(b => ({ ...b })),
+    buildDegree: 0,
+    sectRank: 0,
+    routine: {
+      signIn: { streak: 0, lastDate: '' },
+      weekly: { weekKey: '', progress: {}, claimed: [] },
+      daily: { key: '', done: {} },
+    },
+    events: {}, faceLastAt: 0, faceLastDay: '', facePending: null,
+    stats: { earnedCoin: 0, opEarned: 0, opOrders: 0, opDays: 0, opLastDate: '' },
+    boardCache: { scale: [], efficiency: [], updatedAt: 0 },
+    lastReport: { scale: '', efficiency: '' },
+    lbLocal: null,
+    codex: { seen: {} },
+    farmMode: CONFIG.farm.defaultCrop,
+    adsDaily: { date: '', rewardSeq: 0, byPoint: {} }, pendingAdRewards: [], adsApplied: [],
+    offlineClaim: { appliedDigests: [] },
+    pendingSettlement: null,
+    pendingYield: 0,
+    prestigeCount: 0,
+    migrationLog: [],
+  };
+}
+let S = freshState();
+
+/* ================================================================
+ * 模块：存档层 save（唯一持久化入口；normalize 版本阶梯）
+ * ================================================================ */
+const Save = {
+  // 版本阶梯：键为「从该版本升级」的迁移函数；新增版本时只往后追加，不改旧阶梯
+  MIGRATIONS: {
+    1: s => { // v1 -> v2：M2 新字段嵌套补齐（顶层已由 freshState 合并，这里处理嵌套结构与旧弟子/建筑）
+      const F = freshState();
+      s.routine = Object.assign(F.routine, s.routine || {});
+      s.routine.signIn = Object.assign(F.routine.signIn, (s.routine || {}).signIn || {});
+      s.routine.weekly = Object.assign(F.routine.weekly, (s.routine || {}).weekly || {});
+      s.routine.daily = Object.assign(F.routine.daily, (s.routine || {}).daily || {});
+      s.ordersMeta = Object.assign(F.ordersMeta, s.ordersMeta || {});
+      s.adsDaily = Object.assign(F.adsDaily, s.adsDaily || {});
+      if (!Array.isArray(s.adsApplied)) s.adsApplied = [];
+      if (!s.stats) s.stats = { earnedCoin: 0 };
+      if (!s.codex) s.codex = { seen: {} };
+      if (!s.farmMode) s.farmMode = CONFIG.farm.defaultCrop;
+      for (const d of (s.disciples || [])){ // 旧弟子补三件套字段
+        if (!d.attrs) d.attrs = {};
+        if (!Array.isArray(d.fates)) d.fates = [];
+        if (!d.quality) d.quality = '寻常';
+        if (d.dispatch === undefined) d.dispatch = null;
+      }
+      if (!(s.buildings || []).some(b => b.id === 'quarters'))
+        s.buildings.push({ ...CONFIG.buildings.find(b => b.id === 'quarters') });
+      return s;
+    },
+  },
+  digest(str){ let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return 'd' + (h >>> 0).toString(36); },
+  normalize(raw){
+    if (!raw || typeof raw !== 'object') return null;
+    let s = Object.assign(freshState(), raw);       // 缺字段以新档默认补齐
+    s.day = Object.assign(freshState().day, raw.day || {});
+    // 嵌套对象逐项合并（防旧档覆盖掉后加的字段：双榜统计/缓存即属此类）
+    s.stats = Object.assign(freshState().stats, raw.stats || {});
+    s.boardCache = Object.assign(freshState().boardCache, raw.boardCache || {});
+    s.lastReport = Object.assign(freshState().lastReport, raw.lastReport || {});
+    let v = typeof raw.ver === 'number' ? raw.ver : 0;
+    while (v < CONFIG.save.version){
+      const step = this.MIGRATIONS[v];
+      if (step){ s = step(s); s.migrationLog.push('v' + v + '->v' + (v + 1)); }
+      v++;
+    }
+    s.ver = CONFIG.save.version;
+    return s;
+  },
+  save(reason){
+    try {
+      S.savedAt = nowMs(); S.lastSeenAt = nowMs();
+      const payload = JSON.stringify(S);
+      const prev = localStorage.getItem(CONFIG.save.key);
+      if (prev) localStorage.setItem(CONFIG.save.lastGoodKey, prev);   // 上一份落盘作 lastGood
+      localStorage.setItem(CONFIG.save.key, payload);
+      return true;
+    } catch (e) { console.warn('[save] failed', reason, e); return false; }
+  },
+  load(){
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(CONFIG.save.key) || 'null'); } catch (e) { raw = null; }
+    let s = this.normalize(raw);
+    if (!s){
+      try { s = this.normalize(JSON.parse(localStorage.getItem(CONFIG.save.lastGoodKey) || 'null')); } catch (e) { s = null; }
+      if (s) console.warn('[save] restored lastGood');
+    }
+    S = s || freshState();
+    return S;
+  },
+  exportSnapshot(){ return JSON.parse(JSON.stringify(S)); },
+};
+
+/* ================================================================
+ * 模块：账本与库存 ledger/inventory（资源单一事实源）
+ * 接口：transact / canAfford / addItem / consumeItem / snapshotBalances
+ * ================================================================ */
+const Ledger = {
+  _txSeq: 0,
+  transact(tx){ // tx: { reason, currency?:{coin:n}, items?:{itemId:qty} }（增正减负，原子校验）
+    const cur = tx.currency || {}, itm = tx.items || {};
+    for (const k in cur) if ((S.balances[k] || 0) + cur[k] < 0) return false;
+    for (const k in itm) if ((S.inventory[k] || 0) + itm[k] < 0) return false;
+    for (const k in cur) S.balances[k] = (S.balances[k] || 0) + cur[k];
+    for (const k in itm) S.inventory[k] = (S.inventory[k] || 0) + itm[k];
+    for (const k in cur) if (cur[k] > 0 && S.stats) S.stats.earnedCoin += cur[k];   // 打脸线/统计读真实入账
+    // 效率榜事实源：只有订单交付入账计「经营产出」（赠予/广告/离线一律不计，防刷口径见 Leaderboard）
+    if (cur.coin > 0 && tx.reason && tx.reason.indexOf('order_') === 0 && S.stats){
+      S.stats.opEarned = (S.stats.opEarned || 0) + cur.coin;
+      S.stats.opOrders = (S.stats.opOrders || 0) + 1;
+      const dk = Day.getDailyKey();
+      if (S.stats.opLastDate !== dk){ S.stats.opLastDate = dk; S.stats.opDays = (S.stats.opDays || 0) + 1; }
+    }
+    for (const k in itm) if (itm[k] > 0) Codex.markSeen(k);                        // 图鉴：首次获得即登记
+    S.transactions.push({ id: ++this._txSeq, ts: nowMs(), reason: tx.reason, currency: cur, items: itm });
+    if (S.transactions.length > 100) S.transactions.splice(0, S.transactions.length - 100);
+    UI.syncHud();
+    return true;
+  },
+  canAfford(cost){ // cost: { coin?:n, items?:{id:qty} }
+    if (cost.coin && (S.balances.coin || 0) < cost.coin) return false;
+    for (const k in (cost.items || {})) if ((S.inventory[k] || 0) < cost.items[k]) return false;
+    return true;
+  },
+  addItem(itemId, qty, reason){ return this.transact({ reason: reason || 'addItem', items: { [itemId]: qty } }); },
+  consumeItem(itemId, qty, reason){ return this.transact({ reason: reason || 'consumeItem', items: { [itemId]: -qty } }); },
+  snapshotBalances(){ return { balances: { ...S.balances }, inventory: { ...S.inventory } }; },
+  // 出售红线（账本层 enforced）：sellable=false 的条目禁止进入订单/出售路径
+  isSellable(itemId){ const it = CONFIG.items[itemId]; return !!(it && it.sellable); },
+};
+
+/* ================================================================
+ * 模块：日界与体力 day/stamina
+ * 接口：canSpend / spendStamina / restoreStamina / sleep / getDailyKey
+ * ================================================================ */
+const Day = {
+  getDailyKey(d){ const t = d || new Date();
+    return t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate(); },
+  init(){ S.day.dailyKey = this.getDailyKey(); this.restoreByElapsed(); },
+  weekKey(d){ const t = d || new Date(); const onejan = new Date(t.getFullYear(), 0, 1);
+    const wk = Math.ceil((((t - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+    return t.getFullYear() + 'W' + wk; },
+  // 真实日期日界（与睡觉严格分离：睡觉不触发此函数，防刷签到/广告序号）
+  checkRollover(){
+    const key = this.getDailyKey();
+    if (S.day.dailyKey === key) return false;
+    S.day.dailyKey = key;
+    S.adsDaily = { date: key, rewardSeq: 0, byPoint: {} };
+    S.routine.daily = { key, done: {} };
+    S.ordersMeta.freeRefreshLeft = CONFIG.orders.freeRefreshPerDay;
+    Orders.generateDaily(true);
+    Events.ensureWeekly();
+    Save.save('rollover');
+    return true;
+  },
+  restoreByElapsed(){ // 离线按 elapsed 恢复（与睡觉恢复共用锚点，防双算）
+    const el = nowMs() - (S.day.staminaAnchorAt || nowMs());
+    if (el > 0 && S.day.stamina < CONFIG.stamina.max){
+      const gain = CONFIG.stamina.max * el / CONFIG.stamina.offlineFullMs;
+      S.day.stamina = clamp(S.day.stamina + gain, 0, CONFIG.stamina.max);
+    }
+    S.day.staminaAnchorAt = nowMs();
+  },
+  canSpend(n){ return S.day.stamina >= n; },
+  spendStamina(n, reason){ if (!this.canSpend(n)) return false;
+    S.day.stamina -= n; S.day.staminaAnchorAt = nowMs(); UI.syncHud(); return true; },
+  restoreStamina(n, source){ S.day.stamina = clamp(S.day.stamina + n, 0, CONFIG.stamina.max);
+    S.day.staminaAnchorAt = nowMs(); UI.syncHud(); },
+  sleep(onDone){
+    const f = $('fade'); f.style.opacity = 1;
+    setTimeout(() => {
+      // 当日弟子产出结算入账本（作物不催熟：只动 readyAt 已到期的结算检查，不改完成时间）
+      let settled = 0;
+      if (S.pendingYield > 0){
+        if (Ledger.addItem('lingzhi', S.pendingYield, 'disciple_daily')) settled = S.pendingYield;
+        S.pendingYield = 0;
+      }
+      S.day.dayIndex += 1;
+      S.day.stamina = CONFIG.stamina.max; S.day.staminaAnchorAt = nowMs();
+      Npc.onNewDay();
+      Farming.settlePlots(nowMs());
+      Save.save('sleep');
+      UI.syncHud();
+      UI.hint('第 ' + S.day.dayIndex + ' 天' + (settled ? ' · 弟子昨日搬运入库 灵芝 +' + settled : ''));
+      f.style.opacity = 0;
+      Events.checkFaceEvents();
+      if (onDone) onDone();
+    }, 900);
+  },
+};
+
+/* ================================================================
+ * 模块：扩建与晋阶 sect（M2 实装：报价/扣款走账本/场景即时变化/品级晋阶）
+ * ================================================================ */
+const Sect = {
+  recomputeBuildDegree(){
+    S.buildDegree = S.buildings.reduce((sum, b) => sum + b.level * b.degreePerLevel, 0);
+    return S.buildDegree;
+  },
+  building(id){ return S.buildings.find(b => b.id === id); },
+  getUpgradeQuote(buildingId){
+    if (buildingId === 'mineGate'){
+      if (S.unlockedZones.includes('mineZone')) return null;
+      return { name: '开辟后山矿口', cost: { ...CONFIG.upgrades.mineUnlock }, desc: '解锁后山矿口与矿脉工位' };
+    }
+    const b = this.building(buildingId); if (!b) return null;
+    const q = (CONFIG.upgrades[buildingId] || {})[b.level + 1];
+    if (!q) return null;
+    return { name: b.name + ' ' + b.level + '→' + (b.level + 1) + ' 级', cost: { coin: q.coin || 0, items: { ...(q.items || {}) } },
+      desc: '建设度 +' + b.degreePerLevel };
+  },
+  upgrade(buildingId){ // 校验→账本同事务扣款→改场景/碰撞/活动区→重算建设度→落成反馈
+    const q = this.getUpgradeQuote(buildingId); if (!q) return false;
+    if (!Ledger.canAfford(q.cost)){ UI.hint('家底不够：' + UI.costText(q.cost)); return false; }
+    const neg = {}; for (const k in (q.cost.items || {})) neg[k] = -q.cost.items[k];
+    if (!Ledger.transact({ reason: 'upgrade_' + buildingId, currency: { coin: -(q.cost.coin || 0) }, items: neg })) return false;
+    if (buildingId === 'mineGate'){
+      S.buildings.push({ id: CONFIG.mineBuilding.id, name: CONFIG.mineBuilding.name, level: 1,
+        degreePerLevel: CONFIG.mineBuilding.degreePerLevel });
+      Scene.unlockZone('mineZone');
+      const g = Scene.getAnchor('mineGate');
+      Fx.burst(g.x, g.y, { sprites: ['mote', 'spark'], n: 30, speed: 2.4, life: 900 });
+      Fx.floatText(g.x, g.y - 30, '后山矿口已开辟', '#ffcf5e');
+    } else {
+      const b = this.building(buildingId); b.level += 1;
+      Fx.burst(800, 250, { sprites: ['mote'], n: 22, speed: 2, life: 800 });
+    }
+    this.recomputeBuildDegree();
+    Save.save('upgrade');
+    UI.syncHud();
+    return true;
+  },
+  nextRank(){ return CONFIG.ranks[S.sectRank + 1] || null; },
+  canPromote(){ const n = this.nextRank(); return !!n && S.buildDegree >= n.need; },
+  promote(useAdDouble){ // 晋阶：半屏仪式在 UI 层；此处只落状态与礼金（双倍由广告回执倍率决定）
+    if (!this.canPromote()) return 0;
+    S.sectRank += 1;
+    let reward = CONFIG.promoteRewardBase * (S.sectRank + 1);
+    if (useAdDouble) reward *= 2;
+    Ledger.transact({ reason: 'promote', currency: { coin: reward } });
+    this.recomputeBuildDegree();
+    Save.save('promote');
+    UI.syncHud();
+    return reward;
+  },
+};
+
+/* ================================================================
+ * 模块：榜单 leaderboard（M2 补批实装；一页纸 v2 接口 reportScore/fetchBoards/getBoard）
+ * 指标（只读既有事实源派生，禁第二套统计）：
+ *  - 规模榜 scale ＝ 宗门总建设度（Sect.recomputeBuildDegree 按建筑状态重算）。
+ *  - 效率榜 efficiency ＝ 累计订单入账 ÷（累计交付经营日＋先验 2 日），取整，单位 灵石/日。
+ *    防刷稳健口径（双函定案留给设计侧定稳，此处定版并留档）：只有订单交付的灵石入账
+ *    计入分子（账本 transact 按 reason 前缀 order_ 记账于 stats），晋阶礼金/签到/打脸
+ *    贺礼/广告/离线产出等系统与被动收入一律不计；分母按真实日期去重（睡觉刷天数不
+ *    影响），再加先验天数压小样本单日冲高；服务端按母本语义只升不降（记历史最佳）。
+ * 传输：复用拼将系列榜单客户端母本（luanshi-pinjiang-lb + 封神客户端 lb* 实现）——
+ *  ColorboxAI.cloud.request({auth:true}) 调 /api/leaderboard[/submit|/me]，
+ *  displayName/avatar 由平台登录态填入，puid 由网关注入，客户端禁传。
+ * 【替换点/未证实】本作尚无自有 CloudBase env 与网关，CONFIG.leaderboard.apiBase 为空时
+ *  走下方本地适配层（与真实接口同签名：submit/list/me 均返回母本响应形状；
+ *  本地种子行是演示数据、非全服玩家）。接入平台时填 apiBase/envId 即切换远程，
+ *  跨 project 登录态能否被网关接受仍须真机联调复证（母本 README 已知未证实项）。
+ * 降级口径（母本同）：一切榜单失败只影响面板文案，绝不抛错进主循环、不挡游玩。
+ * ================================================================ */
+const Leaderboard = {
+  _profile: null, _lastReportAt: 0,
+  /* ---- 指标派生 ---- */
+  scaleScore(){ Sect.recomputeBuildDegree(); return S.buildDegree; },
+  efficiencyScore(){ const st = S.stats || {};
+    return Math.floor((st.opEarned || 0) / ((st.opDays || 0) + CONFIG.leaderboard.effPriorDays)); },
+  metrics(){ return { scale: this.scaleScore(), efficiency: this.efficiencyScore() }; },
+  _digest(kind, score){ return Save.digest('lb_' + kind + ':' + score); },
+  /* ---- 平台画像（母本 lbProfile 同口径清洗；站外/未登录回本地名） ---- */
+  async profile(){
+    if (this._profile) return this._profile;
+    try {
+      const cb = window.ColorboxAI;
+      if (cb && cb.auth && typeof cb.auth.getUserInfo === 'function'){
+        const r = await cb.auth.getUserInfo();
+        if (r && r.code === 200 && r.data){
+          const av = r.data.avatar || r.data.userHeadUrl;
+          this._profile = { nickname: r.data.nickname ? String(r.data.nickname).slice(0, 40) : '虎扑用户',
+            avatar: (typeof av === 'string' && /^https?:\/\//.test(av) && av.length <= 512) ? av : null };
+          return this._profile;
+        }
+      }
+    } catch (e) {}
+    this._profile = { nickname: '青云掌门', avatar: null };
+    return this._profile;
+  },
+  available(){ const cb = window.ColorboxAI;
+    return !!(CONFIG.leaderboard.apiBase && cb && cb.cloud && typeof cb.cloud.request === 'function'
+      && typeof cb.cloud.auth === 'function'); },
+  /* ---- 远程传输（母本 lbRequest 同形状；带超时，失败抛错由调用方降级） ---- */
+  _authed: false,
+  async _remote(path, data){
+    if (!this.available()) throw new Error('榜单服务未接入');
+    const cb = window.ColorboxAI, envId = CONFIG.leaderboard.envId;
+    if (!this._authed){
+      const r = await cb.cloud.auth({ envId });
+      if (!r || (r.code !== 200 && r.code !== 0)) throw new Error('请先登录');
+      this._authed = true;
+    }
+    const call = cb.cloud.request({ url: CONFIG.leaderboard.apiBase + path,
+      method: data ? 'POST' : 'GET', data, envId, auth: true });
+    const resp = await Promise.race([call, new Promise((_, rej) =>
+      setTimeout(() => rej(new Error('榜单服务超时')), CONFIG.leaderboard.fetchTimeoutMs))]);
+    if (!resp || resp.statusCode === 401) throw new Error('请先登录');
+    if (resp.statusCode !== 200 || (resp.code !== 0 && resp.code !== 200))
+      throw new Error((resp && resp.message) || '榜单服务异常');
+    return resp.data;
+  },
+  /* ---- 本地适配层（与真实接口同签名；存档内保存，种子行仅本地演示） ---- */
+  _local(){
+    if (!S.lbLocal){
+      const seeds = CONFIG.leaderboard.localSeeds, rows = {};
+      for (const kind in seeds) rows[kind] = seeds[kind].map(([name, score]) =>
+        ({ displayName: name, avatar: null, score, updatedAt: 0 }));
+      S.lbLocal = { rows, myBest: { scale: 0, efficiency: 0 }, myName: '青云掌门' };
+    }
+    return S.lbLocal;
+  },
+  _localList(kind){ // 母本读榜形状：{ total, entries:[{rank,displayName,avatar,score,isCurrent}] }（前 50）
+    const L = this._local(), mine = L.myBest[kind] || 0;
+    const all = L.rows[kind].map(r => ({ ...r, isCurrent: false }));
+    if (mine > 0) all.push({ displayName: L.myName, avatar: null, score: mine, isCurrent: true, updatedAt: 0 });
+    all.sort((a, b) => b.score - a.score || (a.updatedAt || 0) - (b.updatedAt || 0));
+    const entries = all.slice(0, 50).map((r, i) => ({ rank: i + 1, ...r }));
+    return { total: all.length, entries };
+  },
+  _localMe(kind){
+    const L = this._local(), mine = L.myBest[kind] || 0;
+    if (mine <= 0) return null;
+    const rank = L.rows[kind].filter(r => r.score > mine).length + 1;
+    return { rank, score: mine, displayName: L.myName };
+  },
+  async _submit(kind, score, profile){ // 只升不降（母本 best 语义）
+    const board = CONFIG.leaderboard.boards[kind];
+    if (this.available())
+      return this._remote('/leaderboard/submit', { board, score,
+        displayName: profile.nickname, avatar: profile.avatar || undefined });
+    const L = this._local();
+    if (score > (L.myBest[kind] || 0)){ L.myBest[kind] = score; L.myName = profile.nickname; }
+    Save.save('lb_local_submit');
+    return this._localMe(kind);
+  },
+  async _fetch(kind){
+    const board = CONFIG.leaderboard.boards[kind];
+    if (this.available()){
+      const data = await this._remote('/leaderboard?board=' + encodeURIComponent(board));
+      const entries = (data && (data.entries || data.rows || data.list)) || [];
+      if (!entries.some(r => r.isCurrent)){
+        try { const me = await this._remote('/leaderboard/me?board=' + encodeURIComponent(board));
+          if (me && me.rank) entries.push({ ...me, isCurrent: true }); } catch (e) {}
+      }
+      return entries;
+    }
+    return this._localList(kind).entries;
+  },
+  async _me(kind){
+    if (this.available()){
+      try { return await this._remote('/leaderboard/me?board=' +
+        encodeURIComponent(CONFIG.leaderboard.boards[kind])); } catch (e) { return null; }
+    }
+    return this._localMe(kind);
+  },
+  /* ---- 对外接口（一页纸 v2） ---- */
+  async reportScore(force){ // 节流＋摘要去重；失败不落 lastReport（留待下次重试）；永不抛错
+    try {
+      const now = nowMs();
+      if (!force && now - this._lastReportAt < CONFIG.leaderboard.reportMinIntervalMs) return false;
+      const m = this.metrics(); let changed = false;
+      const profile = await this.profile();
+      for (const kind of ['scale', 'efficiency']){
+        if (m[kind] <= 0) continue;
+        const dg = this._digest(kind, m[kind]);
+        if (!force && S.lastReport[kind] === dg) continue;
+        try { await this._submit(kind, m[kind], profile); S.lastReport[kind] = dg; changed = true; }
+        catch (e) { /* 单榜失败互不牵连，摘要不落，下轮重试 */ }
+      }
+      this._lastReportAt = now;
+      if (changed) Save.save('lb_report');
+      return changed;
+    } catch (e) { return false; }
+  },
+  async fetchBoards(){ // 双榜一并刷新进 boardCache；失败保留旧缓存并回 ok:false
+    let ok = true;
+    for (const kind of ['scale', 'efficiency']){
+      try { S.boardCache[kind] = await this._fetch(kind); }
+      catch (e) { ok = false; }
+    }
+    if (ok){ S.boardCache.updatedAt = nowMs(); Save.save('lb_fetch'); }
+    return { ok };
+  },
+  getBoard(kind){ return S.boardCache[kind] || []; },
+  myRank(kind){ return this._me(kind); },
+};
+
+/* ================================================================
+ * 模块：离线结算 offline（M1 本地模拟实现；接口按一页纸 v2）
+ * registerDefinition / settleOnReturn / previewSettlement / claimSettlement
+ * 平台 timeflow BFF 接入留 M2；本实现遵循双轨公式与幂等回执。
+ * ================================================================ */
+const Offline = {
+  definitionVersion: CONFIG.offline.definitionVersion,
+  registerDefinition(version){ this.definitionVersion = version; return true; }, // M2 改为向 BFF 注册
+  _ratePerHour(){ return (CONFIG.offline.rateBasePerHour + CONFIG.offline.ratePerBuildDegree * S.buildDegree)
+    * CONFIG.offline.offlineRateFactor; },
+  _compute(from, to){
+    const el = Math.max(0, to - from);
+    if (el < CONFIG.offline.minSettleMs) return null;
+    const rate = this._ratePerHour();
+    const cap = rate * CONFIG.offline.capHours * CONFIG.offline.capFactor;   // 相对封顶
+    let amount = Math.min(rate * el / 3600000, cap);
+    let early = 0;
+    if (el <= CONFIG.offline.earlyBonusMs){ early = amount * (CONFIG.offline.earlyBonusMul - 1); amount += early; }
+    amount = Math.floor(amount);
+    if (amount < 1) return null;
+    const digest = Save.digest(from + ':' + to + ':' + amount);
+    return { id: 'st_' + digest, from, to, track1: { item: CONFIG.offline.track1Item, amount },
+             track2: null, earlyBonus: Math.floor(early), digest };
+  },
+  settleOnReturn(now){ // 只生成待领快照，不直接发奖
+    if (S.pendingSettlement) return S.pendingSettlement;
+    const p = this._compute(S.lastSeenAt || S.createdAt, now);
+    if (p){ S.pendingSettlement = p; Save.save('offline_pending'); }
+    return p;
+  },
+  previewSettlement(){ return S.pendingSettlement; },
+  claimSettlement(claimId){
+    const p = S.pendingSettlement;
+    if (!p || p.id !== claimId) return false;
+    if (S.offlineClaim.appliedDigests.includes(p.digest)) { S.pendingSettlement = null; return false; } // 幂等
+    const ok = Ledger.transact({ reason: 'offline_track1', currency: { [p.track1.item]: p.track1.amount } });
+    if (ok){ S.offlineClaim.appliedDigests.push(p.digest); S.pendingSettlement = null;
+      Events.markRoutine('settle'); Save.save('offline_claim'); }
+    return ok;
+  },
+  dueDispatches(){ return S.disciples.filter(d => d.scenePresence === 'atGate'); },  // 轨道二待交接名单（结算面板分行播报）
+};
+
+/* ================================================================
+ * 模块：特效层 fx/juice（对象池粒子引擎＋juice 工具集）
+ * 发射模式：burst / stream / flyTo / bolt；帧率保护五条按调研落地。
+ * ================================================================ */
+const Fx = {
+  canvas: null, ctx: null, dpr: 1,
+  pool: [], active: 0, emitters: [], bolts: [], floats: [],
+  perf: { level: 0, frameAvg: 16, overFrames: 0 },
+  trauma: 0, shakeT: 0, reducedMotion: false,
+  sprites: {},
+  init(){
+    this.canvas = $('fxCanvas'); this.ctx = this.canvas.getContext('2d');
+    this.reducedMotion = !!matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.dpr = clamp(devicePixelRatio || 1, 1, CONFIG.fx.dprCap);
+    const resize = () => { this.canvas.width = innerWidth * this.dpr; this.canvas.height = innerHeight * this.dpr; };
+    addEventListener('resize', resize); resize();
+    for (let i = 0; i < CONFIG.fx.poolSize; i++)
+      this.pool.push({ on: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 3, rot: 0, grav: 0,
+        drag: 1, spr: 'mote', space: 'world', sx: 0, sy: 0, cx: 0, cy: 0, tx: 0, ty: 0, t: 0, dur: 1, onArrive: null, sway: 0, seed: 0 });
+    this.sprites = {
+      coin: this._sprite(8, (g) => { g.fillStyle = '#ffcf5e'; g.fillRect(1, 1, 6, 6); g.fillStyle = '#ffe9a8'; g.fillRect(2, 2, 3, 3); }),
+      leaf: this._sprite(8, (g) => { g.fillStyle = '#7fae5c'; g.fillRect(1, 3, 6, 2); g.fillStyle = '#a8c686'; g.fillRect(2, 2, 4, 1); }),
+      spark: this._sprite(8, (g) => { g.fillStyle = '#ffc46b'; g.fillRect(3, 0, 2, 8); g.fillRect(0, 3, 8, 2); }),
+      mote: this._sprite(6, (g) => { g.fillStyle = '#fff3c4'; g.fillRect(1, 1, 4, 4); }),
+      drop: this._sprite(8, (g) => { g.fillStyle = '#7fb3d5'; g.fillRect(3, 1, 2, 6); g.fillStyle = '#aed6f1'; g.fillRect(2, 4, 4, 3); }),
+    };
+    // 漂浮字 DOM 节点池
+    for (let i = 0; i < 12; i++){ const d = document.createElement('div'); d.className = 'floatTxt';
+      d.style.display = 'none'; document.body.appendChild(d); this.floats.push({ el: d, age: 0, life: 0, y: 0 }); }
+  },
+  _sprite(size, draw){ const c = document.createElement('canvas'); c.width = c.height = size;
+    draw(c.getContext('2d')); return c; },
+  _alloc(){ if (this.active >= CONFIG.fx.hardCap) return null;
+    for (let i = 0; i < this.pool.length; i++) if (!this.pool[i].on){ const p = this.pool[i];
+      if (i >= this.active){ /* 保持活跃段紧凑 */ }
+      p.on = true; this.active++; return p; }
+    return null; },
+  _free(p){ p.on = false; this.active--; },
+  _budget(n){ const room = CONFIG.fx.hardCap - this.active;
+    let want = Math.min(n, room);
+    if (this.perf.level === 1) want = Math.floor(want * 0.6);
+    return Math.max(0, want); },
+  /* ---- burst：一点爆散（世界坐标） ---- */
+  burst(x, y, opts){
+    opts = opts || {}; const n = this._budget(opts.n || 16); if (!n) return;
+    const sprs = opts.sprites || ['mote'], spd = opts.speed || 2.2, life = opts.life || 800;
+    for (let i = 0; i < n; i++){ const p = this._alloc(); if (!p) break;
+      const a = Math.random() * Math.PI * 2, s = (0.3 + Math.random() * 0.7) * spd;
+      Object.assign(p, { x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.7, grav: 0.0038, drag: 1,
+        life: 0, maxLife: life * (0.6 + Math.random() * 0.7), size: 2.5 + Math.random() * 3,
+        spr: sprs[i % sprs.length], space: 'world', rot: Math.random() * 7, sway: 0 }); }
+  },
+  /* ---- stream：持续发射器，返回句柄 { stop() } ---- */
+  stream(x, y, opts){
+    opts = opts || {};
+    const em = { x, y, rate: opts.rate || 12, acc: 0, on: true,
+      sprites: opts.sprites || ['mote'], vy: opts.vy != null ? opts.vy : -0.55, spread: opts.spread || 22,
+      life: opts.life || 1300, size: opts.size || 3 };
+    this.emitters.push(em);
+    return { stop(){ em.on = false; } };
+  },
+  /* ---- flyTo：定向飞行（世界起点 → 屏幕目标点，二次贝塞尔，到达回调） ---- */
+  flyTo(wx, wy, screenTx, screenTy, opts){
+    opts = opts || {}; const n = this._budget(opts.n || 8); if (!n) return;
+    const st = Scene.worldToScreen({ x: wx, y: wy });
+    for (let i = 0; i < n; i++){ const p = this._alloc(); if (!p) break;
+      const sx = st.x + (Math.random() * 26 - 13), sy = st.y + (Math.random() * 16 - 8);
+      Object.assign(p, { space: 'screen', x: sx, y: sy, sx, sy, tx: screenTx, ty: screenTy,
+        cx: (sx + screenTx) / 2, cy: Math.min(sy, screenTy) - 90 - Math.random() * 40,
+        t: 0, dur: 620 + i * 55 + Math.random() * 120, life: 0, maxLife: 9999, size: 5,
+        spr: opts.sprite || 'coin', grav: 0, onArrive: opts.onArrive || null, sway: 0 }); }
+  },
+  /* ---- bolt：一次性折线（主干分叉＋残影） ---- */
+  bolt(x1, y1, x2, y2){
+    const segs = []; const steps = 7; let px = x1, py = y1;
+    for (let i = 1; i <= steps; i++){ const t = i / steps;
+      const nx = x1 + (x2 - x1) * t + (i < steps ? (Math.random() * 26 - 13) : 0);
+      const ny = y1 + (y2 - y1) * t + (i < steps ? (Math.random() * 14 - 7) : 0);
+      segs.push([px, py, nx, ny]); px = nx; py = ny; }
+    this.bolts.push({ segs, age: 0, life: 260 });
+    this.flash(0.35, '#ffeeb0'); this.shake(0.45);
+  },
+  /* ---- juice ---- */
+  shake(mag){ if (this.reducedMotion) return; this.trauma = clamp(this.trauma + mag, 0, 1); },
+  flash(alpha, color){ if (this.reducedMotion) return; const f = $('flash');
+    f.style.background = color || '#ffffff'; f.style.transition = 'none'; f.style.opacity = alpha;
+    requestAnimationFrame(() => { f.style.transition = 'opacity .45s'; f.style.opacity = 0; }); },
+  floatText(wx, wy, text, color){
+    const slot = this.floats.find(f => f.life <= 0) || this.floats[0];
+    const sp = Scene.worldToScreen({ x: wx, y: wy });
+    slot.el.textContent = text; slot.el.style.color = color || '#f2d38a';
+    slot.el.style.left = sp.x + 'px'; slot.el.style.top = sp.y + 'px'; slot.el.style.display = 'block';
+    slot.age = 0; slot.life = 1150; slot.y = sp.y;
+  },
+  countUp(el, from, to, dur){
+    if (!el) return; const t0 = performance.now();
+    const step = (t) => { const k = clamp((t - t0) / (dur || 600), 0, 1);
+      const e = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(from + (to - from) * e);
+      if (k < 1) requestAnimationFrame(step); else el.textContent = to; };
+    requestAnimationFrame(step);
+  },
+  ease: { linear: t => t, outCubic: t => 1 - Math.pow(1 - t, 3),
+    outBack: t => 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2),
+    outElastic: t => t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI / 3)) + 1,
+    inOutQuad: t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2 },
+  /* M3.5：环境飘落——落瓣/落叶精灵低密度慢飘全宗门；沿用 emitters 帧率保护（perf 2 级自动停） */
+  attachGroundFx(){
+    if (this._ambientOn || !this.sprites || typeof Art === 'undefined' || !Art.ready) return;
+    const petals = [], gleaves = [];
+    for (let i = 1; i <= 7; i++){ const c = Art.cropCanvas('fx_petal_' + i + '_v1.png', true);
+      if (c){ this.sprites['petal' + i] = c; petals.push('petal' + i); } }
+    for (let i = 1; i <= 8; i++){ const c = Art.cropCanvas('fx_leaf_' + i + '_v1.png', true);
+      if (c){ this.sprites['gleaf' + i] = c; gleaves.push('gleaf' + i); } }
+    if (!petals.length && !gleaves.length) return;
+    this._ambientOn = true;
+    if (petals.length) this.emitters.push({ x: 800, y: 400, rate: 1.4, acc: 0, on: true, drift: true,
+      spread: 780, spreadY: 300, sprites: petals, vx: 0.14, vy: 0.13, life: 9500, size: 8.5 });
+    if (gleaves.length) this.emitters.push({ x: 800, y: 760, rate: 1.0, acc: 0, on: true, drift: true,
+      spread: 780, spreadY: 330, sprites: gleaves, vx: 0.11, vy: 0.16, life: 9000, size: 9 });
+  },
+  /* ---- 主循环（由游戏主循环以钳制后 dt 调用） ---- */
+  tick(dtMs, frameMs){
+    // 帧率自适应降级（恢复后不自动升档，防抖动）
+    this.perf.frameAvg = this.perf.frameAvg * 0.92 + frameMs * 0.08;
+    if (this.perf.frameAvg > CONFIG.fx.degradeFrameMs){ if (++this.perf.overFrames > 45 && this.perf.level < 2){
+      this.perf.level++; this.perf.overFrames = 0;
+      if (this.perf.level === 2) for (const em of this.emitters) em.on = false; } }
+    else this.perf.overFrames = Math.max(0, this.perf.overFrames - 2);
+    // stream 发射
+    if (this.perf.level < 2) for (const em of this.emitters){ if (!em.on) continue;
+      em.acc += em.rate * dtMs / 1000;
+      while (em.acc >= 1){ em.acc--; const p = this._alloc(); if (!p) break;
+        if (em.drift){ Object.assign(p, { x: em.x + (Math.random() * 2 - 1) * em.spread,
+          y: em.y + (Math.random() * 2 - 1) * (em.spreadY || 8),
+          vx: (em.vx || 0.15) * (0.6 + Math.random() * 0.8), vy: (em.vy || 0.15) * (0.7 + Math.random() * 0.6),
+          grav: 0, drag: 1, life: 0, maxLife: em.life * (0.75 + Math.random() * 0.5),
+          size: em.size * (0.7 + Math.random() * 0.7),
+          spr: em.sprites[Math.floor(Math.random() * em.sprites.length)], space: 'world',
+          rot: Math.random() * 7, sway: 1, seed: Math.random() * 7 }); continue; }
+        Object.assign(p, { x: em.x + (Math.random() * em.spread * 2 - em.spread), y: em.y + (Math.random() * 8 - 4),
+          vx: (Math.random() * 0.24 - 0.12), vy: em.vy * (0.8 + Math.random() * 0.5), grav: -0.0004, drag: 1,
+          life: 0, maxLife: em.life * (0.7 + Math.random() * 0.6), size: em.size * (0.7 + Math.random() * 0.7),
+          spr: em.sprites[0], space: 'world', rot: 0, sway: 0 }); } }
+    this.emitters = this.emitters.filter(e => e.on);
+    // 粒子推进
+    for (const p of this.pool){ if (!p.on) continue; p.life += dtMs;
+      if (p.space === 'screen'){ p.t += dtMs; const k = clamp(p.t / p.dur, 0, 1);
+        const u = 1 - k; p.x = u * u * p.sx + 2 * u * k * p.cx + k * k * p.tx;
+        p.y = u * u * p.sy + 2 * u * k * p.cy + k * k * p.ty;
+        if (k >= 1){ const cb = p.onArrive; this._free(p); if (cb) cb(); } continue; }
+      if (p.life >= p.maxLife){ this._free(p); continue; }
+      p.vy += p.grav * dtMs; p.x += p.vx * dtMs / 10; p.y += p.vy * dtMs / 10; p.rot += dtMs / 160;
+      if (p.sway) p.x += Math.sin(p.life / 340 + (p.seed || 0)) * dtMs * 0.045; }
+    for (let i = this.bolts.length - 1; i >= 0; i--){ this.bolts[i].age += dtMs;
+      if (this.bolts[i].age >= this.bolts[i].life) this.bolts.splice(i, 1); }
+    // 漂浮字
+    for (const f of this.floats){ if (f.life <= 0) continue; f.age += dtMs;
+      if (f.age >= f.life){ f.life = 0; f.el.style.display = 'none'; continue; }
+      f.el.style.top = (f.y - f.age * 0.028) + 'px'; f.el.style.opacity = 1 - f.age / f.life; }
+    // 震屏（trauma² × 噪声）
+    if (this.trauma > 0){ this.trauma = Math.max(0, this.trauma - dtMs / 480); this.shakeT += dtMs / 28;
+      const m = this.trauma * this.trauma * 13;
+      const ox = (Math.sin(this.shakeT * 1.7) + Math.sin(this.shakeT * 2.9) * 0.6) * m;
+      const oy = (Math.cos(this.shakeT * 2.3) + Math.sin(this.shakeT * 3.7) * 0.6) * m;
+      $('stage').style.transform = `translate(${ox.toFixed(1)}px, ${oy.toFixed(1)}px)`;
+      if (this.trauma === 0) $('stage').style.transform = ''; }
+    this._draw();
+  },
+  _draw(){
+    const g = this.ctx; g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.clearRect(0, 0, innerWidth, innerHeight);
+    for (const b of this.bolts){ const a = 1 - b.age / b.life;
+      g.strokeStyle = 'rgba(255,238,176,' + (a * 0.95) + ')'; g.lineWidth = 3; g.beginPath();
+      for (const s of b.segs){ const p1 = Scene.worldToScreen({ x: s[0], y: s[1] }), p2 = Scene.worldToScreen({ x: s[2], y: s[3] });
+        g.moveTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); } g.stroke(); }
+    for (const p of this.pool){ if (!p.on) continue;
+      const sp = p.space === 'screen' ? { x: p.x, y: p.y } : Scene.worldToScreen(p);
+      const k = p.space === 'screen' ? 1 : 1 - p.life / p.maxLife;
+      g.globalAlpha = clamp(k * 1.7, 0, 1);
+      const img = this.sprites[p.spr] || this.sprites.mote, sc = p.size / 4;
+      g.save(); g.translate(sp.x, sp.y); if (p.spr === 'leaf') g.rotate(p.rot); else if (p.sway) g.rotate(Math.sin(p.rot * 0.35) * 0.7);
+      g.drawImage(img, -4 * sc, -4 * sc, 8 * sc, 8 * sc); g.restore(); }
+    g.globalAlpha = 1;
+  },
+};
+
+/* ================================================================
+ * 模块：场景与镜头 scene
+ * 接口：loadMap / worldToScreen / screenToWorld / getAnchor / rebuildCollision / setCameraTarget
+ * ================================================================ */
+const Scene = {
+  mapId: 'kaizongmen_main', mapVersion: 1,
+  camera: { x: 0, y: 0, targetId: 'player' },
+  zones: [
+    { id: 'frontYard', name: '山门前院', rect: { x: 0, y: 830, w: 1600, h: 370 } },
+    { id: 'herbZone',  name: '药圃区',   rect: { x: 0, y: 470, w: 780, h: 430 } },
+    { id: 'mineZone',  name: '后山矿口', rect: { x: 1240, y: 40, w: 328, h: 280 }, locked: true },
+  ],
+  anchors: {
+    homeDoor:     { x: 800, y: 290 },
+    forge:        { x: 1234, y: 580 },
+    orderPoint:   { x: 1125, y: 856 },
+    gate:         { x: 800, y: 1104 },
+    recruitPoint: { x: 672, y: 1062 },
+    mineGate:     { x: 1400, y: 348 },
+    mineWork:     { x: 1400, y: 210 },
+    discipleHome: { x: 520, y: 330 },
+  },
+  solids: [
+    { x: 680, y: 120, w: 240, h: 118 },   // 掌门居
+    { x: 1150, y: 420, w: 168, h: 104 },  // 淬炼坊
+    { x: 1088, y: 760, w: 74, h: 56 },    // 出货箱/订单点
+    { x: 60, y: 80, w: 80, h: 72 }, { x: 1330, y: 700, w: 80, h: 72 },
+    { x: 120, y: 960, w: 80, h: 72 }, { x: 1450, y: 980, w: 80, h: 72 },
+    // 后山矿口围栏（M1 上锁，扩建接口预留：unlockZone 时移除 barrier 并重建碰撞）
+    { x: 1240, y: 40, w: 328, h: 14 }, { x: 1240, y: 40, w: 14, h: 280 }, { x: 1554, y: 40, w: 14, h: 280 },
+    { x: 1240, y: 306, w: 140, h: 14 }, { x: 1420, y: 306, w: 148, h: 14 },
+    { id: 'mineBarrier', x: 1380, y: 300, w: 40, h: 26 },
+  ],
+  staticLayer: null,
+  loadMap(mapId){ this.mapId = mapId || this.mapId; this._prerenderStatic(); },
+  getAnchor(id){ return this.anchors[id]; },
+  worldToScreen(p){ return { x: p.x - this.camera.x, y: p.y - this.camera.y }; },
+  screenToWorld(p){ return { x: p.x + this.camera.x, y: p.y + this.camera.y }; },
+  setCameraTarget(id){ this.camera.targetId = id; },
+  rebuildCollision(zoneId){ /* M1 碰撞即 solids 表；扩建时由 sect 调用后在此重建（M2 增量） */ },
+  unlockZone(zoneId){ // 扩建接口预留（M2 调用）：解锁区域并移除其栅栏碰撞
+    if (!S.unlockedZones.includes(zoneId)) S.unlockedZones.push(zoneId);
+    if (zoneId === 'mineZone') this.solids = this.solids.filter(s => s.id !== 'mineBarrier');
+    this.rebuildCollision(zoneId); this._prerenderStatic();
+  },
+  isLocked(zoneId){ const z = this.zones.find(z => z.id === zoneId); return !!(z && z.locked && !S.unlockedZones.includes(zoneId)); },
+  collide(e){
+    e.x = clamp(e.x, e.r, CONFIG.world.w - e.r); e.y = clamp(e.y, e.r, CONFIG.world.h - e.r);
+    for (const s of this.solids){
+      const nx = clamp(e.x, s.x, s.x + s.w), ny = clamp(e.y, s.y, s.y + s.h);
+      const dx = e.x - nx, dy = e.y - ny, d = Math.hypot(dx, dy);
+      if (d < e.r && d > 0.01){ e.x = nx + dx / d * e.r; e.y = ny + dy / d * e.r; }
+      else if (d <= 0.01) e.y = s.y + s.h + e.r;
+    }
+  },
+  /* M3.5 地面贴图：软边马赛克——贴图块带径向羽化、重叠平铺，压接缝与棋盘感；
+     变体与镜像由格哈希决定，双草地交替降重复感。_tileCache 按 贴图|尺寸|压暗 缓存。 */
+  _tileCache: {},
+  _softTile(name, size, shade){
+    const key = name + '|' + size + '|' + (shade || 1);
+    if (this._tileCache[key]) return this._tileCache[key];
+    const f = Art.F[name]; if (!f) return null;
+    const t = document.createElement('canvas'); t.width = t.height = size;
+    const tg = t.getContext('2d');
+    tg.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, size, size);
+    if (shade && shade !== 1){ tg.globalCompositeOperation = 'source-atop';
+      tg.fillStyle = 'rgba(32,22,8,' + (1 - shade).toFixed(2) + ')'; tg.fillRect(0, 0, size, size);
+      tg.globalCompositeOperation = 'source-over'; }
+    tg.globalCompositeOperation = 'destination-in';
+    const gr = tg.createRadialGradient(size / 2, size / 2, size * 0.30, size / 2, size / 2, size * 0.52);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.72, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    tg.fillStyle = gr; tg.fillRect(0, 0, size, size);
+    this._tileCache[key] = t; return t;
+  },
+  _hash(ix, iy, seed){ let h = (ix * 374761393 + iy * 668265263 + seed * 974711) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177); return (h ^ (h >>> 16)) >>> 0; },
+  _mosaic(g, names, x, y, w, h, size, step, seed, shade){
+    const tiles = names.map(n => this._softTile(n, size, shade)).filter(Boolean);
+    if (!tiles.length) return;
+    const x0 = Math.floor(x / step) * step, y0 = Math.floor(y / step) * step;
+    for (let cy = y0; cy < y + h; cy += step) for (let cx = x0; cx < x + w; cx += step){
+      const hh = this._hash(Math.round(cx / step), Math.round(cy / step), seed || 0);
+      g.save(); g.translate(cx + size / 2, cy + size / 2);
+      if (hh & 2) g.scale(-1, 1);
+      if (hh & 4) g.scale(1, -1);
+      g.drawImage(tiles[hh % tiles.length], -size / 2, -size / 2);
+      g.restore();
+    }
+  },
+  /* 池岸过渡条：源图自上而下＝水线/石岸/草。n 岸（草在北）上下翻转、e 岸（水在西）逆时针旋 90°、s 岸原样 */
+  _shore(g, x, y, w, h, ori){
+    const f = Art.F['gnd_shore_v1.png']; if (!f) return;
+    const vert = (ori === 'e' || ori === 'w');
+    const t = document.createElement('canvas'); t.width = vert ? h : w; t.height = vert ? w : h;
+    const tg = t.getContext('2d');
+    tg.translate(t.width / 2, t.height / 2);
+    if (ori === 'n') tg.scale(1, -1);
+    else if (ori === 'e') tg.rotate(-Math.PI / 2);
+    else if (ori === 'w') tg.rotate(Math.PI / 2);
+    tg.drawImage(f.img, f.x, f.y, f.w, f.h, -w / 2, -h / 2, w, h);
+    g.drawImage(t, x, y);
+  },
+  /* 矩形四边羽化绘制（石阶压边用） */
+  _featherDraw(g, name, x, y, w, h, feather){
+    const f = Art.F[name]; if (!f) return;
+    const t = document.createElement('canvas'); t.width = w; t.height = h;
+    const tg = t.getContext('2d');
+    tg.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, w, h);
+    tg.globalCompositeOperation = 'destination-out';
+    const edge = (x0, y0, x1, y1, rx, ry, rw, rh) => { const gr = tg.createLinearGradient(x0, y0, x1, y1);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      tg.fillStyle = gr; tg.fillRect(rx, ry, rw, rh); };
+    edge(0, 0, 0, feather, 0, 0, w, feather);
+    edge(0, h, 0, h - feather, 0, h - feather, w, feather);
+    edge(0, 0, feather, 0, 0, 0, feather, h);
+    edge(w, 0, w - feather, 0, w - feather, 0, feather, h);
+    g.drawImage(t, x, y);
+  },
+  /* 地面分区（自下而上）：草地打底 → 矿区岩面 → 土路动线 → 石板前坪 → 池塘三岸 → 药圃土基 → 大殿石阶 */
+  _paintGroundTextured(g){
+    const W = CONFIG.world.w, H = CONFIG.world.h;
+    this._mosaic(g, ['gnd_grass_a_v1.png', 'gnd_grass_b_v1.png'], -40, -40, W + 80, H + 80, 168, 116, 7);
+    g.fillStyle = '#8d8272'; g.fillRect(1240, 40, 328, 280);
+    g.fillStyle = '#7e7362'; for (let i = 0; i < 14; i++) g.fillRect(1256 + (i * 89) % 290, 60 + (i * 67) % 230, 18, 10);
+    const dirt = ['gnd_dirt_v1.png'];
+    this._mosaic(g, dirt, 756, 240, 88, 920, 132, 94, 21);
+    this._mosaic(g, dirt, 120, 812, 1330, 64, 132, 94, 22);
+    this._mosaic(g, dirt, 410, 560, 60, 260, 132, 94, 23);
+    this._mosaic(g, dirt, 756, 1064, 560, 40, 132, 94, 24);
+    const stone = ['gnd_stone_v1.png'];
+    this._mosaic(g, stone, 596, 96, 408, 252, 148, 106, 31);    // 大殿前坪
+    this._mosaic(g, stone, 364, 116, 312, 240, 148, 106, 32);   // 弟子居舍前坪
+    this._mosaic(g, stone, 1052, 286, 356, 282, 148, 106, 33);  // 淬炼坊前坪
+    this._mosaic(g, stone, 984, 624, 316, 244, 148, 106, 34);   // 出货台前坪
+    this._mosaic(g, stone, 528, 924, 544, 276, 148, 106, 35);   // 山门广场
+    this._mosaic(g, ['gnd_water_v1.png'], -10, 492, 232, 180, 140, 100, 41);
+    this._shore(g, 6, 466, 210, 42, 'n');
+    this._shore(g, 6, 648, 210, 42, 's');
+    this._shore(g, 202, 494, 176, 40, 'e');
+    const f = CONFIG.farm;
+    this._mosaic(g, dirt, f.originX - 14, f.originY - 14, f.cols * (f.plotW + f.gap) + 16, f.rows * (f.plotH + f.gap) + 16, 120, 88, 51, 0.66);
+    this._featherDraw(g, 'gnd_steps_v1.png', 742, 230, 116, 106, 16);
+  },
+  _prerenderStatic(){
+    const c = document.createElement('canvas'); c.width = CONFIG.world.w; c.height = CONFIG.world.h;
+    const g = c.getContext('2d');
+    if (typeof Art !== 'undefined' && Art.ready && Art.F['gnd_grass_a_v1.png']) this._paintGroundTextured(g);
+    else {
+      g.fillStyle = '#7d9b5e'; g.fillRect(0, 0, c.width, c.height);
+      g.fillStyle = '#75915a';
+      for (let x = 0; x < c.width; x += 64) for (let y = 0; y < c.height; y += 64)
+        if ((x + y) % 128 === 0) g.fillRect(x, y, 64, 64);
+      g.fillStyle = '#87a668';
+      for (let i = 0; i < 90; i++) g.fillRect((i * 173) % c.width, (i * 271) % c.height, 24, 8);
+      // 后山矿口地面（灰褐）
+      g.fillStyle = '#8d8272'; g.fillRect(1240, 40, 328, 280);
+      g.fillStyle = '#7e7362'; for (let i = 0; i < 14; i++) g.fillRect(1256 + (i * 89) % 290, 60 + (i * 67) % 230, 18, 10);
+      // 土路（方格像素风）
+      g.fillStyle = '#c9b088';
+      g.fillRect(756, 240, 88, 920);
+      g.fillRect(120, 812, 1330, 64);
+      g.fillRect(410, 560, 60, 260);
+      g.fillRect(756, 1064, 560, 40);
+      // 药圃土基
+      const f = CONFIG.farm;
+      g.fillStyle = '#77572f';
+      g.fillRect(f.originX - 14, f.originY - 14, f.cols * (f.plotW + f.gap) + 16, f.rows * (f.plotH + f.gap) + 16);
+    }
+    // 矿口围栏（木栅，两路径共用）
+    g.fillStyle = '#5a4632';
+    g.fillRect(1240, 40, 328, 14); g.fillRect(1240, 40, 14, 280); g.fillRect(1554, 40, 14, 280);
+    g.fillRect(1240, 306, 140, 14); g.fillRect(1420, 306, 148, 14);
+    if (this.isLocked('mineZone')){ g.fillStyle = '#8c2f22'; g.fillRect(1380, 300, 40, 26); }
+    this.staticLayer = c;
+  },
+};
+
+/* ================================================================
+ * 模块：角色与动画 actor（掌门本尊；外观为像素占位精灵，接口不变）
+ * ================================================================ */
+const Actor = {
+  player: { id: 'player', x: 800, y: 330, r: CONFIG.player.radius, facing: 1, walk: 0, moving: false,
+    moveState: 'idle', animState: 'idle', appearanceId: 'zhangmen_red', actionUntil: 0 },
+  spawnPlayer(anchorId){
+    const a = Scene.getAnchor(anchorId || CONFIG.player.spawnAnchor);
+    this.player.x = a.x; this.player.y = a.y + 30;
+    if (S.player && S.player.x){ this.player.x = S.player.x; this.player.y = S.player.y; }
+    Scene.setCameraTarget('player');
+  },
+  setMoveIntent(vec, dt){
+    const p = this.player, m = Math.hypot(vec.x, vec.y);
+    p.moving = m > 0.12;
+    if (p.moving){
+      const s = CONFIG.player.speed * Math.min(1, m);
+      p.x += vec.x / (m || 1) * s * dt / 1000; p.y += vec.y / (m || 1) * s * dt / 1000;
+      if (Math.abs(vec.x) > 0.05) p.facing = vec.x >= 0 ? 1 : -1;
+      p.walk += dt * 0.014; p.moveState = 'walk'; p.animState = 'walk';
+      Scene.collide(p);
+    } else { p.moveState = 'idle'; if (nowMs() > p.actionUntil) p.animState = 'idle'; }
+    S.player.x = p.x; S.player.y = p.y; S.player.facing = p.facing;
+  },
+  playAction(name){ this.player.animState = 'action:' + name; this.player.actionUntil = nowMs() + 320; },
+  getPlayerPos(){ return { x: this.player.x, y: this.player.y }; },
+};
+
+/* ================================================================
+ * 模块：种植 farming（五状态机；时间戳结算，不靠逐帧累计）
+ * 接口：getPlotAction / applyPlotAction / settlePlots / collectPlot
+ * ================================================================ */
+const Farming = {
+  init(){
+    if (S.plots && S.plots.length) return;
+    const f = CONFIG.farm; S.plots = [];
+    for (let r = 0; r < f.rows; r++) for (let c = 0; c < f.cols; c++)
+      S.plots.push({ id: 'plot_' + (r * f.cols + c), zoneId: 'herbZone',
+        x: f.originX + c * (f.plotW + f.gap), y: f.originY + r * (f.plotH + f.gap),
+        cropId: null, tier: 0, state: 'empty', stageStartedAt: 0, readyAt: 0, actorId: null, reservedBy: null });
+  },
+  plotById(id){ return S.plots.find(p => p.id === id); },
+  center(p){ return { x: p.x + CONFIG.farm.plotW / 2, y: p.y + CONFIG.farm.plotH / 2 }; },
+  tierDuration(tier){ const t = CONFIG.tiers.find(t => t.tier === tier); return t ? t.durationMs : CONFIG.tiers[0].durationMs; },
+  getPlotAction(plot, actor){
+    const label = { empty: '锄地', tilled: '播种', seeded: '浇水', growing: '催熟中', mature: '收获' }[plot.state];
+    const cost = { empty: CONFIG.stamina.costs.hoe, tilled: CONFIG.stamina.costs.seed,
+      seeded: CONFIG.stamina.costs.water, growing: 0, mature: CONFIG.stamina.costs.harvest }[plot.state];
+    return { action: plot.state, label, cost, enabled: plot.state !== 'growing' };
+  },
+  applyPlotAction(plotId, actor){ // actor: { type:'player'|'disciple', id }
+    const p = this.plotById(plotId); if (!p) return false;
+    const isPlayer = actor.type === 'player';
+    const cost = this.getPlotAction(p, actor).cost;
+    if (isPlayer && cost > 0 && !Day.spendStamina(cost, 'farm_' + p.state)){
+      UI.hint('体力不够了，回屋睡觉恢复'); return false; }
+    const c = this.center(p);
+    if (p.state === 'empty'){ p.state = 'tilled';
+      if (isPlayer) Fx.burst(c.x, c.y, { sprites: ['mote'], n: 12, speed: 1.6, life: 550 }); }
+    else if (p.state === 'tilled'){
+      const cropId = isPlayer ? (S.farmMode || CONFIG.farm.defaultCrop) : CONFIG.farm.defaultCrop;
+      const crop = CONFIG.crops[cropId] || CONFIG.crops[CONFIG.farm.defaultCrop];
+      const inCost = crop.inputs || {};
+      if (Object.keys(inCost).length){ // 高档作物播种消耗下级产物（互锁），走账本原子事务
+        const neg = {}; for (const k in inCost) neg[k] = -inCost[k];
+        if (!Ledger.transact({ reason: 'seed_' + cropId, items: neg })){
+          if (isPlayer) UI.hint('播种' + crop.name + '需要 ' +
+            Object.keys(inCost).map(k => CONFIG.items[k].name + '×' + inCost[k]).join('、')); return false; }
+      }
+      p.state = 'seeded'; p.cropId = cropId; p.tier = crop.tier;
+      if (isPlayer) Fx.burst(c.x, c.y, { sprites: ['mote'], n: 8, speed: 1.2, life: 480 }); }
+    else if (p.state === 'seeded'){ p.state = 'growing'; p.stageStartedAt = nowMs();
+      p.readyAt = p.stageStartedAt + this.tierDuration(p.tier); p.actorId = actor.id;
+      if (isPlayer) Fx.burst(c.x, c.y, { sprites: ['drop'], n: 16, speed: 1.8, life: 620 }); }
+    else if (p.state === 'growing'){ if (isPlayer) UI.hint('还没长好，再等等'); return false; }
+    else if (p.state === 'mature'){ return this.collectPlot(plotId, actor); }
+    if (p.reservedBy && p.reservedBy !== actor.id){ Npc.releaseTarget(p.reservedBy); p.reservedBy = null; }
+    Save.save('farm'); UI.syncHud();
+    return true;
+  },
+  collectPlot(plotId, actor){
+    const p = this.plotById(plotId); if (!p || p.state !== 'mature') return false;
+    const crop = CONFIG.crops[p.cropId || CONFIG.farm.defaultCrop];
+    const c = this.center(p);
+    p.state = 'empty'; p.cropId = null; p.tier = 0; p.stageStartedAt = 0; p.readyAt = 0; p.reservedBy = null;
+    // 隐藏精通：累计达阈值后单次产出 +1（不展示，口径见一页纸 4.1）
+    const mBefore = S.mastery[crop.itemId] || 0;
+    const qty = crop.yieldQty + (mBefore >= CONFIG.mastery.bonusAt ? CONFIG.mastery.bonusQty : 0);
+    Ledger.addItem(crop.itemId, qty, 'harvest');
+    S.mastery[crop.itemId] = mBefore + crop.yieldQty;
+    Events.markRoutine('harvest');
+    Fx.burst(c.x, c.y, { sprites: ['leaf', 'mote'], n: 30, speed: 2.6, life: 900 });
+    const chip = $('herb').getBoundingClientRect();
+    Fx.flyTo(c.x, c.y, chip.left + chip.width / 2, chip.top + chip.height / 2, { n: 5, sprite: 'leaf' });
+    Fx.floatText(c.x, c.y - 16, crop.name + ' +' + qty);
+    Save.save('harvest'); UI.syncHud();
+    return true;
+  },
+  settlePlots(now){
+    for (const p of S.plots) if (p.state === 'growing' && now >= p.readyAt){
+      p.state = 'mature'; const c = this.center(p);
+      Fx.burst(c.x, c.y, { sprites: ['mote', 'leaf'], n: 10, speed: 1.4, life: 600 }); }
+  },
+  growthStage(p){ // 可视阶段 ≥3 段：0 种子点 / 1 芽 / 2 苗 / 3 成株（另 mature 独立表现）
+    if (p.state === 'seeded') return 0;
+    if (p.state === 'growing'){ const k = clamp((nowMs() - p.stageStartedAt) / Math.max(1, p.readyAt - p.stageStartedAt), 0, 1);
+      return k < 0.34 ? 1 : k < 0.7 ? 2 : 3; }
+    if (p.state === 'mature') return 4;
+    return -1;
+  },
+};
+
+/* ================================================================
+ * 模块：弟子招募与命格 disciples（M2 实装：随机三件套生成/招募/派工/22h 派遣）
+ * 接口：recruit / generateDisciple / assignJob / startDispatch / claimDispatch / getDisciple
+ * ================================================================ */
+const Disciples = {
+  JOB_LABEL: { water: '浇水', carry: '搬运', patrol: '巡场' },
+  JOB_CYCLE: ['water', 'carry', 'patrol'],
+  init(){
+    if (S.disciples && S.disciples.length) return;
+    S.disciples = [
+      this._mk('d1', '陈禾', '#5b7fa6', 'water',  '山下柳溪村人，曾在药行当过学徒，手脚勤快。', { x: 330, y: 560 }),
+      this._mk('d2', '陆青', '#8a6d4f', 'carry',  '力气大，话不多，搬运记账从不出错。', { x: 1120, y: 610 }),
+      this._mk('d3', '沈砚', '#6a8a5f', 'water',  '爱在药圃边读书，浇水比谁都仔细。', { x: 560, y: 330 }),
+    ];
+    for (const d of S.disciples){ d.quality = '良好'; d.attrs = { '悟性': 55, '根骨': 52, '手艺': 58 };
+      d.fates = [CONFIG.discipleGen.fates[d.id === 'd2' ? 3 : 0]]; }
+  },
+  _mk(id, name, robe, job, origin, pos){
+    return { id, name, appearanceSeed: robe, attrs: {}, fates: [], personality: '踏实', quality: '寻常',
+      originId: origin, quirk: '', rankState: '外门', assignment: job, scenePresence: 'scene',
+      dispatch: null, homePos: pos };
+  },
+  _pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; },
+  generateDisciple(){ // A1：品质/资质/命格/性格/来历全随机（种子参数预留给月更池版本）
+    const G = CONFIG.discipleGen;
+    let name = this._pick(G.surnames) + this._pick(G.givenNames);
+    if (S.disciples.some(d => d.name === name)) name += '·' + this._pick(['小','阿']) + name.slice(-1);
+    let roll = Math.random() * G.qualities.reduce((s, q) => s + q.w, 0), quality = G.qualities[0];
+    for (const q of G.qualities){ roll -= q.w; if (roll <= 0){ quality = q; break; } }
+    const attrs = {};
+    for (const a of G.attrNames) attrs[a] = quality.min + Math.floor(Math.random() * (quality.max - quality.min + 1));
+    const fates = [this._pick(G.fates)];
+    if (Math.random() < 0.3){ const f2 = this._pick(G.fates); if (f2.name !== fates[0].name) fates.push(f2); }
+    // C1：来历＝出身段×桥段×结尾段模板拼接（24 段模板、数百种组合，逐条原创过词库）
+    const origin = this._pick(G.originOpenings) + '，' + this._pick(G.originBridges) + '，' + this._pick(G.originEndings) + '。';
+    // C2：低概率反差标签＋专属一句吐槽（只作梗，不涉敏感身份）
+    let quirk = '';
+    if (Math.random() < G.contrastChance)
+      quirk = '别看此人' + this._pick(G.contrastBodies) + '，偏偏' + this._pick(G.contrastTraits) + '，全宗门都拿这事打趣。';
+    const gate = Scene.getAnchor('gate');
+    const d = this._mk('d' + nowMs().toString(36) + Math.floor(Math.random() * 999), name,
+      this._pick(G.robes), 'patrol', origin,
+      { x: gate.x + (Math.random() * 80 - 40), y: gate.y - 60 });
+    d.quality = quality.name; d.attrs = attrs; d.fates = fates;
+    d.personality = this._pick(G.personalities); d.quirk = quirk;
+    return d;
+  },
+  recruit(){ // 山门招募：扣灵石走账本，成功即入场
+    const G = CONFIG.discipleGen;
+    if (S.disciples.length >= G.rosterCap){ UI.hint('名册已满（' + G.rosterCap + ' 人），先扩建弟子居舍再说'); return null; }
+    if (!Ledger.transact({ reason: 'recruit', currency: { coin: -G.recruitCost } })){
+      UI.hint('招募需要 ' + G.recruitCost + ' 灵石，家底还不够'); return null; }
+    const d = this.generateDisciple();
+    S.disciples.push(d);
+    Npc.syncRoster();
+    const a = Npc.agentOf(d.id);
+    if (a){ const g = Scene.getAnchor('gate'); a.x = g.x; a.y = g.y - 10; }
+    Fx.burst(d.homePos.x, d.homePos.y - 10, { sprites: ['mote'], n: 16, speed: 1.8, life: 700 });
+    Save.save('recruit');
+    return d;
+  },
+  assignJob(id, job){ const d = this.getDisciple(id);
+    if (d && d.scenePresence === 'scene'){ d.assignment = job;
+      const a = Npc.agentOf(id); if (a) Npc.releaseTarget(a);
+      Save.save('assign'); } },
+  cycleJob(id){ const d = this.getDisciple(id); if (!d) return;
+    const i = this.JOB_CYCLE.indexOf(d.assignment);
+    this.assignJob(id, this.JOB_CYCLE[(i + 1) % this.JOB_CYCLE.length]); },
+  fateMul(d, kind){ // 命格效果：对应工种/移动的速度系数（NPC 行为层读取）
+    let m = 1;
+    for (const f of (d.fates || [])) if (f.job === kind) m = Math.max(m, f.mul || 1);
+    return m;
+  },
+  startDispatch(id, destId){ // 22h 派遣：离场，独立节拍（档5 时长）
+    const d = this.getDisciple(id);
+    const dest = CONFIG.dispatch.dests.find(x => x.id === destId);
+    if (!d || !dest || d.scenePresence !== 'scene') return false;
+    const a = Npc.agentOf(id); if (a) Npc.releaseTarget(a);
+    d.scenePresence = 'dispatched';
+    d.dispatch = { destId, startedAt: nowMs(), endsAt: nowMs() + Farming.tierDuration(5) };
+    Npc.syncRoster();
+    Save.save('dispatch_start');
+    return true;
+  },
+  settleDispatches(now){ // 到期：弟子回山门待交接
+    let changed = false;
+    for (const d of S.disciples)
+      if (d.scenePresence === 'dispatched' && d.dispatch && now >= d.dispatch.endsAt){
+        d.scenePresence = 'atGate';
+        const g = Scene.getAnchor('gate');
+        d.homePos = { x: g.x + (Math.random() * 90 - 45), y: g.y - 56 };
+        changed = true; }
+    if (changed){ Npc.syncRoster();
+      for (const d of S.disciples) if (d.scenePresence === 'atGate'){
+        const a = Npc.agentOf(d.id); if (a){ a.x = d.homePos.x; a.y = d.homePos.y; } }
+      Save.save('dispatch_return'); }
+  },
+  claimDispatch(id){ // 山门交接：产物 sellable=false 入库存（账本层红线）
+    const d = this.getDisciple(id);
+    if (!d || d.scenePresence !== 'atGate' || !d.dispatch) return false;
+    const dest = CONFIG.dispatch.dests.find(x => x.id === d.dispatch.destId);
+    if (!dest) return false;
+    Ledger.addItem(dest.item, dest.qty, 'dispatch_claim');
+    Fx.floatText(d.homePos.x, d.homePos.y - 40, CONFIG.items[dest.item].name + ' +' + dest.qty, '#ffcf5e');
+    d.scenePresence = 'scene'; d.dispatch = null;
+    const home = Scene.getAnchor('discipleHome');
+    d.homePos = { x: home.x + (Math.random() * 120 - 60), y: home.y + (Math.random() * 60 - 30) };
+    Npc.syncRoster();
+    Events.markRoutine('dispatch');
+    Save.save('dispatch_claim');
+    return true;
+  },
+  getDisciple(id){ return S.disciples.find(d => d.id === id); },
+  talkLines: ['掌门早，药圃我照看着呢。', '昨日那株灵芝长势很好。', '山下集市的药价又涨了些。', '活干完了，我再去巡一圈。'],
+};
+
+/* ================================================================
+ * 模块：NPC 行为 npc（通用状态机 idle/walkTo/work/return/sleep）
+ * 工种可配置（water/carry/patrol）；目标预留防抢；软避让不堵路；卡死回收。
+ * 接口：tick / syncRoster / requestTask / reserveTarget / releaseTarget / forceRecover
+ * ================================================================ */
+const Npc = {
+  agents: [],
+  syncRoster(){
+    const keep = {};
+    for (const a of this.agents) keep[a.discipleId] = a;
+    this.agents = [];
+    for (const d of S.disciples){
+      if (d.scenePresence !== 'scene') continue;
+      const old = keep[d.id];
+      this.agents.push(old || { discipleId: d.id, x: d.homePos.x, y: d.homePos.y, r: 12,
+        facing: 1, walk: 0, moving: false, navState: 'idle', goal: null, targetId: null,
+        reservedTargetId: null, waitUntil: 0, stuckMs: 0, lastX: d.homePos.x, lastY: d.homePos.y,
+        carryLeg: 0, phase: Math.random() * 7 });
+    }
+  },
+  agentOf(id){ return this.agents.find(a => a.discipleId === id); },
+  reserveTarget(agent, plotId){
+    const p = Farming.plotById(plotId);
+    if (!p || (p.reservedBy && p.reservedBy !== agent.discipleId)) return false;
+    p.reservedBy = agent.discipleId; agent.reservedTargetId = plotId; return true;
+  },
+  releaseTarget(agentOrId){
+    const id = typeof agentOrId === 'string' ? agentOrId : agentOrId.discipleId;
+    for (const p of S.plots) if (p.reservedBy === id) p.reservedBy = null;
+    for (const j of S.jobs) if (j.claimedBy === id) j.claimedBy = null;
+    const a = this.agentOf(id);
+    if (a){ a.reservedTargetId = null; if (a.targetId) a.targetId = null; if (a.navState === 'walkTo' || a.navState === 'work') a.navState = 'idle'; }
+  },
+  forceRecover(agent){
+    console.warn('[npc] forceRecover', agent.discipleId);
+    this.releaseTarget(agent);
+    const home = Scene.getAnchor('discipleHome');
+    agent.x = home.x + (Math.random() * 60 - 30); agent.y = home.y + (Math.random() * 40 - 20);
+    agent.navState = 'idle'; agent.goal = null; agent.stuckMs = 0;
+  },
+  onNewDay(){ for (const a of this.agents){ this.releaseTarget(a);
+    const d = Disciples.getDisciple(a.discipleId);
+    if (d){ a.x = d.homePos.x; a.y = d.homePos.y; } a.navState = 'idle'; a.goal = null; } },
+  requestTask(agent){
+    const d = Disciples.getDisciple(agent.discipleId); if (!d) return;
+    const job = d.assignment;
+    if (job === 'water'){
+      const p = S.plots.find(p => p.state === 'seeded' && (!p.reservedBy || p.reservedBy === agent.discipleId));
+      if (p && this.reserveTarget(agent, p.id)){
+        const c = Farming.center(p);
+        agent.targetId = p.id; agent.goal = { x: c.x, y: c.y + 36 }; agent.navState = 'walkTo'; return; }
+      this._wander(agent); return;
+    }
+    if (job === 'carry'){ // 搬运＝收取已到期工单并入库（只搬运，不创造资源）
+      const job2 = S.jobs.find(j => j.state === 'ready' && !j.claimedBy);
+      if (job2){ job2.claimedBy = agent.discipleId; agent.jobId = job2.id;
+        const st = CONFIG.stations[job2.stationId];
+        const anch = Scene.getAnchor(st.anchor);
+        agent.goal = { x: anch.x, y: anch.y + 16 }; agent.navState = 'walkTo'; return; }
+      this._wander(agent); return;
+    }
+    this._wander(agent); // patrol 及其余工种：巡场游走
+  },
+  _wander(agent){
+    const pts = [{ x: 300, y: 560 }, { x: 470, y: 780 }, { x: 700, y: 700 }, { x: 540, y: 420 }, { x: 900, y: 640 }, { x: 640, y: 1000 }];
+    const w = pts[Math.floor(Math.random() * pts.length)];
+    agent.goal = { x: w.x, y: w.y }; agent.navState = 'walkTo'; agent.idleWander = true;
+  },
+  _moveToward(a, dt, speed){
+    const dx = a.goal.x - a.x, dy = a.goal.y - a.y, d = Math.hypot(dx, dy);
+    if (d < 5) return true;
+    a.x += dx / d * speed * dt / 1000; a.y += dy / d * speed * dt / 1000;
+    a.facing = dx >= 0 ? 1 : -1; a.walk += dt * 0.012; a.moving = true;
+    Scene.collide(a);
+    return false;
+  },
+  tick(dt){
+    const player = Actor.player;
+    for (const a of this.agents){
+      a.moving = false;
+      const d = Disciples.getDisciple(a.discipleId); if (!d) continue;
+      // 卡死检测：walkTo 期间位移过小累计，超时回收
+      if (a.navState === 'walkTo'){
+        if (Math.hypot(a.x - a.lastX, a.y - a.lastY) < 0.4) a.stuckMs += dt; else a.stuckMs = 0;
+        if (a.stuckMs > CONFIG.npc.stuckLimitMs){ this.forceRecover(a); continue; }
+      }
+      a.lastX = a.x; a.lastY = a.y;
+      if (a.navState === 'idle'){
+        if (nowMs() >= a.waitUntil) this.requestTask(a);
+      } else if (a.navState === 'walkTo' && a.goal){
+        // 给玩家让路：玩家贴近时 NPC 本帧停步侧让
+        const dp = dist(a, player);
+        if (dp >= CONFIG.npc.avoidRadius){
+          const speed = (d.assignment === 'carry' ? CONFIG.npc.carrySpeed
+            : d.assignment === 'patrol' ? CONFIG.npc.patrolSpeed : CONFIG.npc.walkSpeed)
+            * Disciples.fateMul(d, d.assignment) * Disciples.fateMul(d, 'move');
+          if (this._moveToward(a, dt, speed)){ a.navState = 'work'; a.waitUntil = nowMs() + CONFIG.npc.workMs; }
+        }
+      } else if (a.navState === 'work'){
+        if (nowMs() >= a.waitUntil){
+          if (a.targetId){ // water 工种执行浇水（走 farming 模块，不扣玩家体力）
+            const p = Farming.plotById(a.targetId);
+            if (p && p.state === 'seeded') Farming.applyPlotAction(p.id, { type: 'disciple', id: a.discipleId });
+            if (p && p.reservedBy === a.discipleId) p.reservedBy = null;
+            a.targetId = null; a.reservedTargetId = null;
+          } else if (d.assignment === 'carry' && a.jobId){
+            Production.collectJob(a.jobId, { type: 'disciple', id: a.discipleId });
+            a.jobId = null;
+          }
+          a.idleWander = false;
+          a.navState = 'idle'; a.waitUntil = nowMs() + 400 + Math.random() * 900;
+        }
+      } else if (a.navState === 'return' || a.navState === 'sleep'){
+        const home = (Disciples.getDisciple(a.discipleId) || {}).homePos || Scene.getAnchor('discipleHome');
+        a.goal = { x: home.x, y: home.y };
+        if (this._moveToward(a, dt, CONFIG.npc.walkSpeed)) a.navState = 'idle';
+      }
+      // 软避让：与玩家/同伴保持间距（只推 NPC，不推玩家）
+      for (const other of [player, ...this.agents]){
+        if (other === a) continue;
+        const dd = dist(a, other), min = CONFIG.npc.separationRadius;
+        if (dd > 0.01 && dd < min){ a.x += (a.x - other.x) / dd * (min - dd) * 0.5;
+          a.y += (a.y - other.y) / dd * (min - dd) * 0.5; Scene.collide(a); }
+      }
+    }
+  },
+};
+
+/* ================================================================
+ * 模块：图鉴 codex（最低成本版：列表打勾；转生 prestigeCount 只埋点不开放）
+ * ================================================================ */
+const Codex = {
+  markSeen(itemId){ if (CONFIG.items[itemId] && !S.codex.seen[itemId]){ S.codex.seen[itemId] = true; } },
+  init(){ for (const k in S.inventory) if ((S.inventory[k] || 0) > 0) this.markSeen(k); },
+  list(){ return Object.keys(CONFIG.items).filter(id => !CONFIG.items[id].currency)
+    .map(id => ({ id, name: CONFIG.items[id].name, seen: !!S.codex.seen[id], qty: S.inventory[id] || 0,
+      sellable: Ledger.isSellable(id) })); },
+};
+
+/* ================================================================
+ * 模块：生产链 production（M2 实装：三链配方/工单/五档周期/隐藏精通）
+ * 接口：listRecipes / startJob / settleJobs / collectJob / getMastery
+ * ================================================================ */
+const Production = {
+  init(){
+    if (!S.workstations || !S.workstations.length)
+      S.workstations = Object.keys(CONFIG.stations).map(id => ({ id, level: 1, queue: [], activeJobId: null }));
+  },
+  recipe(id){ return CONFIG.recipes.find(r => r.id === id); },
+  stationUnlocked(stationId){ const st = CONFIG.stations[stationId];
+    return !st.needZone || S.unlockedZones.includes(st.needZone); },
+  listRecipes(workstationId){ return CONFIG.recipes.filter(r => r.station === workstationId); },
+  validateChains(){ // 经济红线断言：每档产物必须是下一档输入或订单原料；派遣产物不可出售
+    const inputs = new Set(), orderNeeds = new Set();
+    for (const c of Object.values(CONFIG.crops)) for (const k in c.inputs) inputs.add(k);
+    for (const r of CONFIG.recipes){ for (const k in r.inputs) inputs.add(k);
+      for (const k in r.outputs) if (!Ledger.isSellable(k)) return 'recipe_output_unsellable:' + r.id; }
+    for (const pool of Object.values(CONFIG.orders.pools)) for (const o of pool)
+      for (const k in o.needs){ orderNeeds.add(k); if (!Ledger.isSellable(k)) return 'order_needs_unsellable:' + k; }
+    const produced = new Set();
+    for (const c of Object.values(CONFIG.crops)) produced.add(c.itemId);
+    for (const r of CONFIG.recipes) for (const k in r.outputs) produced.add(k);
+    for (const item of produced) if (!inputs.has(item) && !orderNeeds.has(item)) return 'isolated_output:' + item;
+    for (const dest of CONFIG.dispatch.dests) if (Ledger.isSellable(dest.item)) return 'dispatch_sellable:' + dest.item;
+    return null;
+  },
+  startJob(recipeId, actor){ // 校验工位解锁/并发上限→账本扣输入→落工单（时间戳结算）
+    const r = this.recipe(recipeId); if (!r) return null;
+    if (!this.stationUnlocked(r.station)){ UI.hint('工位尚未开放'); return null; }
+    const running = S.jobs.filter(j => j.stationId === r.station && j.state === 'running').length;
+    if (running >= CONFIG.stations[r.station].maxRunning){ UI.hint('工位忙不过来了，等一单完工'); return null; }
+    const neg = {}; for (const k in r.inputs) neg[k] = -r.inputs[k];
+    if (!Ledger.transact({ reason: 'job_start_' + r.id, items: neg })){
+      if (actor.type === 'player') UI.hint('原料不足：' +
+        Object.keys(r.inputs).map(k => CONFIG.items[k].name + '×' + r.inputs[k]).join('、'));
+      return null; }
+    const job = { id: 'job_' + nowMs().toString(36) + Math.floor(Math.random() * 999), recipeId: r.id,
+      stationId: r.station, tier: r.tier, startedAt: nowMs(),
+      readyAt: nowMs() + Farming.tierDuration(r.tier), actorType: actor.type, actorId: actor.id,
+      state: 'running', claimedBy: null };
+    S.jobs.push(job);
+    const anch = Scene.getAnchor(CONFIG.stations[r.station].anchor);
+    Fx.burst(anch.x, anch.y - 16, { sprites: ['spark'], n: 14, speed: 1.8, life: 650 });
+    Save.save('job_start');
+    return job;
+  },
+  settleJobs(now){
+    for (const j of S.jobs) if (j.state === 'running' && now >= j.readyAt){
+      j.state = 'ready';
+      const anch = Scene.getAnchor(CONFIG.stations[j.stationId].anchor);
+      Fx.burst(anch.x, anch.y - 20, { sprites: ['mote'], n: 10, speed: 1.4, life: 600 }); }
+  },
+  collectJob(jobId, actor){
+    const j = S.jobs.find(x => x.id === jobId); if (!j || j.state !== 'ready') return false;
+    const r = this.recipe(j.recipeId); if (!r) return false;
+    j.state = 'done'; j.claimedBy = null;
+    const outs = {};
+    for (const k in r.outputs){
+      const mBefore = S.mastery[k] || 0;
+      outs[k] = r.outputs[k] + (mBefore >= CONFIG.mastery.bonusAt ? CONFIG.mastery.bonusQty : 0);
+      S.mastery[k] = mBefore + r.outputs[k]; }
+    Ledger.transact({ reason: 'job_collect_' + r.id, items: outs });
+    const anch = Scene.getAnchor(CONFIG.stations[j.stationId].anchor);
+    Fx.burst(anch.x, anch.y - 14, { sprites: ['leaf', 'mote'], n: 18, speed: 2, life: 750 });
+    Fx.floatText(anch.x, anch.y - 40,
+      Object.keys(outs).map(k => CONFIG.items[k].name + ' +' + outs[k]).join(' '));
+    Save.save('job_collect');
+    return true;
+  },
+  getMastery(itemId){ return S.mastery[itemId] || 0; },
+};
+
+/* ================================================================
+ * 模块：订单 orders（M2 实装：三节奏生成/交付/刷新；交付走账本同事务）
+ * 接口：listOrders / deliverOrder / refreshOrders / settleOrderTimers
+ * ================================================================ */
+const Orders = {
+  _seq: 0,
+  _gen(kind){
+    const pool = CONFIG.orders.pools[kind];
+    const t = pool[Math.floor(Math.random() * pool.length)];
+    const now = nowMs();
+    return { id: 'ord_' + now.toString(36) + (this._seq++), kind,
+      needs: { ...t.needs }, reward: t.reward, createdAt: now,
+      expiresAt: kind === 'rush' ? now + CONFIG.orders.rushAliveMs : 0, state: 'open' };
+  },
+  generateDaily(force){
+    const key = Day.getDailyKey();
+    if (!force && S.ordersMeta.dailyKey === key) return;
+    S.orders = S.orders.filter(o => !(o.kind === 'daily' && o.state === 'open'));
+    for (let i = 0; i < CONFIG.orders.dailyCount; i++) S.orders.push(this._gen('daily'));
+    S.ordersMeta.dailyKey = key;
+  },
+  init(){ this.generateDaily(false);
+    if (!S.ordersMeta.timedBatchAt) S.ordersMeta.timedBatchAt = nowMs() + CONFIG.orders.timedBatchMs;
+    if (!S.ordersMeta.nextRushAt) S.ordersMeta.nextRushAt = nowMs() + 30000;
+    if (!S.orders.some(o => o.kind === 'timed' && o.state === 'open'))
+      for (let i = 0; i < CONFIG.orders.timedCount; i++) S.orders.push(this._gen('timed'));
+  },
+  listOrders(){ return S.orders.filter(o => o.state === 'open')
+    .sort((a, b) => ({ rush: 0, daily: 1, timed: 2 }[a.kind] - { rush: 0, daily: 1, timed: 2 }[b.kind])); },
+  canDeliver(o){ for (const k in o.needs) if ((S.inventory[k] || 0) < o.needs[k]) return false; return true; },
+  deliverOrder(orderId){ // 校验库存（含 sellable 红线）→同一事务扣货发奖
+    const o = S.orders.find(x => x.id === orderId);
+    if (!o || o.state !== 'open') return false;
+    for (const k in o.needs) if (!Ledger.isSellable(k)) return false;   // 派遣产物禁止被订单吞掉变相出售
+    if (!this.canDeliver(o)){ UI.hint('库存不足，先去生产'); return false; }
+    const neg = {}; for (const k in o.needs) neg[k] = -o.needs[k];
+    if (!Ledger.transact({ reason: 'order_' + o.kind, items: neg, currency: { coin: o.reward } })) return false;
+    o.state = 'done';
+    const anch = Scene.getAnchor('orderPoint');
+    const chip = $('coin').getBoundingClientRect();
+    Fx.flyTo(anch.x, anch.y - 16, chip.left + chip.width / 2, chip.top + chip.height / 2,
+      { n: 8, sprite: 'coin', onArrive: () => Fx.shake(0.1) });
+    Fx.floatText(anch.x, anch.y - 44, '灵石 +' + o.reward, '#ffcf5e');
+    Events.markRoutine('order');
+    Events.checkFaceEvents();
+    Save.save('order_deliver');
+    return true;
+  },
+  refreshOrders(source){ // source: 'free' 每日免费 1 次（只刷日常单）/ 'ad' 广告刷新（日常+定时）
+    if (source === 'free'){
+      if (S.ordersMeta.freeRefreshLeft <= 0){ UI.hint('今日免费刷新已用完'); return false; }
+      S.ordersMeta.freeRefreshLeft--;
+      S.orders = S.orders.filter(o => !(o.kind === 'daily' && o.state === 'open'));
+      for (let i = 0; i < CONFIG.orders.dailyCount; i++) S.orders.push(this._gen('daily'));
+    } else if (source === 'ad'){
+      S.orders = S.orders.filter(o => !(o.state === 'open' && o.kind !== 'rush'));
+      for (let i = 0; i < CONFIG.orders.dailyCount; i++) S.orders.push(this._gen('daily'));
+      for (let i = 0; i < CONFIG.orders.timedCount; i++) S.orders.push(this._gen('timed'));
+    } else return false;
+    Save.save('order_refresh');
+    return true;
+  },
+  settleOrderTimers(now){
+    let dirty = false;
+    for (const o of S.orders)
+      if (o.state === 'open' && o.kind === 'rush' && o.expiresAt && now >= o.expiresAt){
+        o.state = 'expired'; S.ordersMeta.nextRushAt = now + CONFIG.orders.rushRespawnMs; dirty = true; }
+    if (!S.orders.some(o => o.kind === 'rush' && o.state === 'open') && now >= (S.ordersMeta.nextRushAt || 0)){
+      S.orders.push(this._gen('rush')); S.ordersMeta.nextRushAt = now + CONFIG.orders.rushRespawnMs; dirty = true; }
+    if (now >= (S.ordersMeta.timedBatchAt || 0)){ // 定时单整批换新（未交付的到期作废）
+      for (const o of S.orders) if (o.kind === 'timed' && o.state === 'open') o.state = 'expired';
+      for (let i = 0; i < CONFIG.orders.timedCount; i++) S.orders.push(this._gen('timed'));
+      let next = S.ordersMeta.timedBatchAt + CONFIG.orders.timedBatchMs;
+      while (next <= now) next += CONFIG.orders.timedBatchMs;
+      S.ordersMeta.timedBatchAt = next; dirty = true; }
+    if (dirty) Save.save('order_timers');
+  },
+};
+
+/* ================================================================
+ * 模块：事件与日常 events/routine（M2 实装：签到/周挑战/每日清单/打脸线/传闻）
+ * 接口：getDailyChecklist / markRoutine / rollEvent / claimSignIn / getRumor
+ * ================================================================ */
+const Events = {
+  CHECKLIST: [
+    { kind: 'settle', name: '领取离线结算' }, { kind: 'dispatch', name: '完成一次派遣交接' },
+    { kind: 'order', name: '交付一笔订单' }, { kind: 'signin', name: '领取今日签到' },
+    { kind: 'harvest', name: '收获一次作物' },
+  ],
+  ensureDaily(){ const key = Day.getDailyKey();
+    if (S.routine.daily.key !== key) S.routine.daily = { key, done: {} }; },
+  ensureWeekly(){ const wk = Day.weekKey();
+    if (S.routine.weekly.weekKey !== wk) S.routine.weekly = { weekKey: wk, progress: {}, claimed: [] }; },
+  markRoutine(kind){ // 日界/周界先对齐（真实日期口径，睡觉不触发）
+    this.ensureDaily(); this.ensureWeekly();
+    S.routine.daily.done[kind] = true;
+    if (['order', 'harvest', 'dispatch'].includes(kind))
+      S.routine.weekly.progress[kind] = (S.routine.weekly.progress[kind] || 0) + 1;
+  },
+  getDailyChecklist(){ this.ensureDaily();
+    return this.CHECKLIST.map(c => ({ ...c, done: !!S.routine.daily.done[c.kind] })); },
+  claimSignIn(){ // 累计型：断签只停滞不清零；同日重复领取拒绝
+    const key = Day.getDailyKey();
+    if (S.routine.signIn.lastDate === key) return false;
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const streak = S.routine.signIn.lastDate === Day.getDailyKey(y) ? S.routine.signIn.streak + 1 : 1;
+    S.routine.signIn = { streak, lastDate: key };
+    const reward = CONFIG.routine.signInRewards[(streak - 1) % CONFIG.routine.signInRewards.length];
+    Ledger.transact({ reason: 'signin', currency: { coin: reward } });
+    this.markRoutine('signin');
+    Save.save('signin');
+    return reward;
+  },
+  claimWeekly(idx){
+    this.ensureWeekly();
+    const c = CONFIG.routine.weeklyChallenges[idx]; if (!c) return false;
+    if (S.routine.weekly.claimed.includes(idx)) return false;
+    if ((S.routine.weekly.progress[c.kind] || 0) < c.need) return false;
+    S.routine.weekly.claimed.push(idx);
+    Ledger.transact({ reason: 'weekly_' + c.kind, currency: { coin: c.reward } });
+    Save.save('weekly_claim');
+    return true;
+  },
+  rollEvent(context){ return null; },   // 完整权重事件导演为二期（A8）；MVP 只有打脸脚本线
+  checkFaceEvents(){ // C5 打脸线：按游戏日与真实累计入账触发，一日最多一次，面板由玩家点收下才发奖
+    if (S.facePending) return;
+    if ($('panelWrap').classList.contains('open')) return;   // 不打断玩家正在看的面板
+    if (S.faceLastAt && Day.getDailyKey() === S.faceLastDay) return;
+    for (const ev of CONFIG.faceEvents){
+      if (S.events[ev.id]) continue;
+      if (S.day.dayIndex >= ev.day && (S.stats.earnedCoin || 0) >= ev.needEarned){
+        S.facePending = ev.id; UI.openFacePanel(ev); return; } }
+  },
+  claimFaceEvent(){
+    const id = S.facePending; if (!id) return false;
+    const ev = CONFIG.faceEvents.find(e => e.id === id); if (!ev) return false;
+    S.events[id] = { state: 'done', at: nowMs() };
+    S.faceLastDay = Day.getDailyKey(); S.faceLastAt = nowMs(); S.facePending = null;
+    Ledger.transact({ reason: 'face_' + id, currency: { coin: ev.reward } });
+    Save.save('face_event');
+    return true;
+  },
+  getRumor(){ // C3：双弟子名＋模板拼接
+    if (S.disciples.length < 2) return '';
+    const a = S.disciples[Math.floor(Math.random() * S.disciples.length)];
+    let b = S.disciples[Math.floor(Math.random() * S.disciples.length)];
+    if (b === a) b = S.disciples[(S.disciples.indexOf(a) + 1) % S.disciples.length];
+    return CONFIG.rumors[Math.floor(Math.random() * CONFIG.rumors.length)]
+      .replaceAll('{a}', a.name).replaceAll('{b}', b.name);
+  },
+};
+
+/* ================================================================
+ * 模块：广告 ads（M2 本地模拟适配层；接口与真实 SDK 对齐，替换点已标注）
+ * P0 预埋：未落定标记带时限（pendingTtlMs）与核对次数上限（maxChecks）；
+ * 查询失败保留标记；落定按「预期×倍率 − 已发」差量补发；每笔 id 幂等只发一次。
+ * 奖励序号按真实日期统一记账（睡觉不重置）：1–6 次满额 / 7–8 次 50% / 9 次起 0。
+ * ================================================================ */
+const Ads = {
+  _seq: 0,
+  multiplierFor(seq){ return seq <= CONFIG.ads.fullSeq ? 1 : seq <= CONFIG.ads.halfSeq ? 0.5 : 0; },
+  getRewardMultiplier(){ return this.multiplierFor((S.adsDaily.rewardSeq || 0) + 1); },
+  // 【替换点】真实 SDK 接入时，本函数改为拉起平台广告并监听其关闭/完成回调，签名不变
+  _mockWatch(entry){
+    return new Promise(resolve => setTimeout(() => {
+      if (!S.pendingAdRewards.includes(entry)){ resolve({ ok: false, reason: 'gone' }); return; }
+      entry.state = 'completed'; entry.completedAt = nowMs();
+      Save.save('ad_completed');
+      resolve({ ok: true });
+    }, CONFIG.ads.mockWatchMs));
+  },
+  async requestReward(point, context){ // 返回 { ok, id, multiplier }；multiplier 为本笔落定倍率
+    if (!CONFIG.ads.points[point]) return { ok: false, reason: 'bad_point' };
+    if (S.adsDaily.date !== Day.getDailyKey()){ S.adsDaily = { date: Day.getDailyKey(), rewardSeq: 0, byPoint: {} }; }
+    const entry = { id: 'ad_' + nowMs().toString(36) + (this._seq++), point,
+      context: context || {}, state: 'watching', createdAt: nowMs(), checks: 0,
+      granted: 0, plan: null };
+    S.pendingAdRewards.push(entry);
+    Save.save('ad_pending');
+    const r = await this._mockWatch(entry);
+    if (!r.ok) return { ok: false, reason: r.reason };
+    return { ok: true, id: entry.id, multiplier: this.getRewardMultiplier() };
+  },
+  // 落定发放：调用方给出本笔满额预期 apply(mult) 或金额；已发部分按差量补足，幂等
+  settleReward(id, fullAmount, reason){
+    const entry = S.pendingAdRewards.find(e => e.id === id);
+    if (!entry || entry.state !== 'completed') return 0;
+    if (S.adsApplied.includes(id)){ this._drop(entry); return 0; }        // 幂等防双发
+    const seq = (S.adsDaily.rewardSeq || 0) + 1;
+    const mult = this.multiplierFor(seq);
+    const due = Math.floor(fullAmount * mult);
+    const delta = Math.max(0, due - (entry.granted || 0));               // 余额差量补发口径
+    if (delta > 0) Ledger.transact({ reason: reason || ('ad_' + entry.point), currency: { coin: delta } });
+    entry.granted = due;
+    S.adsDaily.rewardSeq = seq;
+    S.adsDaily.byPoint[entry.point] = (S.adsDaily.byPoint[entry.point] || 0) + 1;
+    S.adsApplied.push(id);
+    this._drop(entry);
+    Save.save('ad_settled');
+    return delta;
+  },
+  // 效果型奖励（加速/刷新/补体力）：无金额，按倍率由调用方决定效果强度，同样走序号记账与幂等
+  settleEffect(id){
+    const entry = S.pendingAdRewards.find(e => e.id === id);
+    if (!entry || entry.state !== 'completed' || S.adsApplied.includes(id)) return null;
+    const seq = (S.adsDaily.rewardSeq || 0) + 1;
+    const mult = this.multiplierFor(seq);
+    S.adsDaily.rewardSeq = seq;
+    S.adsDaily.byPoint[entry.point] = (S.adsDaily.byPoint[entry.point] || 0) + 1;
+    S.adsApplied.push(id);
+    this._drop(entry);
+    Save.save('ad_effect');
+    return mult;
+  },
+  _drop(entry){ S.pendingAdRewards = S.pendingAdRewards.filter(e => e !== entry); },
+  verifyPending(){ this.resumeChecks(); },
+  resumeChecks(){ // 重载/回前台时核对未落定标记：完成未领→保留待落定（差量补发）；未落定先判时限、再判核对次数
+    const now = nowMs(); let dirty = false;
+    for (const e of [...S.pendingAdRewards]){
+      if (e.state === 'watching'){
+        if (now - e.createdAt > CONFIG.ads.pendingTtlMs){ this._drop(e); dirty = true; continue; }  // 超时未落定：作废
+        e.checks = (e.checks || 0) + 1;
+        if (e.checks > CONFIG.ads.maxChecks){ this._drop(e); dirty = true; continue; }              // 核对超限：作废
+        if (now - e.createdAt >= CONFIG.ads.mockWatchMs){
+          e.state = 'completed'; e.completedAt = now; dirty = true;   // 模拟查询：已看完则补记完成（查询成功）
+        } // 否则保留标记，下次再核（查询失败保留口径）
+      } }
+    if (dirty) Save.save('ad_resume');
+  },
+};
+
+/* ================================================================
+ * 模块：输入与互动 input/interaction
+ * 接口：getMoveVector / resolveTarget / performAction / openContextPanel
+ * ================================================================ */
+const Input = {
+  joy: { dx: 0, dy: 0, id: null }, keys: {},
+  getMoveVector(){
+    let mx = this.joy.dx, my = this.joy.dy;
+    if (this.keys['a'] || this.keys['arrowleft']) mx -= 1;
+    if (this.keys['d'] || this.keys['arrowright']) mx += 1;
+    if (this.keys['w'] || this.keys['arrowup']) my -= 1;
+    if (this.keys['s'] || this.keys['arrowdown']) my += 1;
+    return { x: mx, y: my };
+  },
+  init(){
+    const joyEl = $('joy'), knob = $('knob');
+    const set = (e) => { const r = joyEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      let dx = e.clientX - cx, dy = e.clientY - cy; const d = Math.hypot(dx, dy), max = 40;
+      if (d > max){ dx *= max / d; dy *= max / d; }
+      knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      this.joy.dx = dx / max; this.joy.dy = dy / max; };
+    joyEl.addEventListener('pointerdown', e => { this.joy.id = e.pointerId; joyEl.setPointerCapture(e.pointerId); set(e); });
+    joyEl.addEventListener('pointermove', e => { if (e.pointerId === this.joy.id) set(e); });
+    const end = (e) => { if (e.pointerId === this.joy.id){ this.joy.id = null; this.joy.dx = this.joy.dy = 0;
+      knob.style.transform = 'translate(-50%,-50%)'; } };
+    joyEl.addEventListener('pointerup', end); joyEl.addEventListener('pointercancel', end);
+    addEventListener('keydown', e => { this.keys[e.key.toLowerCase()] = true;
+      if (e.key === ' '){ e.preventDefault(); Interaction.performAction(); } });
+    addEventListener('keyup', e => this.keys[e.key.toLowerCase()] = false);
+    $('act').addEventListener('pointerdown', e => { e.preventDefault(); Interaction.performAction(); });
+  },
+};
+const Interaction = {
+  target: null,
+  resolveTarget(pos){
+    let best = null, bd = CONFIG.interaction.plotRadius;
+    for (const p of S.plots){ const d = dist(pos, Farming.center(p));
+      if (d < bd){ bd = d; const a = Farming.getPlotAction(p);
+        best = { kind: 'plot', id: p.id, label: a.label, enabled: a.enabled }; } }
+    const A = Scene.anchors, R = CONFIG.interaction.anchorRadius;
+    if (S.pendingSettlement && dist(pos, A.homeDoor) < R) best = { kind: 'settlement', label: '领结算', enabled: true };
+    else if (Sect.canPromote() && dist(pos, A.homeDoor) < 56) best = { kind: 'promote', label: '晋阶', enabled: true };
+    else if (dist(pos, A.homeDoor) < 56) best = { kind: 'sleep', label: '睡觉', enabled: true };
+    else if (dist(pos, A.forge) < R) best = { kind: 'forge', label: '淬炼', enabled: true };
+    else if (dist(pos, A.orderPoint) < 56) best = { kind: 'orders', label: '订单', enabled: true };
+    else if (dist(pos, A.recruitPoint) < 56) best = { kind: 'recruit', label: '招募', enabled: true };
+    else if (S.disciples.some(d => d.scenePresence === 'atGate') && dist(pos, A.gate) < R)
+      best = { kind: 'dispatchClaim', label: '领派遣', enabled: true };
+    else if (dist(pos, A.mineGate) < R) best = Scene.isLocked('mineZone')
+      ? { kind: 'mine', label: '扩建', enabled: true } : { kind: 'mine', label: '采矿', enabled: true };
+    if (best) return best;
+    for (const a of Npc.agents) if (dist(pos, a) < CONFIG.interaction.talkRadius)
+      return { kind: 'talk', id: a.discipleId, label: '聊聊', enabled: true };
+    return null;
+  },
+  performAction(){
+    const t = this.resolveTarget(Actor.getPlayerPos()); if (!t) return;
+    this.target = t;
+    if (t.kind === 'plot'){ const p = Farming.plotById(t.id);
+      Actor.playAction(!p ? 'hoe' : p.state === 'empty' ? 'hoe' : p.state === 'tilled' ? 'seed'
+        : p.state === 'seeded' ? 'water' : p.state === 'mature' ? 'harvest' : 'hoe');
+      Farming.applyPlotAction(t.id, { type: 'player', id: 'player' }); }
+    else if (t.kind === 'settlement') UI.openSettlementPanel();
+    else if (t.kind === 'promote') UI.openPromotePanel();
+    else if (t.kind === 'sleep') Day.sleep();
+    else if (t.kind === 'forge') UI.openStationPanel('forge');
+    else if (t.kind === 'orders') UI.openOrdersPanel();
+    else if (t.kind === 'recruit') UI.openRecruitPanel();
+    else if (t.kind === 'dispatchClaim'){ let n = 0;
+      for (const d of [...S.disciples]) if (Disciples.claimDispatch(d.id)) n++;
+      UI.hint(n ? '派遣交接完成，产物已入库（不可出售，只作生产原料）' : '暂无待交接的派遣'); }
+    else if (t.kind === 'mine'){ if (Scene.isLocked('mineZone')) UI.openMineUnlockPanel();
+      else UI.openStationPanel('mine'); }
+    else if (t.kind === 'talk'){ const a = Npc.agentOf(t.id);
+      if (a) Fx.floatText(a.x, a.y - 46, Disciples.talkLines[Math.floor(Math.random() * Disciples.talkLines.length)], '#ffffff'); }
+  },
+  openContextPanel(target){ this.performAction(); },
+  refreshButton(){
+    const pos = Actor.getPlayerPos();
+    const t = this.resolveTarget(pos), el = $('act');
+    const ICN = { sleep: 'sleep', settlement: 'coin', promote: 'promote', orders: 'order', recruit: 'recruit', dispatchClaim: 'dispatch' };
+    if (!t){ el.textContent = '…'; el.classList.add('off'); }
+    else { el.innerHTML = (ICN[t.kind] ? '<span class="icn icn-' + ICN[t.kind] + '"></span>' : '') + t.label;
+      el.classList.toggle('off', !t.enabled); }
+    this.target = t;
+    // 种子切换键：只在药圃附近出现（种高档作物需消耗下级产物，见 crops.inputs）
+    const sb = $('seedBtn');
+    const nearPlot = S.plots.some(p => dist(pos, Farming.center(p)) < 118);
+    sb.style.display = nearPlot ? '' : 'none';
+    if (nearPlot) sb.textContent = '种：' + (CONFIG.crops[S.farmMode] || CONFIG.crops.lingzhi).name;
+  },
+};
+
+/* ================================================================
+ * 模块：界面 UI（HUD 同步与面板骨架；数值只读账本/状态快照）
+ * ================================================================ */
+const UI = {
+  _lastCoin: 0, _hintTimer: 0,
+  hint(t){ const h = $('hint'); h.textContent = t; h.style.opacity = 1;
+    clearTimeout(this._hintTimer); this._hintTimer = setTimeout(() => h.style.opacity = 0, 2200); },
+  syncHud(){
+    $('day').textContent = S.day.dayIndex;
+    const coin = S.balances.coin || 0;
+    if (coin !== this._lastCoin){ Fx.countUp($('coin'), this._lastCoin, coin, 500); this._lastCoin = coin; }
+    $('herb').textContent = S.inventory.lingzhi || 0;
+    $('stamBar').style.width = clamp(S.day.stamina / CONFIG.stamina.max * 100, 0, 100) + '%';
+    $('pendChip').style.display = S.pendingSettlement ? '' : 'none';
+  },
+  openPanel(title, sub, rowsHtml, buttons){
+    const p = $('panel');
+    p.innerHTML = '<h3>' + title + '</h3><div class="sub">' + sub + '</div>' + rowsHtml +
+      (buttons || '') + '<button class="pbtn ghost" id="panelClose">关闭</button>';
+    $('panelWrap').classList.add('open');
+    $('panelClose').onclick = () => this.closePanel();
+    return p;
+  },
+  closePanel(){ $('panelWrap').classList.remove('open'); },
+  /* M3.5：图集图标（atlas_ground 精灵，CSS .icn 16px / .icnL 24px 两档尺寸） */
+  _icnMap: { coin: 'coin', lingzhi: 'lingzhi', ninglu: 'ninglu', xuanyu: 'xuanyu' },
+  icn(name, big){ return '<span class="' + (big ? 'icnL icnL-' : 'icn icn-') + name + '"></span>'; },
+  itemIcn(itemId){ const n = this._icnMap[itemId]; return n ? this.icn(n) : ''; },
+  costText(cost, withIcn){ const parts = [];
+    if (cost.coin) parts.push((withIcn ? this.icn('coin') : '') + '灵石×' + cost.coin);
+    for (const k in (cost.items || {})) parts.push((withIcn ? this.itemIcn(k) : '') + CONFIG.items[k].name + '×' + cost.items[k]);
+    return parts.join('、') || '免费'; },
+  fmtDur(ms){ if (ms <= 0) return '已到期';
+    const s = Math.ceil(ms / 1000);
+    if (s < 60) return s + ' 秒';
+    if (s < 3600) return Math.ceil(s / 60) + ' 分钟';
+    return (s / 3600).toFixed(1) + ' 小时'; },
+  needsText(needs, withIcn){ return Object.keys(needs).map(k =>
+    (withIcn ? this.itemIcn(k) : '') + CONFIG.items[k].name + '×' + needs[k] + '（有 ' + (S.inventory[k] || 0) + '）').join('、'); },
+  /* ---- 回归结算（E1 逐项播报＋B1 一键领取＋双倍广告同屏可选） ---- */
+  openSettlementPanel(){
+    const s = Offline.previewSettlement(); if (!s) return;
+    const due = Offline.dueDispatches();
+    let rows = '<div class="row"><span>离线产出（轨道一）</span><b>' + this.icn('coin') + '灵石 +' + s.track1.amount + '</b></div>';
+    if (s.earlyBonus > 0) rows += '<div class="row"><span>早归加成（8 小时内回归）</span><b>含 +' + s.earlyBonus + '</b></div>';
+    rows += due.length
+      ? due.map(d => '<div class="row"><span>派遣归来（轨道二）：' + d.name + '</span><span class="tag">去山门交接</span></div>').join('')
+      : '<div class="row"><span>弟子派遣（轨道二）</span><span class="tag grey">暂无到期</span></div>';
+    const mult = Ads.getRewardMultiplier();
+    this.openPanel('回归结算', '离线期间宗门持续运转，产出已封存待领。今日广告倍率：' +
+      (mult === 1 ? '满额' : mult === 0.5 ? '50%' : '已达上限'), rows,
+      '<button class="pbtn" id="btnClaim">一键领取</button>' +
+      '<button class="pbtn ghost" id="btnClaimAd">看广告双倍领取（另得 +' + Math.floor(s.track1.amount * mult) + '）</button>');
+    const fly = () => { const chip = $('coin').getBoundingClientRect(), door = Scene.getAnchor('homeDoor');
+      Fx.flyTo(door.x, door.y - 10, chip.left + chip.width / 2, chip.top + chip.height / 2,
+        { n: 10, sprite: 'coin', onArrive: () => Fx.shake(0.12) }); };
+    $('btnClaim').onclick = () => {
+      if (Offline.claimSettlement(s.id)){ fly(); this.closePanel(); this.syncHud(); } };
+    $('btnClaimAd').onclick = async (ev) => {
+      ev.target.disabled = true; ev.target.textContent = '广告播放中…';
+      const r = await Ads.requestReward('offline_double', { settlementId: s.id });
+      if (!r.ok){ this.hint('广告未完成，未发放双倍'); this.openSettlementPanel(); return; }
+      if (Offline.claimSettlement(s.id)){
+        const bonus = Ads.settleReward(r.id, s.track1.amount, 'ad_offline_double');
+        fly(); this.closePanel(); this.syncHud();
+        this.hint(bonus > 0 ? '双倍到账：另得灵石 +' + bonus : '今日广告收益已达上限，仅领取基础产出');
+      } else { // 已被其它路径领取：本笔广告按差量口径无可补，标记作废不计数
+        S.pendingAdRewards = S.pendingAdRewards.filter(e => e.id !== r.id); this.closePanel(); } };
+  },
+  /* ---- 工位面板（淬炼坊/矿脉共用）：配方开工＋工单收取＋广告加速 ---- */
+  openStationPanel(stationId){
+    const st = CONFIG.stations[stationId];
+    const jobs = S.jobs.filter(j => j.stationId === stationId && j.state !== 'done');
+    let rows = Production.listRecipes(stationId).map(r =>
+      '<div class="row"><span>' + r.name + '（档' + r.tier + ' · ' + this.fmtDur(Farming.tierDuration(r.tier)) + '）<br>' +
+      '<span class="mini">入：' + this.needsText(r.inputs, true) + ' → 出：' +
+      Object.keys(r.outputs).map(k => this.itemIcn(k) + CONFIG.items[k].name + '×' + r.outputs[k]).join('、') + '</span></span>' +
+      '<button class="act2" data-recipe="' + r.id + '">开工</button></div>').join('');
+    rows += jobs.map(j => { const r = Production.recipe(j.recipeId);
+      const left = j.readyAt - nowMs();
+      return '<div class="row"><span>' + r.name + ' · ' + (j.state === 'ready' ? '已完工待收取' : '剩 ' + this.fmtDur(left)) +
+        '</span>' + (j.state === 'ready'
+          ? '<button class="act2" data-collect="' + j.id + '">收取</button>'
+          : '<button class="act2 ghost2" data-speed="' + j.id + '">广告加速</button>') + '</div>'; }).join('');
+    if (!jobs.length && !rows) rows = '<div class="row"><span>暂无配方</span></div>';
+    this.openPanel(st.name, '工单按时间戳结算，离线照常推进；弟子（搬运）会自动收取到期工单', rows, '');
+    document.querySelectorAll('[data-recipe]').forEach(b => b.onclick = () => {
+      if (Production.startJob(b.dataset.recipe, { type: 'player', id: 'player' })) this.openStationPanel(stationId); });
+    document.querySelectorAll('[data-collect]').forEach(b => b.onclick = () => {
+      if (Production.collectJob(b.dataset.collect, { type: 'player', id: 'player' })) this.openStationPanel(stationId); });
+    document.querySelectorAll('[data-speed]').forEach(b => b.onclick = async (ev) => {
+      ev.target.disabled = true;
+      const r = await Ads.requestReward('job_speedup', { jobId: b.dataset.speed });
+      if (!r.ok){ this.hint('广告未完成'); return; }
+      const mult = Ads.settleEffect(r.id);
+      const j = S.jobs.find(x => x.id === b.dataset.speed);
+      if (j && j.state === 'running' && mult !== null){
+        if (mult === 0){ this.hint('今日广告收益已达上限，加速未生效'); }
+        else { j.readyAt = nowMs() + (j.readyAt - nowMs()) * (1 - mult);
+          Production.settleJobs(nowMs()); Save.save('job_speedup'); } }
+      this.openStationPanel(stationId); });
+  },
+  openMineUnlockPanel(){
+    const q = Sect.getUpgradeQuote('mineGate');
+    if (!q){ this.hint('后山矿口已开放'); return; }
+    this.openPanel('后山矿口', '矿脉是生产链的第四档：以灵露引动地脉，探采玄玉（需派遣带回的矿引）',
+      '<div class="row"><span>' + q.name + '</span><b>' + this.costText(q.cost, true) + '</b></div>' +
+      '<div class="row"><span>当前建设度</span><b>' + S.buildDegree + '</b></div>',
+      '<button class="pbtn" id="btnMineOpen">开辟矿口</button>');
+    $('btnMineOpen').onclick = () => { if (Sect.upgrade('mineGate')){ this.closePanel(); this.hint('后山矿口已开辟，去矿口开工'); } };
+  },
+  /* ---- 订单墙（三节奏实装） ---- */
+  openOrdersPanel(){
+    const list = Orders.listOrders();
+    const KIND = { daily: '日常单', timed: '定时单', rush: '急单' };
+    let rows = '<div class="row"><span class="mini">宗门传闻：' + (Events.getRumor() || '今日无事') + '</span></div>';
+    rows += list.length ? list.map(o =>
+      '<div class="row"><span><span class="tag' + (o.kind === 'rush' ? '' : ' grey') + '">' + KIND[o.kind] + '</span> ' +
+      this.needsText(o.needs, true) + '<br><span class="mini">奖励 ' + this.icn('coin') + '灵石 +' + o.reward +
+      (o.expiresAt ? ' · 剩 ' + this.fmtDur(o.expiresAt - nowMs()) : '') + '</span></span>' +
+      '<button class="act2" data-deliver="' + o.id + '"' + (Orders.canDeliver(o) ? '' : ' disabled') + '>交付</button></div>').join('')
+      : '<div class="row"><span>暂无订单，去生产些货物再来</span></div>';
+    this.openPanel(this.icn('order', true) + '订单墙', '急单限时高价；定时单每 4 小时换一批；交付不扣体力', rows,
+      '<button class="pbtn ghost" id="btnFreeRefresh">免费刷新日常单（剩 ' + S.ordersMeta.freeRefreshLeft + ' 次）</button>' +
+      '<button class="pbtn ghost" id="btnAdRefresh">看广告刷新订单</button>');
+    document.querySelectorAll('[data-deliver]').forEach(b => b.onclick = () => {
+      if (Orders.deliverOrder(b.dataset.deliver)) this.openOrdersPanel(); });
+    $('btnFreeRefresh').onclick = () => { if (Orders.refreshOrders('free')) this.openOrdersPanel(); };
+    $('btnAdRefresh').onclick = async (ev) => {
+      ev.target.disabled = true;
+      const r = await Ads.requestReward('order_refresh', {});
+      if (!r.ok){ this.hint('广告未完成'); this.openOrdersPanel(); return; }
+      const mult = Ads.settleEffect(r.id);
+      if (mult === 0){ this.hint('今日广告收益已达上限，刷新未生效'); this.openOrdersPanel(); return; }
+      if (Orders.refreshOrders('ad')) this.openOrdersPanel(); };
+  },
+  /* ---- 招贤点：招募实装＋新弟子卡 ---- */
+  openRecruitPanel(newId){
+    const G = CONFIG.discipleGen;
+    let rows = '<div class="row"><span>在册弟子</span><b>' + S.disciples.length + ' / ' + G.rosterCap + ' 人</b></div>' +
+      '<div class="row"><span>招募一位新弟子（随机资质/命格/来历）</span><b>' + this.icn('coin') + '灵石×' + G.recruitCost + '</b></div>';
+    const nd = newId ? Disciples.getDisciple(newId) : null;
+    if (nd) rows += '<div class="row"><span>新入山门：<b>' + nd.name + '</b>（' + nd.quality + '）<br><span class="mini">' +
+      nd.fates.map(f => f.name).join('、') + ' · ' + nd.originId + (nd.quirk ? '<br>' + nd.quirk : '') + '</span></span></div>';
+    const due = S.disciples.filter(d => d.scenePresence === 'atGate');
+    rows += due.map(d => '<div class="row"><span>' + d.name + ' 派遣归来，正在山门等候</span>' +
+      '<button class="act2" data-claim="' + d.id + '">交接</button></div>').join('');
+    this.openPanel('招贤点', '招募成功后弟子自山门入场；22h 派遣在弟子名册里发起', rows,
+      '<button class="pbtn" id="btnRecruit">' + this.icn('recruit') + '招募弟子</button>');
+    $('btnRecruit').onclick = () => { const d = Disciples.recruit(); if (d) this.openRecruitPanel(d.id); };
+    document.querySelectorAll('[data-claim]').forEach(b => b.onclick = () => {
+      if (Disciples.claimDispatch(b.dataset.claim)) this.openRecruitPanel(); });
+  },
+  /* ---- 弟子名册：派工/派遣/来历实装 ---- */
+  openDisciplesPanel(){
+    const destOpts = CONFIG.dispatch.dests.map(d => d.name + '→' + CONFIG.items[d.item].name).join(' / ');
+    const rows = S.disciples.map(d => {
+      let right = '';
+      if (d.scenePresence === 'dispatched'){
+        right = '<span class="tag grey">派遣中 · 剩 ' + this.fmtDur((d.dispatch ? d.dispatch.endsAt : 0) - nowMs()) + '</span>';
+      } else if (d.scenePresence === 'atGate'){
+        right = '<button class="act2" data-claim="' + d.id + '">交接派遣</button>';
+      } else {
+        right = '<button class="act2 ghost2" data-cycle="' + d.id + '">派工：' + (Disciples.JOB_LABEL[d.assignment] || d.assignment) + '</button> ' +
+          '<button class="act2" data-dispatch="' + d.id + '">' + this.icn('dispatch') + '派遣</button>';
+      }
+      return '<div class="row"><span><b>' + d.name + '</b> · ' + d.quality + ' · ' + d.personality + '<br>' +
+        '<span class="mini">命格：' + (d.fates.map(f => f.name).join('、') || '无') + '｜资质：' +
+        CONFIG.discipleGen.attrNames.map(a => a + (d.attrs[a] || 0)).join(' ') + '<br>来历：' + d.originId +
+        (d.quirk ? '<br>' + d.quirk : '') + '</span></span>' + right + '</div>';
+    }).join('');
+    this.openPanel(this.icn('disciple', true) + '弟子名册', '派工即时生效；派遣 22 小时，产物（' + destOpts + '）不可出售、只作生产启动材料', rows, '');
+    document.querySelectorAll('[data-cycle]').forEach(b => b.onclick = () => {
+      Disciples.cycleJob(b.dataset.cycle); this.openDisciplesPanel(); });
+    document.querySelectorAll('[data-claim]').forEach(b => b.onclick = () => {
+      if (Disciples.claimDispatch(b.dataset.claim)) this.openDisciplesPanel(); });
+    document.querySelectorAll('[data-dispatch]').forEach(b => b.onclick = () => this.openDispatchPanel(b.dataset.dispatch));
+  },
+  openDispatchPanel(discipleId){
+    const d = Disciples.getDisciple(discipleId); if (!d) return;
+    const rows = CONFIG.dispatch.dests.map(dest =>
+      '<div class="row"><span>' + dest.name + '<br><span class="mini">22 小时后带回 ' +
+      CONFIG.items[dest.item].name + '×' + dest.qty + '（不可出售）</span></span>' +
+      '<button class="act2" data-dest="' + dest.id + '">派出</button></div>').join('');
+    this.openPanel(this.icn('dispatch', true) + '派遣 · ' + d.name, '派遣期间弟子离场；到期后回山门等候交接', rows, '');
+    document.querySelectorAll('[data-dest]').forEach(b => b.onclick = () => {
+      if (Disciples.startDispatch(discipleId, b.dataset.dest)){ this.closePanel(); this.hint(d.name + ' 已下山历练，22 小时后回山门交接'); } });
+  },
+  /* ---- 双榜面板：规模榜（建设度）/效率榜（日均经营入账）；失败只改文案不挡游玩 ---- */
+  _lbKind: 'scale',
+  lbEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+  openBoardPanel(){
+    const kind = this._lbKind;
+    const remote = !!CONFIG.leaderboard.apiBase;
+    const rows = '<div class="lb-tabs">' +
+      '<button class="lb-tab' + (kind === 'scale' ? ' active' : '') + '" data-lb="scale">规模榜</button>' +
+      '<button class="lb-tab' + (kind === 'efficiency' ? ' active' : '') + '" data-lb="efficiency">效率榜</button></div>' +
+      '<div class="mini" id="lbStatus">正在读取榜单…</div><div id="lbList"></div><div class="lb-mine" id="lbMine"></div>';
+    this.openPanel(this.icn('board', true) + '宗门双榜', kind === 'scale'
+      ? '规模榜：比宗门总建设度——建筑越兴旺，名次越高。'
+      : '效率榜：比日均经营入账（只算订单交付所得，系统赠予与离线产出不计）——贵在细水长流。', rows, '');
+    document.querySelectorAll('[data-lb]').forEach(b => b.onclick = () => {
+      this._lbKind = b.dataset.lb; this.openBoardPanel(); });
+    this._renderBoard(kind);                       // 先用缓存渲染，不空等
+    Leaderboard.reportScore(true).then(() => Leaderboard.fetchBoards()).then(res => {
+      if ($('panelWrap').classList.contains('open') && $('lbList')) this._renderBoard(this._lbKind, !!(res && res.ok));
+    });
+    if (!remote) Leaderboard._local();             // 确保本地适配层种子已建（状态行口径用）
+  },
+  async _renderBoard(kind, fresh){
+    const listEl = $('lbList'), st = $('lbStatus'), mineEl = $('lbMine');
+    if (!listEl) return;
+    const entries = Leaderboard.getBoard(kind);
+    const unit = kind === 'scale' ? '建设度 ' : '日均入账 ';
+    const medal = r => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : r;
+    const rowHTML = r =>
+      '<div class="lb-row' + (r.isCurrent ? ' me' : '') + (r.rank <= 3 ? ' top' + r.rank : '') + '">' +
+      '<span class="lb-rank">' + medal(r.rank) + '</span>' +
+      (r.avatar ? '<img class="lb-ava" src="' + this.lbEsc(r.avatar) + '" alt="" loading="lazy">'
+        : '<span class="lb-ava ph">' + this.lbEsc(String(r.displayName || '客').slice(0, 1)) + '</span>') +
+      '<span class="lb-name">' + this.lbEsc(r.displayName || '虎扑用户') + (r.isCurrent ? '（我）' : '') + '</span>' +
+      '<span class="lb-val">' + unit + (r.score || 0) + '</span></div>';
+    listEl.innerHTML = entries.length ? entries.map(rowHTML).join('')
+      : '<div class="row"><span>暂无数据，先把宗门经营起来再开榜。</span></div>';
+    if (st) st.textContent = CONFIG.leaderboard.apiBase
+      ? (fresh ? '全服数据已更新。' : '先看上次同步的数据，正在刷新…')
+      : '当前为本地榜单（与同道种子数据同榜）；平台榜单接入后自动切换全服数据。';
+    const me = await Leaderboard.myRank(kind);
+    if (!mineEl || !$('panelWrap').classList.contains('open')) return;
+    const cur = Leaderboard.metrics()[kind];
+    if (me && me.rank) mineEl.textContent = '我的名次：第 ' + me.rank + ' 名 · 当前' + unit + cur +
+      (me.rank === 1 ? ' · 暂居榜首' : '');
+    else mineEl.textContent = '我还没上榜——' + (kind === 'scale' ? '扩建建筑涨建设度即可上榜。' : '交付订单积累经营入账即可上榜。');
+  },
+  /* ---- 宗门面板：建设度/品级/扩建 ---- */
+  openSectPanel(){
+    const next = Sect.nextRank();
+    let rows = '<div class="row"><span>宗门品级</span><b>' + CONFIG.ranks[S.sectRank].name + '</b></div>' +
+      '<div class="row"><span>建设度</span><b>' + S.buildDegree + (next ? '（晋阶需 ' + next.need + '）' : '（已臻顶峰）') + '</b></div>';
+    rows += S.buildings.map(b => { const q = Sect.getUpgradeQuote(b.id);
+      return '<div class="row"><span>' + b.name + ' · ' + b.level + ' 级</span>' +
+        (q ? '<button class="act2" data-up="' + b.id + '">' + this.icn('expand') + '扩建 ' + this.costText(q.cost, true) + '</button>'
+           : '<span class="tag grey">已满级</span>') + '</div>'; }).join('');
+    if (!S.unlockedZones.includes('mineZone')){
+      const q = Sect.getUpgradeQuote('mineGate');
+      rows += '<div class="row"><span>后山矿口 · 未开辟</span><button class="act2" data-up="mineGate">' + this.icn('build') + '开辟 ' +
+        this.costText(q.cost, true) + '</button></div>';
+    }
+    rows += '<div class="row"><span class="mini">重修一世（转生）：未开放，二期再议。当前轮次记录 ' + (S.prestigeCount || 0) + '。</span></div>';
+    this.openPanel(this.icn('promote', true) + '宗门', '扩建即时改变场景与离线产率；晋阶去掌门居门前举行仪式', rows,
+      Sect.canPromote() ? '<button class="pbtn" id="btnGoPromote">' + this.icn('promote') + '建设度已够，去门前晋阶</button>' : '');
+    document.querySelectorAll('[data-up]').forEach(b => b.onclick = () => {
+      if (Sect.upgrade(b.dataset.up)) this.openSectPanel(); });
+    const bp = $('btnGoPromote');
+    if (bp) bp.onclick = () => { this.closePanel(); this.hint('回掌门居门前，点「晋阶」举行仪式'); };
+  },
+  /* ---- 晋阶仪式半屏（E 厚涂封面位占位）＋可选双倍广告同屏 ---- */
+  openPromotePanel(){
+    const next = Sect.nextRank(); if (!next || !Sect.canPromote()){ this.hint('建设度还不够晋阶'); return; }
+    const reward = CONFIG.promoteRewardBase * (S.sectRank + 2);
+    const rows = '<div class="cover"></div>' +
+      '<div class="row"><span>当前品级</span><b>' + CONFIG.ranks[S.sectRank].name + '</b></div>' +
+      '<div class="row"><span>晋阶之后</span><b>' + next.name + '</b></div>' +
+      '<div class="row"><span>晋阶礼金</span><b>' + this.icn('coin') + '灵石 +' + reward + '</b></div>' +
+      '<div class="row"><span>离线产率随之提升</span><span class="tag">建设度 ' + S.buildDegree + '</span></div>';
+    this.openPanel('宗门晋阶', '仪式由你亲手触发；可看广告令礼金翻倍（同屏可选）', rows,
+      '<button class="pbtn" id="btnPromote">举行晋阶仪式</button>' +
+      '<button class="pbtn ghost" id="btnPromoteAd">看广告双倍礼金（+' + Math.floor(reward * Ads.getRewardMultiplier()) + '）</button>');
+    const ceremony = (rw) => { const door = Scene.getAnchor('homeDoor');
+      Fx.bolt(door.x - 60, 60, door.x, door.y - 20); Fx.bolt(door.x + 70, 50, door.x, door.y - 20);
+      Fx.stream(door.x, door.y - 10, { rate: 26, sprites: ['mote'], vy: -0.9, spread: 46, life: 1500, size: 3.4 });
+      Fx.flash(0.3, '#ffeeb0'); Fx.shake(0.3);
+      Fx.floatText(door.x, door.y - 70, '晋阶 · ' + CONFIG.ranks[S.sectRank].name, '#ffcf5e');
+      this.closePanel(); this.hint('晋阶礼金到账：灵石 +' + rw); };
+    $('btnPromote').onclick = () => { const rw = Sect.promote(false); if (rw) ceremony(rw); };
+    $('btnPromoteAd').onclick = async (ev) => {
+      ev.target.disabled = true;
+      const r = await Ads.requestReward('promote_double', {});
+      if (!r.ok){ this.hint('广告未完成，按普通仪式进行'); return; }
+      const mult = Ads.settleEffect(r.id);
+      const rw = Sect.promote(mult === 1);
+      if (rw) ceremony(rw); };
+  },
+  /* ---- 日常面板：短清单＋签到＋周挑战 ---- */
+  openRoutinePanel(){
+    const list = Events.getDailyChecklist();
+    const doneN = list.filter(c => c.done).length;
+    let rows = list.map(c => '<div class="row"><span>' + (c.done ? '✓ ' : '· ') + c.name + '</span>' +
+      (c.done ? '<span class="tag">已完成</span>' : '<span class="tag grey">未完成</span>') + '</div>').join('');
+    rows += '<div class="row"><span>今日进度 ' + doneN + ' / ' + list.length +
+      (doneN === list.length ? ' · 今日已毕业' : '') + '</span></div>';
+    rows += '<div class="row"><span>' + this.icn('stamina') + '体力 ' + Math.floor(S.day.stamina) + ' / ' + CONFIG.stamina.max + '（' + this.icn('sleep') + '睡觉/离线可恢复）</span>' +
+      '<button class="act2 ghost2" id="btnStamAd">广告补体力</button></div>';
+    const canSign = S.routine.signIn.lastDate !== Day.getDailyKey();
+    rows += '<div class="row"><span>' + this.icn('signin') + '每日签到（连签 ' + S.routine.signIn.streak + ' 天，断签不清零）</span>' +
+      (canSign ? '<button class="act2" id="btnSign">签到</button>' : '<span class="tag">今日已签</span>') + '</div>';
+    Events.ensureWeekly();
+    rows += CONFIG.routine.weeklyChallenges.map((c, i) => {
+      const p = S.routine.weekly.progress[c.kind] || 0, claimed = S.routine.weekly.claimed.includes(i);
+      return '<div class="row"><span>周挑战：' + c.name + ' ' + Math.min(p, c.need) + '/' + c.need + '</span>' +
+        (claimed ? '<span class="tag">已领奖</span>'
+          : p >= c.need ? '<button class="act2" data-week="' + i + '">领 ' + this.icn('coin') + '灵石+' + c.reward + '</button>'
+          : '<span class="tag grey">进行中</span>') + '</div>'; }).join('');
+    this.openPanel(this.icn('signin', true) + '日常', '每日短清单 5 项、十分钟毕业；签到与周挑战都是填充，不逼肝', rows, '');
+    const bs = $('btnSign');
+    if (bs) bs.onclick = () => { const rw = Events.claimSignIn();
+      if (rw){ this.hint('签到到账：灵石 +' + rw); this.openRoutinePanel(); } };
+    $('btnStamAd').onclick = async (ev) => {
+      ev.target.disabled = true;
+      const r = await Ads.requestReward('stamina_refill', {});
+      if (!r.ok){ this.hint('广告未完成'); this.openRoutinePanel(); return; }
+      const mult = Ads.settleEffect(r.id);
+      if (mult === null || mult === 0){ this.hint('今日广告收益已达上限，体力未补充'); }
+      else { Day.restoreStamina(Math.floor(CONFIG.ads.staminaRefill * mult), 'ad');
+        this.hint('体力 +' + Math.floor(CONFIG.ads.staminaRefill * mult)); }
+      this.openRoutinePanel(); };
+    document.querySelectorAll('[data-week]').forEach(b => b.onclick = () => {
+      if (Events.claimWeekly(+b.dataset.week)) this.openRoutinePanel(); });
+  },
+  /* ---- 图鉴（最低成本版） ---- */
+  openCodexPanel(){
+    const list = Codex.list();
+    const rows = list.map(it => '<div class="row"><span>' + (it.seen ? this.itemIcn(it.id) + it.name : '？？？') +
+      (it.seen && !it.sellable ? ' <span class="tag grey">不可出售</span>' : '') + '</span>' +
+      '<b>' + (it.seen ? '库存 ' + it.qty : '未获得') + '</b></div>').join('');
+    this.openPanel(this.icn('bag', true) + '图鉴', '收集进度 ' + list.filter(i => i.seen).length + ' / ' + list.length + '（不可出售的为派遣带回的启动材料）', rows, '');
+  },
+  /* ---- 打脸事件面板（C5：数字读账本，点收下才发奖） ---- */
+  openFacePanel(ev){
+    const text = ev.text.replace('{earned}', String(S.stats.earnedCoin || 0));
+    this.openPanel('山门来客', '宗门声名在外，来客带着贺礼', 
+      '<div class="row"><span style="line-height:1.7">' + text + '</span></div>' +
+      '<div class="row"><span>贺礼</span><b>' + this.icn('coin') + '灵石 +' + ev.reward + '</b></div>',
+      '<button class="pbtn" id="btnFace">收下贺礼</button>');
+    $('btnFace').onclick = () => { if (Events.claimFaceEvent()){ this.closePanel(); this.hint('贺礼已入库'); } };
+  },
+};
+
+
+/* ================================================================
+ * 模块：美术资源 art（M3 新增）
+ * 职责：图集装载、帧表查询、弟子袍色染色、E 封面图位。
+ * 降级：任一图集加载失败 → Art.ready 恒 false，Render 全量回退 M1/M2 程序占位绘制，不白屏。
+ * 帧朝向映射（逐帧目检结论，2026-11-07，详见 assets/ORIENTATION-map.md）：
+ *   master walk: 01/02=front、03/04/05=side(原生左)；backwalk: 02=back、05=back34、01=front34、03/04=side(原生右)
+ *   master hoe/water: 全 front；chr_master_side=原生左。
+ *   male walk: 01/03/04/05=side(原生右)、02=back；male water/carry=side(原生右)；male harvest=front；chr_male_side=原生右。
+ *   右向一律由原生左帧镜像、左向由原生右帧镜像。
+ * ================================================================ */
+const Art = {
+  ready: false, failed: false, imgs: {}, F: {}, tintCache: {},
+  RECTS: {"chars":{"chr_master_front_v1.png":[0,0,96,144],"chr_master_side34_v1.png":[96,0,96,144],"chr_master_side_v1.png":[192,0,96,144],"chr_master_back_v1.png":[288,0,96,144],"chr_male_front_v1.png":[384,0,96,144],"chr_male_side_v1.png":[480,0,96,144],"chr_male_back_v1.png":[576,0,96,144],"chr_male_back2_v1.png":[0,144,96,144],"chr_female_front_v1.png":[96,144,96,144],"chr_female_side34_v1.png":[192,144,96,144],"chr_female_side_v1.png":[288,144,96,144],"chr_female_back_v1.png":[384,144,96,144],"chr_female2_front_v1.png":[480,144,96,144],"chr_female2_side34_v1.png":[576,144,96,144],"chr_female2_side_v1.png":[0,288,96,144],"chr_female2_back_v1.png":[96,288,96,144],"frm_master_walk_01_v1.png":[192,288,96,144],"frm_master_walk_02_v1.png":[288,288,96,144],"frm_master_walk_03_v1.png":[384,288,96,144],"frm_master_walk_04_v1.png":[480,288,96,144],"frm_master_walk_05_v1.png":[576,288,96,144],"frm_master_hoe_01_v1.png":[0,432,96,144],"frm_master_hoe_02_v1.png":[96,432,96,144],"frm_master_hoe_03_v1.png":[192,432,96,144],"frm_master_water_01_v1.png":[288,432,96,144],"frm_master_water_02_v1.png":[384,432,96,144],"frm_master_water_03_v1.png":[480,432,96,144],"frm_master_backwalk_01_v1.png":[576,432,96,144],"frm_master_backwalk_02_v1.png":[0,576,96,144],"frm_master_backwalk_03_v1.png":[96,576,96,144],"frm_master_backwalk_04_v1.png":[192,576,96,144],"frm_master_backwalk_05_v1.png":[288,576,96,144],"frm_male_harvest_01_v1.png":[384,576,96,144],"frm_male_harvest_02_v1.png":[480,576,96,144],"frm_male_harvest_03_v1.png":[576,576,96,144],"frm_male_water_01_v1.png":[0,720,96,144],"frm_male_water_02_v1.png":[96,720,96,144],"frm_male_water_03_v1.png":[192,720,96,144],"frm_male_walk_01_v1.png":[288,720,96,144],"frm_male_walk_02_v1.png":[384,720,96,144],"frm_male_walk_03_v1.png":[480,720,96,144],"frm_male_walk_04_v1.png":[576,720,96,144],"frm_male_walk_05_v1.png":[0,864,96,144],"frm_male_carry_01_v1.png":[96,864,96,144],"frm_male_carry_02_v1.png":[192,864,96,144],"frm_male_carry_03_v1.png":[288,864,96,144],"frm_female_basket_01_v1.png":[384,864,96,144],"frm_female_basket_02_v1.png":[480,864,96,144],"frm_female_basket_03_v1.png":[576,864,96,144]},"scene":{"bld_hall_v1.png":[0,0,302,222],"bld_forge_v1.png":[302,0,235,217],"bld_quarters_v1.png":[537,0,241,194],"bld_gate_v1.png":[0,222,290,195],"bld_stall_v1.png":[290,222,269,199],"bld_waterwheel_v1.png":[559,222,208,196],"crop_lingzhi_s1_v1.png":[767,222,112,73],"crop_lingzhi_s2_v1.png":[879,222,109,77],"crop_lingzhi_s3_v1.png":[0,421,110,77],"crop_lingzhi_s4_v1.png":[110,421,110,77],"crop_lingzhi_s5_v1.png":[220,421,111,77],"crop_ninglu_s1_v1.png":[331,421,112,75],"crop_ninglu_s2_v1.png":[443,421,111,82],"crop_ninglu_s3_v1.png":[554,421,109,81],"crop_ninglu_s4_v1.png":[663,421,109,89],"crop_ninglu_s5_v1.png":[772,421,110,90],"crop_xuanyu_s1_v1.png":[882,421,112,74],"crop_xuanyu_s2_v1.png":[0,511,111,74],"crop_xuanyu_s3_v1.png":[111,511,111,85],"crop_xuanyu_s4_v1.png":[222,511,111,96],"crop_xuanyu_s5_v1.png":[333,511,111,98],"tile_soil_v1.png":[444,511,107,73]},"ground":{"gnd_grass_a_v1.png":[2,2,160,160],"gnd_grass_b_v1.png":[164,2,160,160],"gnd_stone_v1.png":[326,2,160,160],"gnd_dirt_v1.png":[488,2,160,160],"gnd_roadedge_v1.png":[650,2,48,176],"gnd_water_v1.png":[700,2,160,160],"gnd_shore_v1.png":[862,2,160,134],"gnd_steps_v1.png":[2,180,184,168],"icn_coin_v1.png":[188,180,96,96],"icn_lingzhi_v1.png":[286,180,96,96],"icn_ninglu_v1.png":[384,180,96,96],"icn_xuanyu_v1.png":[482,180,96,96],"icn_stamina_v1.png":[580,180,96,96],"icn_build_v1.png":[678,180,96,96],"icn_disciple_v1.png":[776,180,96,96],"icn_order_v1.png":[874,180,96,96],"icn_signin_v1.png":[972,180,96,96],"icn_board_v1.png":[2,350,96,96],"icn_dispatch_v1.png":[100,350,96,96],"icn_recruit_v1.png":[198,350,96,96],"icn_expand_v1.png":[296,350,96,96],"icn_promote_v1.png":[394,350,96,96],"icn_sleep_v1.png":[492,350,96,96],"icn_bag_v1.png":[590,350,96,96],"fx_splash_1_v1.png":[688,350,147,89],"fx_splash_2_v1.png":[837,350,146,89],"fx_splash_3_v1.png":[2,448,148,90],"fx_splash_4_v1.png":[152,448,149,90],"fx_petal_1_v1.png":[303,448,56,40],"fx_petal_2_v1.png":[361,448,54,33],"fx_petal_3_v1.png":[417,448,35,34],"fx_petal_4_v1.png":[454,448,29,31],"fx_petal_5_v1.png":[485,448,33,28],"fx_petal_6_v1.png":[520,448,31,23],"fx_petal_7_v1.png":[553,448,27,16],"fx_leaf_1_v1.png":[582,448,70,42],"fx_leaf_2_v1.png":[654,448,62,60],"fx_leaf_3_v1.png":[718,448,56,35],"fx_leaf_4_v1.png":[776,448,52,42],"fx_leaf_5_v1.png":[830,448,55,41],"fx_leaf_6_v1.png":[887,448,58,39],"fx_leaf_7_v1.png":[947,448,48,38],"fx_leaf_8_v1.png":[997,448,34,29],"fx_wheel_v1.png":[2,540,256,256],"prop_scale_v1.png":[260,540,200,200]}},
+  load(){
+    const jobs = [['chars', 'assets/atlas_characters_v1.png'], ['scene', 'assets/atlas_scene_v1.png'], ['ground', 'assets/atlas_ground_v1.png']];
+    let ok = 0;
+    for (const [k, src] of jobs){ const im = new Image();
+      im.onload = () => { this.imgs[k] = im; if (++ok === jobs.length) this._build(); };
+      im.onerror = () => { this.failed = true; console.warn('[art] atlas load failed:', src); };
+      im.src = src; }
+  },
+  _build(){
+    for (const k of Object.keys(this.RECTS))
+      for (const name of Object.keys(this.RECTS[k])){ const r = this.RECTS[k][name];
+        this.F[name] = { img: this.imgs[k], x: r[0], y: r[1], w: r[2], h: r[3] }; }
+    this.ready = true;
+    if (typeof Scene !== 'undefined') Scene._prerenderStatic();   // M3.5：地面贴图就绪后重绘静态层
+    if (typeof Fx !== 'undefined' && Fx.attachGroundFx) Fx.attachGroundFx();
+  },
+  draw(g, name, dx, dy, dw, dh, flip){
+    const f = this.F[name]; if (!f) return false;
+    if (flip){ g.save(); g.translate(Math.round(dx + dw), Math.round(dy)); g.scale(-1, 1);
+      g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, dw, dh); g.restore(); }
+    else g.drawImage(f.img, f.x, f.y, f.w, f.h, Math.round(dx), Math.round(dy), dw, dh);
+    return true;
+  },
+  drawTinted(g, name, color, dx, dy, dw, dh, flip){
+    const c = this.tinted(name, color); if (!c) return false;
+    if (flip){ g.save(); g.translate(Math.round(dx + dw), Math.round(dy)); g.scale(-1, 1);
+      g.drawImage(c, 0, 0, dw, dh); g.restore(); }
+    else g.drawImage(c, Math.round(dx), Math.round(dy), dw, dh);
+    return true;
+  },
+  /* M3.5：帧裁切为独立 canvas（Fx 环境粒子贴图用）；padSquare 时补成正方形防绘制拉伸 */
+  cropCanvas(name, padSquare){
+    const f = this.F[name]; if (!f) return null;
+    const c = document.createElement('canvas');
+    if (padSquare){ const sz = Math.max(f.w, f.h); c.width = c.height = sz;
+      c.getContext('2d').drawImage(f.img, f.x, f.y, f.w, f.h, (sz - f.w) / 2, (sz - f.h) / 2, f.w, f.h); }
+    else { c.width = f.w; c.height = f.h;
+      c.getContext('2d').drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h); }
+    return c;
+  },
+  /* M3.5：精灵 alpha 包围盒（中心/半徑，分数坐标），供水车轮体对位旋转 */
+  _metaCache: {},
+  spriteMeta(name){
+    if (this._metaCache[name]) return this._metaCache[name];
+    const c = this.cropCanvas(name); if (!c) return null;
+    let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
+    try { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++)
+        if (d[(y * c.width + x) * 4 + 3] > 12){ if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y; }
+    } catch (err) { minX = 0; minY = 0; maxX = c.width - 1; maxY = c.height - 1; }
+    if (maxX < 0){ minX = 0; minY = 0; maxX = c.width - 1; maxY = c.height - 1; }
+    const m = { canvas: c, cx: (minX + maxX) / 2 / c.width, cy: (minY + maxY) / 2 / c.height,
+      rw: (maxX - minX) / 2 / c.width, rh: (maxY - minY) / 2 / c.height };
+    this._metaCache[name] = m; return m;
+  },
+  /* 袍色染色：只染蓝灰袍色域（b>=r+6、低饱和、中亮度），肤/发/金饰/水壶不染；明暗由原像素亮度比保留 */
+  tinted(name, color){
+    const key = name + '|' + color;
+    if (this.tintCache[key]) return this.tintCache[key];
+    const f = this.F[name]; if (!f) return null;
+    const c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+    const g = c.getContext('2d');
+    g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+    try {
+      const id = g.getImageData(0, 0, f.w, f.h), d = id.data;
+      const t = [parseInt(color.slice(1, 3), 16), parseInt(color.slice(3, 5), 16), parseInt(color.slice(5, 7), 16)];
+      for (let i = 0; i < d.length; i += 4){
+        if (!d[i + 3]) continue;
+        const r = d[i], gg = d[i + 1], b = d[i + 2];
+        const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), lum = (r + gg + b) / 3;
+        if (b >= r + 6 && mx - mn < 85 && lum > 65 && lum < 238){
+          const k = lum / 175;
+          d[i] = Math.min(255, t[0] * k); d[i + 1] = Math.min(255, t[1] * k); d[i + 2] = Math.min(255, t[2] * k);
+        }
+      }
+      g.putImageData(id, 0, 0);
+    } catch (err) { /* 个别环境禁读像素时退化为不染色，不阻断渲染 */ }
+    this.tintCache[key] = c; return c;
+  },
+};
+
+/* ================================================================
+ * 渲染（像素占位精灵：精灵图离屏预渲染，按像素网格绘制、关平滑）
+ * ================================================================ */
+const Render = {
+  cv: null, ctx: null, sprites: {},
+  PERSON_ROWS: [
+    '.....hhhh.....', '....hhhhhh....', '....hssssh....', '....sesses....', '....ssssss....',
+    '...rrrrrrrr...', '..rrrrrrrrrr..', '..rRrrrrrrRr..', '..rRrbbbbrRr..', '...rrrrrrrr...',
+    '...rrrrrrrr...', '...rrr..rrr...', '...fff..fff...',
+  ],
+  PERSON_ROWS_B: null,
+  init(){
+    this.cv = $('game'); this.ctx = this.cv.getContext('2d');
+    this.ctx.imageSmoothingEnabled = false;
+    this.PERSON_ROWS_B = this.PERSON_ROWS.slice(0, 11).concat(['....rr..rr....', '....ff..ff....']);
+    const resize = () => { this.cv.width = innerWidth; this.cv.height = innerHeight;
+      this.ctx.imageSmoothingEnabled = false; };
+    addEventListener('resize', resize); resize();
+  },
+  personSprite(robe){
+    if (this.sprites[robe]) return this.sprites[robe];
+    const mk = (rows) => { const B = 3, c = document.createElement('canvas');
+      c.width = 14 * B; c.height = 13 * B; const g = c.getContext('2d');
+      const pal = { h: '#2e2a26', s: '#f0c8a0', e: '#26302a', r: robe, R: '#00000033', b: '#c9a86a', f: '#4a3b2c' };
+      rows.forEach((row, y) => { for (let x = 0; x < row.length; x++){ const ch = row[x];
+        if (ch === '.') continue; g.fillStyle = pal[ch] || '#f0f'; g.fillRect(x * B, y * B, B, B); } });
+      // R 阴影色需按袍色压暗：以半透明黑块近似（占位）
+      return c; };
+    const sp = { a: mk(this.PERSON_ROWS), b: mk(this.PERSON_ROWS_B) };
+    this.sprites[robe] = sp; return sp;
+  },
+  /* M3：图集角色绘制。动画源：animState（idle/walk/action:*）＋NPC 工种；
+     朝向由渲染层位移跟踪判定（front/back/side），不改逻辑模块。 */
+  _dirs: null,
+  _dirOf(e, key){
+    if (!this._dirs) this._dirs = new Map();
+    let s = this._dirs.get(key);
+    if (!s){ s = { dir: 'front', face: e.facing || 1, px: e.x, py: e.y }; this._dirs.set(key, s); }
+    const dx = e.x - s.px, dy = e.y - s.py; s.px = e.x; s.py = e.y;
+    if (Math.abs(dx) + Math.abs(dy) > 0.35){
+      if (Math.abs(dy) > Math.abs(dx) * 1.25) s.dir = dy > 0 ? 'front' : 'back';
+      else { s.dir = 'side'; if (Math.abs(dx) > 0.15) s.face = dx > 0 ? 1 : -1; }
+    }
+    return s;
+  },
+  drawPerson(e, disciple, isPlayer){
+    if (!Art.ready){ this._drawPersonOld(e, isPlayer ? '#8c2f22' : (disciple ? disciple.appearanceSeed : '#666'), isPlayer); return; }
+    const g = this.ctx, cam = Scene.camera, now = performance.now();
+    const st = this._dirOf(e, isPlayer ? 'player' : e.discipleId);
+    const robe = disciple ? disciple.appearanceSeed : null;
+    const DW = 64, DH = 96, FEET = 92;   // 帧 96×144 显示 64×96，脚底基线 138/144 → 92
+    let name = null, flip = false, tint = null;
+    const cyc = (arr, ms) => arr[Math.floor(now / ms) % arr.length];
+    let act = null;
+    if (isPlayer && e.animState && e.animState.indexOf('action:') === 0 && nowMs() < e.actionUntil) act = e.animState.slice(7);
+    else if (!isPlayer && disciple && e.navState === 'work' && disciple.assignment === 'water') act = 'water';
+    else if (!isPlayer && disciple && disciple.assignment === 'carry' && (e.navState === 'walkTo' || e.navState === 'work')) act = 'carry';
+    if (act){
+      if (isPlayer){
+        if (act === 'hoe') name = cyc(['frm_master_hoe_01_v1.png', 'frm_master_hoe_02_v1.png', 'frm_master_hoe_03_v1.png'], 110);
+        else if (act === 'water') name = cyc(['frm_master_water_01_v1.png', 'frm_master_water_02_v1.png', 'frm_master_water_03_v1.png'], 110);
+        else { name = cyc(['frm_male_harvest_01_v1.png', 'frm_male_harvest_02_v1.png', 'frm_male_harvest_03_v1.png'], 110); tint = '#2e3d5c'; }
+      } else if (act === 'water'){ name = cyc(['frm_male_water_01_v1.png', 'frm_male_water_02_v1.png', 'frm_male_water_03_v1.png'], 160); tint = robe; flip = st.face < 0; }
+      else if (act === 'carry'){ name = cyc(['frm_male_carry_01_v1.png', 'frm_male_carry_02_v1.png', 'frm_male_carry_03_v1.png'], 150); tint = robe; flip = st.face < 0; }
+    }
+    if (!name){
+      if (e.moving){
+        if (st.dir === 'front'){
+          if (isPlayer) name = cyc(['frm_master_walk_01_v1.png', 'frm_master_walk_02_v1.png'], 150);
+          else { name = 'chr_male_front_v1.png'; tint = robe; }
+        } else if (st.dir === 'back'){
+          if (isPlayer) name = cyc(['frm_master_backwalk_02_v1.png', 'chr_master_back_v1.png'], 170);
+          else { name = cyc(['frm_male_walk_02_v1.png', 'chr_male_back_v1.png'], 170); tint = robe; }
+        } else if (isPlayer){ name = cyc(['frm_master_walk_03_v1.png', 'frm_master_walk_04_v1.png', 'frm_master_walk_05_v1.png'], 130); flip = st.face > 0; }
+        else { name = cyc(['frm_male_walk_01_v1.png', 'frm_male_walk_03_v1.png', 'frm_male_walk_04_v1.png', 'frm_male_walk_05_v1.png'], 130); tint = robe; flip = st.face < 0; }
+      } else if (st.dir === 'back'){ name = isPlayer ? 'chr_master_back_v1.png' : 'chr_male_back_v1.png'; if (!isPlayer) tint = robe; }
+      else if (st.dir === 'side'){
+        if (isPlayer){ name = 'chr_master_side_v1.png'; flip = st.face > 0; }
+        else { name = 'chr_male_side_v1.png'; tint = robe; flip = st.face < 0; }
+      } else { name = isPlayer ? 'chr_master_front_v1.png' : 'chr_male_front_v1.png'; if (!isPlayer) tint = robe; }
+    }
+    const bob = e.moving ? Math.abs(Math.sin(now / 130)) * 2.2 : Math.sin(now / 620 + (e.phase || 0)) * 1.1; // 待机呼吸＝代码 bob（决策 1）
+    const dx = e.x - cam.x - DW / 2, dy = e.y - cam.y - FEET - bob;
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(Math.round(e.x - cam.x - 14), Math.round(e.y - cam.y + 1), 28, 6);
+    if (tint) Art.drawTinted(g, name, tint, dx, dy, DW, DH, flip);
+    else Art.draw(g, name, dx, dy, DW, DH, flip);
+  },
+  _drawPersonOld(e, robe, isPlayer){
+    const g = this.ctx, sp = this.personSprite(robe), cam = Scene.camera;
+    const walking = e.moving, img = walking && Math.floor(e.walk * 2) % 2 ? sp.b : sp.a;
+    const bob = walking ? Math.abs(Math.sin(e.walk)) * 2 : Math.sin(performance.now() / 600 + (e.phase || 0)) * 0.7;
+    const x = Math.round(e.x - cam.x - 21), y = Math.round(e.y - cam.y - 37 - bob);
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(Math.round(e.x - cam.x - 12), Math.round(e.y - cam.y + 2), 24, 6);
+    g.save();
+    if (e.facing < 0){ g.translate(x + 42, y); g.scale(-1, 1); g.drawImage(img, 0, 0); }
+    else g.drawImage(img, x, y);
+    g.restore();
+    if (isPlayer){ g.fillStyle = '#c9a86a'; g.fillRect(Math.round(e.x - cam.x - 13), Math.round(e.y - cam.y - 40 - bob), 26, 4);
+      g.fillRect(Math.round(e.x - cam.x - 3), Math.round(e.y - cam.y - 45 - bob), 6, 5); }
+  },
+  /* M3.5：水车轮体旋转叠加层。烤制图轮心/轮辋按 bld_waterwheel 单体目检对位：
+     轮心 (77,118)/208×196、轮辋半径约 59 → 映射到绘制框 (16,430,180,170) 得轮心 (82.6,532.3)、R≈51。
+     新轮为正视圆轮，纵向压 0.977 近似原图透视；转速 10 秒/圈（慢转）。 */
+  _drawWheelOverlay(g, cam){
+    const m = Art.spriteMeta('fx_wheel_v1.png'); if (!m) return;
+    const cx = 16 + 77 * (180 / 208) - cam.x, cy = 430 + 118 * (170 / 196) - cam.y, R = 51;
+    const dw = R / m.rw, dh = R / m.rh;
+    g.save(); g.translate(cx, cy); g.scale(1, 0.977);
+    g.rotate(performance.now() / 10000 * Math.PI * 2);
+    g.drawImage(m.canvas, -m.cx * dw, -m.cy * dh, dw, dh);
+    g.restore();
+  },
+  drawTree(x, y){
+    const g = this.ctx;
+    g.fillStyle = '#6e5638'; g.fillRect(x + 34, y + 44, 14, 34);
+    g.fillStyle = '#46684a'; g.fillRect(x + 8, y + 8, 66, 40); g.fillRect(x + 20, y - 4, 42, 14);
+    g.fillStyle = '#54795a'; g.fillRect(x + 16, y + 14, 50, 26);
+    g.fillStyle = '#638a68'; g.fillRect(x + 28, y + 4, 26, 16);
+  },
+  draw(){
+    const g = this.ctx, cam = Scene.camera;
+    g.fillStyle = '#7d9b5e'; g.fillRect(0, 0, this.cv.width, this.cv.height);
+    if (Scene.staticLayer) g.drawImage(Scene.staticLayer, -cam.x, -cam.y);
+    g.save(); g.translate(-cam.x, -cam.y);
+    if (Art.ready && Art.F['fx_splash_1_v1.png']){ // M3.5：池塘水花（两处错相循环）
+      const seq = [1, 2, 3, 4, 3, 2], ph = Math.floor(performance.now() / 170);
+      Art.draw(g, 'fx_splash_' + seq[ph % seq.length] + '_v1.png', 30, 596, 66, 40);
+      Art.draw(g, 'fx_splash_' + seq[(ph + 3) % seq.length] + '_v1.png', 118, 622, 58, 35);
+    }
+    // 地块（动态状态层）
+    for (const p of S.plots){
+      if (Art.ready){ // M3：等距菱形整图（五阶段对位五状态机），锚点/碰撞/预留仍走地块中心与原逻辑
+        const c = Farming.center(p);
+        let imgName = 'tile_soil_v1.png';
+        if (p.state !== 'empty'){
+          const crop = p.cropId || S.farmMode || CONFIG.farm.defaultCrop;
+          const sIdx = p.state === 'tilled' ? 1 : p.state === 'seeded' ? 2 : p.state === 'mature' ? 5
+            : (Farming.growthStage(p) >= 2 ? 4 : 3);
+          imgName = 'crop_' + crop + '_s' + sIdx + '_v1.png';
+        }
+        const f = Art.F[imgName];
+        if (f){ const dw = 96, dh = dw * f.h / f.w;
+          g.drawImage(f.img, f.x, f.y, f.w, f.h, c.x - dw / 2, c.y + 28 - dh, dw, dh); }
+        if (p.reservedBy || p.state === 'mature'){
+          g.strokeStyle = p.reservedBy ? 'rgba(255,207,94,.9)'
+            : 'rgba(255,233,168,' + (0.55 + 0.35 * Math.sin(performance.now() / 300 + p.x)).toFixed(2) + ')';
+          g.lineWidth = 2; g.beginPath();
+          g.moveTo(c.x, c.y - 22); g.lineTo(c.x + 46, c.y + 2); g.lineTo(c.x, c.y + 26); g.lineTo(c.x - 46, c.y + 2);
+          g.closePath(); g.stroke(); g.lineWidth = 1; }
+        continue;
+      }
+
+      g.fillStyle = p.state === 'empty' ? '#8a6a3e' : '#6e5327'; g.fillRect(p.x, p.y, CONFIG.farm.plotW, CONFIG.farm.plotH);
+      g.strokeStyle = p.reservedBy ? 'rgba(255,207,94,.85)' : 'rgba(0,0,0,.18)';
+      g.strokeRect(p.x + .5, p.y + .5, CONFIG.farm.plotW - 1, CONFIG.farm.plotH - 1);
+      if (p.state === 'tilled'){ g.strokeStyle = 'rgba(0,0,0,.25)';
+        for (let i = 1; i < 4; i++){ g.beginPath(); g.moveTo(p.x + 4, p.y + i * 10); g.lineTo(p.x + CONFIG.farm.plotW - 4, p.y + i * 10); g.stroke(); } }
+      const st = Farming.growthStage(p);
+      if (st >= 0){
+        const hgt = [4, 7, 12, 17, 17][st];
+        g.fillStyle = st === 4 ? '#7fae5c' : '#5c8a46';
+        for (let i = 0; i < 6; i++){ const px = p.x + 9 + (i % 3) * 17, py = p.y + 12 + Math.floor(i / 3) * 17;
+          g.fillRect(px - 3, py - hgt, 6, hgt); g.fillRect(px - 5, py - hgt, 10, 3); }
+        if (st === 4){ g.fillStyle = '#ffe9a8';
+          for (let i = 0; i < 6; i++){ const px = p.x + 9 + (i % 3) * 17, py = p.y + 8 + Math.floor(i / 3) * 17;
+            g.fillRect(px - 2, py - 2, 4, 4); }
+          if (Math.sin(performance.now() / 300 + p.x) > 0.55){ g.strokeStyle = 'rgba(255,233,168,.9)'; g.lineWidth = 2;
+            g.strokeRect(p.x - 2, p.y - 2, CONFIG.farm.plotW + 4, CONFIG.farm.plotH + 4); g.lineWidth = 1; } }
+      }
+    }
+    g.restore();
+    // Y 排序实体
+    const ents = [];
+    if (Art.ready){ // M3：建筑单体图（位置对位现有 solids/anchors，碰撞盒不随图变）
+      ents.push({ y: 238, f: () => Art.draw(g, 'bld_hall_v1.png', 640 - cam.x, 17 - cam.y, 320, 235) });
+      ents.push({ y: 524, f: () => Art.draw(g, 'bld_forge_v1.png', 1109 - cam.x, 303 - cam.y, 250, 231) });
+      ents.push({ y: 816, f: () => Art.draw(g, 'bld_stall_v1.png', 1020 - cam.x, 667 - cam.y, 210, 155) });
+      ents.push({ y: 820, f: () => Art.draw(g, 'prop_scale_v1.png', 1150 - cam.x, 726 - cam.y, 58, 67) }); // M3.5：出货台吊秤识别件
+      ents.push({ y: 1150, f: () => Art.draw(g, 'bld_gate_v1.png', 650 - cam.x, 954 - cam.y, 300, 202) });
+      ents.push({ y: 600, f: () => { Art.draw(g, 'bld_waterwheel_v1.png', 16 - cam.x, 430 - cam.y, 180, 170);
+        this._drawWheelOverlay(g, cam); } });
+      const qb = (S.buildings || []).find(b => b.id === 'quarters');
+      if (qb && qb.level >= 1)
+        ents.push({ y: 330, f: () => Art.draw(g, 'bld_quarters_v1.png', 400 - cam.x, 137 - cam.y, 240, 193) });
+    } else {
+
+    ents.push({ y: 238, f: () => this.drawBuilding(680, 120, 240, 118, '掌门居') });
+    ents.push({ y: 524, f: () => { this.drawBuilding(1150, 420, 168, 104, '淬炼坊');
+      const fl = 8 + Math.sin(performance.now() / 160) * 2;
+      g.fillStyle = '#3d3d3d'; g.fillRect(1224, 486, 20, 20);
+      g.fillStyle = '#ff9c4a'; g.fillRect(1230, 494 - fl / 2, 8, fl); } });
+    ents.push({ y: 816, f: () => { const x = 1088 - cam.x, y = 760 - cam.y;
+      g.fillStyle = '#8a6d4f'; g.fillRect(x, y + 14, 74, 42); g.fillStyle = '#6e5638'; g.fillRect(x, y + 4, 74, 14);
+      g.fillStyle = '#f2ead8'; g.font = '12px sans-serif'; g.textAlign = 'center'; g.fillText('订单点', x + 37, y - 4); } });
+    ents.push({ y: 1150, f: () => { const x = -cam.x, y = -cam.y;
+      g.fillStyle = '#5a4632'; g.fillRect(x + 736, y + 1064, 14, 86); g.fillRect(x + 850, y + 1064, 14, 86);
+      g.fillStyle = '#37474f'; g.fillRect(x + 720, y + 1048, 160, 16);
+      g.fillStyle = '#f2ead8'; g.font = '700 13px sans-serif'; g.textAlign = 'center'; g.fillText('青 云 宗', x + 800, y + 1061); } });
+    ents.push({ y: 352, f: () => { const x = 1400 - cam.x, y = 306 - cam.y;
+      g.fillStyle = '#e8dcc3'; g.fillRect(x - 44, y + 22, 88, 24);
+      g.fillStyle = '#8c2f22'; g.font = '700 12px sans-serif'; g.textAlign = 'center';
+      g.fillText(Scene.isLocked('mineZone') ? '后山矿口 · 未开放' : '后山矿口', x, y + 38); } });
+    }
+    for (const t of [{ x: 60, y: 80 }, { x: 1330, y: 700 }, { x: 120, y: 960 }, { x: 1450, y: 980 }])
+      ents.push({ y: t.y + 78, f: () => this.drawTree(t.x - cam.x, t.y - cam.y) });
+    for (const a of Npc.agents){ const d = Disciples.getDisciple(a.discipleId);
+      ents.push({ y: a.y, f: () => this.drawPerson(a, d, false) }); }
+    ents.push({ y: Actor.player.y, f: () => this.drawPerson(Actor.player, null, true) });
+    ents.sort((m, n) => m.y - n.y);
+    for (const e of ents) e.f();
+  },
+  drawBuilding(x0, y0, w, h, name){
+    const g = this.ctx, x = x0 - Scene.camera.x, y = y0 - Scene.camera.y;
+    g.fillStyle = '#e8dcc3'; g.fillRect(x, y + 44, w, h - 44);
+    g.fillStyle = '#4a5d6b';
+    g.beginPath(); g.moveTo(x - 12, y + 50); g.lineTo(x + w / 2, y - 4); g.lineTo(x + w + 12, y + 50); g.closePath(); g.fill();
+    g.fillStyle = '#6e5638'; g.fillRect(x + w / 2 - 17, y + h - 42, 34, 42);
+    g.fillStyle = '#f5eeda'; g.fillRect(x + 24, y + 60, 32, 24); g.fillRect(x + w - 56, y + 60, 32, 24);
+    g.fillStyle = '#8c2f22'; g.font = '700 14px sans-serif'; g.textAlign = 'center'; g.fillText(name, x + w / 2, y + 28);
+  },
+};
+
+/* ================================================================
+ * 主循环与启动
+ * ================================================================ */
+const Game = {
+  last: 0, running: false, saveTimer: 0,
+  loop(t){
+    if (!this.running) return;
+    requestAnimationFrame(this.loop.bind(this));
+    const frameMs = this.last ? t - this.last : 16;
+    const dt = clamp(frameMs, 0, 50); this.last = t;
+    Actor.setMoveIntent(Input.getMoveVector(), dt);
+    const p = Actor.player;
+    Scene.camera.x = clamp(p.x - innerWidth / 2, 0, Math.max(0, CONFIG.world.w - innerWidth));
+    Scene.camera.y = clamp(p.y - innerHeight / 2, 0, Math.max(0, CONFIG.world.h - innerHeight));
+    Farming.settlePlots(nowMs());
+    Production.settleJobs(nowMs()); Orders.settleOrderTimers(nowMs());
+    Disciples.settleDispatches(nowMs());
+    this.slowTimer = (this.slowTimer || 0) + dt;
+    if (this.slowTimer > 2000){ this.slowTimer = 0; Day.checkRollover(); Events.checkFaceEvents(); Leaderboard.reportScore(); }
+    Npc.tick(dt);
+    Interaction.refreshButton();
+    Render.draw();
+    Fx.tick(clamp(frameMs, 0, CONFIG.fx.dtClampMs), frameMs);
+    this.saveTimer += dt;
+    if (this.saveTimer > CONFIG.save.autosaveMs){ this.saveTimer = 0; Save.save('autosave'); }
+  },
+  boot(){
+    Art.load();
+    Save.load();
+    Sect.recomputeBuildDegree();
+    Farming.init(); Disciples.init(); Production.init(); Orders.init(); Codex.init();
+    Events.ensureWeekly(); Ads.resumeChecks();
+    Day.init();
+    Scene.loadMap('kaizongmen_main');
+    Actor.spawnPlayer();
+    Npc.syncRoster();
+    Offline.settleOnReturn(nowMs());
+    Render.init(); Fx.init(); Input.init();
+    // 环境活气：淬炼坊烟气 stream＋大殿前光尘 stream（降级时自动关停）
+    Fx.stream(1239, 314, { rate: 4, sprites: ['spark'], vy: -0.8, spread: 6, life: 1100, size: 2.6 }); // M3：新图烟囱口（约 1239,314），图内静态烟已在，动态 stream 减弱保留活气
+    Fx.stream(800, 210, { rate: 4, sprites: ['mote'], vy: -0.28, spread: 70, life: 1700, size: 2.6 });
+    $('btnDisciples').onclick = () => UI.openDisciplesPanel();
+    $('btnOrders').onclick = () => UI.openOrdersPanel();
+    $('btnRoutine').onclick = () => UI.openRoutinePanel();
+    $('btnCodex').onclick = () => UI.openCodexPanel();
+    $('btnSect').onclick = () => UI.openSectPanel();
+    $('btnBoard').onclick = () => UI.openBoardPanel();
+    $('seedBtn').onclick = () => { const keys = Object.keys(CONFIG.crops);
+      const i = keys.indexOf(S.farmMode || CONFIG.farm.defaultCrop);
+      S.farmMode = keys[(i + 1) % keys.length];
+      UI.hint('下次播种：' + CONFIG.crops[S.farmMode].name +
+        (Object.keys(CONFIG.crops[S.farmMode].inputs).length
+          ? '（需 ' + UI.needsText(CONFIG.crops[S.farmMode].inputs) + '）' : ''));
+      Save.save('farm_mode'); };
+    $('panelWrap').addEventListener('pointerdown', e => { if (e.target === $('panelWrap')) UI.closePanel(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden){ Save.save('hidden'); this.running = false; }
+      else if (!this.running){ this.last = 0; this.running = true; requestAnimationFrame(this.loop.bind(this)); } });
+    addEventListener('beforeunload', () => Save.save('unload'));
+    UI.syncHud(); this._lastCoinFix();
+    setTimeout(() => { const sp = $('splash'); if (sp) sp.classList.add('done'); }, 1500);
+    setTimeout(() => UI.hint(S.pendingSettlement ? '有离线产出待领，去掌门居门前领取' : '左边摇杆走动，走到田边点右下按钮干活'), 500);
+    this.running = true; requestAnimationFrame(this.loop.bind(this));
+  },
+  _lastCoinFix(){ UI._lastCoin = S.balances.coin || 0; $('coin').textContent = UI._lastCoin; },
+};
+Game.boot();
+
+/* 测试钩子（冒烟脚本用） */
+window.__game = { CONFIG, Ledger, Save, Farming, Npc, Offline, Day, Actor, Scene, Disciples, Interaction, Fx,
+  Production, Orders, Events, Ads, Sect, Codex, UI, Leaderboard, Art,
+  get state(){ return S; } };
+</script>
+</body>
+</html>
