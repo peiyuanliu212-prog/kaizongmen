@@ -8,7 +8,7 @@
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; background:#141a16; font-family:"PingFang SC","Microsoft YaHei",sans-serif; }
   #stage { position:absolute; inset:0; }
-  #game { position:absolute; inset:0; display:block; image-rendering:pixelated; }
+  #game { position:absolute; inset:0; display:block; image-rendering:pixelated; touch-action:none; }
   #fxCanvas { position:fixed; inset:0; pointer-events:none; z-index:40; }
   #flash { position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:41; }
   /* HUD */
@@ -24,11 +24,11 @@
   .hudBtn.alert { border-color:#ff9c4a; color:#ffcf5e; }
   #seedBtn { position:absolute; right:38px; bottom:152px; z-index:6; display:none; padding:8px 10px; border-radius:999px;
     background:rgba(20,26,22,.8); color:#f2ead8; border:1px solid rgba(255,255,255,.3); font-size:12px; }
-  #panel .cover { height:150px; border-radius:12px; margin-bottom:12px; background:#2c3a33 url('assets/e-cover-v1.png') center 18%/cover no-repeat; }
-  #panel .mini { font-size:12px; color:#7a7263; }
-  #panel button.act2 { padding:7px 12px; border:none; border-radius:9px; background:#38694c; color:#fff; font-size:13px; }
-  #panel button.act2:disabled { background:#b9b09a; color:#6b6455; }
-  #panel button.act2.ghost2 { background:#e8dfc8; color:#4a4436; }
+  .sheet .cover { height:150px; border-radius:12px; margin-bottom:12px; background:#2c3a33 url('assets/e-cover-v1.png') center 18%/cover no-repeat; }
+  .sheet .mini { font-size:12px; color:#7a7263; }
+  .sheet button.act2 { padding:7px 12px; border:none; border-radius:9px; background:#38694c; color:#fff; font-size:13px; }
+  .sheet button.act2:disabled { background:#b9b09a; color:#6b6455; }
+  .sheet button.act2.ghost2 { background:#e8dfc8; color:#4a4436; }
   #hint { position:absolute; left:50%; transform:translateX(-50%); bottom:182px; z-index:5; pointer-events:none;
     background:rgba(20,26,22,.75); color:#f2ead8; font-size:13px; padding:7px 14px; border-radius:999px;
     opacity:0; transition:opacity .3s; white-space:nowrap; max-width:92vw; }
@@ -48,26 +48,44 @@
   #panelWrap { position:fixed; inset:0; z-index:30; display:none; align-items:flex-end; justify-content:center;
     background:rgba(8,10,9,.45); }
   #panelWrap.open { display:flex; }
-  #panel { width:100%; max-width:520px; max-height:62vh; overflow:auto; background:#f5eeda; color:#26302a;
+  .sheet { width:100%; max-width:520px; max-height:62vh; overflow:auto; background:#f5eeda; color:#26302a;
     border-radius:18px 18px 0 0; padding:18px 18px 26px; }
-  #panel h3 { font-size:17px; margin-bottom:4px; }
-  #panel .sub { font-size:12px; color:#7a7263; margin-bottom:10px; }
-  #panel .row { display:flex; justify-content:space-between; align-items:center; padding:9px 2px; border-bottom:1px solid #e2d7bd; font-size:14px; }
-  #panel .tag { font-size:11px; background:#38694c; color:#fff; border-radius:6px; padding:2px 7px; }
-  #panel .tag.grey { background:#8a8578; }
+  .sheet h3 { font-size:17px; margin-bottom:4px; }
+  .sheet .sub { font-size:12px; color:#7a7263; margin-bottom:10px; }
+  .sheet .row { display:flex; justify-content:space-between; align-items:center; padding:9px 2px; border-bottom:1px solid #e2d7bd; font-size:14px; }
+  .sheet .tag { font-size:11px; background:#38694c; color:#fff; border-radius:6px; padding:2px 7px; }
+  .sheet .tag.grey { background:#8a8578; }
   .pbtn { display:block; width:100%; margin-top:14px; padding:12px; border:none; border-radius:12px;
     background:#38694c; color:#fff; font-size:15px; font-weight:700; }
   .pbtn.ghost { background:#e8dfc8; color:#4a4436; }
   #fade { position:absolute; inset:0; background:#0a0f0c; opacity:0; pointer-events:none; transition:opacity .8s; z-index:8; }
+  /* 建筑全屏功能页（修复批③）：整页容器，与底部面板共用 .sheet 内部样式 */
+  #pageWrap { position:fixed; inset:0; z-index:31; background:#efe6cd; opacity:0; pointer-events:none; transition:opacity .28s; }
+  #pageWrap.open { opacity:1; pointer-events:auto; }
+  #page { height:100%; overflow:auto; max-width:640px; margin:0 auto; padding:20px 18px 44px; color:#26302a;
+    transform:translateY(16px); transition:transform .28s; }
+  #pageWrap.open #page { transform:none; }
+  #page h3 { font-size:19px; margin-bottom:4px; }
+  .sheet .plaqueTitle { display:inline-block; background:#3a2c1c; color:#f7efdb; border:1px solid #c9a86a;
+    border-radius:8px; padding:3px 12px; text-shadow:0 1px 2px rgba(0,0,0,.6); }
   .floatTxt { position:fixed; z-index:42; pointer-events:none; font-weight:700; font-size:16px;
     text-shadow:0 1px 3px rgba(0,0,0,.45); transform:translate(-50%,-50%); white-space:nowrap; }
   /* M3：封面/加载 splash（E 厚涂只许出现在封面/加载/晋阶半屏三处，此为其一） */
   #splash { position:fixed; inset:0; z-index:60; pointer-events:none; display:flex; flex-direction:column; align-items:center;
     background:#1e2b24 url('assets/e-cover-v1.png') center top/cover no-repeat; transition:opacity .7s; }
   #splash.done { opacity:0; }
-  #splash .sp-title { margin-top:9vh; font-family:"Songti SC","STSong","SimSun",serif; font-size:30px; font-weight:700;
-    color:#fff; letter-spacing:4px; text-shadow:0 2px 0 #26302a, 0 0 16px rgba(20,26,22,.6); }
-  #splash .sp-sub { margin-top:10px; font-size:13px; color:#f2ead8; letter-spacing:3px; text-shadow:0 1px 5px rgba(20,26,22,.85); }
+  #splash .sp-plaque { margin-top:8vh; padding:20px 30px 16px; border-radius:12px; text-align:center;
+    background:linear-gradient(180deg,#4d3a24,#38291a 70%,#2f2315);
+    background-color:#3a2c1c; border:2px solid #c9a86a; outline:1px solid rgba(38,28,16,.9);
+    box-shadow:0 10px 30px rgba(10,8,4,.55), inset 0 1px 0 rgba(245,238,218,.14);
+    background-image:repeating-linear-gradient(0deg, rgba(0,0,0,.05) 0 3px, rgba(255,255,255,.015) 3px 6px),
+      linear-gradient(180deg,#4d3a24,#38291a 70%,#2f2315); }
+  #splash .sp-title { font-family:"Songti SC","STSong","SimSun",serif; font-size:31px; font-weight:700;
+    color:#f7efdb; letter-spacing:3px; white-space:nowrap;
+    text-shadow:1px 0 0 #241708, -1px 0 0 #241708, 0 1px 0 #241708, 0 -1px 0 #241708, 0 3px 6px rgba(0,0,0,.55); }
+  #splash .sp-sect { margin-top:9px; font-size:17px; font-weight:700; color:#e9c46a; letter-spacing:8px; text-indent:8px;
+    text-shadow:0 1px 3px rgba(0,0,0,.6); }
+  #splash .sp-sub { margin-top:8px; font-size:11px; color:#cdbf9f; letter-spacing:2px; }
   .chip svg { vertical-align:-2px; margin-right:3px; }
 .icn{display:inline-block;width:16px;height:16px;background-image:url('assets/atlas_ground_v1.png');background-repeat:no-repeat;background-size:181.3px 133.0px;vertical-align:-4px}
 .icn-coin{background-position:-31.3px -30.0px}
@@ -104,22 +122,22 @@
 .icnL-sleep{background-position:-123.0px -87.5px}
 .icnL-bag{background-position:-147.5px -87.5px}
   .chip .icn, .hudBtn .icn { margin-right:3px; }
-  #panel .icn, #panel .icnL { margin-right:3px; }
+  .sheet .icn, .sheet .icnL { margin-right:3px; }
   #act .icn { margin-right:2px; vertical-align:-3px; }
   /* 双榜 */
-  #panel .lb-tabs { display:flex; gap:8px; margin-bottom:10px; }
-  #panel .lb-tab { flex:1; padding:9px; border:1px solid #cbbd97; border-radius:10px; background:#efe6cd;
+  .sheet .lb-tabs { display:flex; gap:8px; margin-bottom:10px; }
+  .sheet .lb-tab { flex:1; padding:9px; border:1px solid #cbbd97; border-radius:10px; background:#efe6cd;
     color:#4a4436; font-size:14px; font-weight:700; }
-  #panel .lb-tab.active { background:#38694c; border-color:#38694c; color:#fff; }
-  #panel .lb-row { display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid #e2d7bd; font-size:14px; }
-  #panel .lb-row.me { background:#fdf3d0; border-radius:8px; }
-  #panel .lb-rank { width:30px; text-align:center; font-weight:700; color:#7a7263; flex:none; }
-  #panel .lb-row.top1 .lb-rank, #panel .lb-row.top2 .lb-rank, #panel .lb-row.top3 .lb-rank { color:#b07d2b; }
-  #panel .lb-ava { width:30px; height:30px; border-radius:50%; flex:none; object-fit:cover; background:#cbbd97; }
-  #panel .lb-ava.ph { display:flex; align-items:center; justify-content:center; color:#5d5540; font-size:13px; font-weight:700; }
-  #panel .lb-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #panel .lb-val { font-weight:700; color:#38694c; white-space:nowrap; }
-  #panel .lb-mine { margin-top:10px; font-size:13px; color:#7a5a17; }
+  .sheet .lb-tab.active { background:#38694c; border-color:#38694c; color:#fff; }
+  .sheet .lb-row { display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid #e2d7bd; font-size:14px; }
+  .sheet .lb-row.me { background:#fdf3d0; border-radius:8px; }
+  .sheet .lb-rank { width:30px; text-align:center; font-weight:700; color:#7a7263; flex:none; }
+  .sheet .lb-row.top1 .lb-rank, .sheet .lb-row.top2 .lb-rank, .sheet .lb-row.top3 .lb-rank { color:#b07d2b; }
+  .sheet .lb-ava { width:30px; height:30px; border-radius:50%; flex:none; object-fit:cover; background:#cbbd97; }
+  .sheet .lb-ava.ph { display:flex; align-items:center; justify-content:center; color:#5d5540; font-size:13px; font-weight:700; }
+  .sheet .lb-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sheet .lb-val { font-weight:700; color:#38694c; white-space:nowrap; }
+  .sheet .lb-mine { margin-top:10px; font-size:13px; color:#7a5a17; }
 </style>
 </head>
 <body>
@@ -145,8 +163,9 @@
   <div id="act" class="off">…</div>
   <div id="fade"></div>
 </div>
-<div id="splash"><div class="sp-title">我在修仙界开宗门</div><div class="sp-sub">青 云 宗</div></div>
-<div id="panelWrap"><div id="panel"></div></div>
+<div id="splash"><div class="sp-plaque"><div class="sp-title">我在修仙界开宗门</div><div class="sp-sect">青 云 宗</div><div class="sp-sub">种 田 · 淬 炼 · 派 遣 · 长 线 经 营</div></div></div>
+<div id="panelWrap"><div id="panel" class="sheet"></div></div>
+<div id="pageWrap"><div id="page" class="sheet"></div></div>
 <canvas id="fxCanvas"></canvas>
 <div id="flash"></div>
 <script>
@@ -239,7 +258,11 @@ const CONFIG = {
     },
   },
   fx: { poolSize: 512, hardCap: 400, dtClampMs: 33, degradeFrameMs: 20, dprCap: 1.5 },
-  save: { key: 'kaizongmen_save', lastGoodKey: 'kaizongmen_save_lastgood', version: 2, autosaveMs: 5000 },
+  camera: { dampMs: 130, lookBackMs: 240, lookMax: 300, snapDist: 420 },  // 修复批②：阻尼跟随＋拖动巡视回正
+  flight: { height: 15, riseMs: 360, landDelayMs: 1000, trailMs: 70 },     // 修复批①：主角御剑（静止超 landDelay 落地）
+  gait: { cyclePx: 48 },                                                   // 修复批①：步帧相位＝位移/步幅周期，帧与脚步同步
+  save: { key: 'kaizongmen_save', lastGoodKey: 'kaizongmen_save_lastgood', version: 2, autosaveMs: 5000,
+    slots: 5, slotPrefix: 'kaizongmen_slot_' },   // 修复批⑥：自动档（主 key）＋5 手动槽
   buildings: [ // 建设度可由建筑状态重算（ sect.recomputeBuildDegree 的输入）
     { id: 'hall',  name: '大殿',   level: 1, degreePerLevel: 10 },
     { id: 'home',  name: '掌门居', level: 1, degreePerLevel: 10 },
@@ -490,6 +513,35 @@ const Save = {
     return S;
   },
   exportSnapshot(){ return JSON.parse(JSON.stringify(S)); },
+  /* 修复批⑥：手动存档槽。slotKey(0)＝自动档（现有主 key，老档即自动档、走同一 MIGRATIONS 阶梯）；
+     1..CONFIG.save.slots 为手动槽 kaizongmen_slot_N。摘要/读取一律过 normalize，不绕过版本阶梯。 */
+  slotKey(i){ return i === 0 ? CONFIG.save.key : CONFIG.save.slotPrefix + i; },
+  slotSummary(i){
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(this.slotKey(i)) || 'null'); } catch (e) { raw = null; }
+    const s = this.normalize(raw); if (!s) return null;
+    return { day: s.day.dayIndex, degree: s.buildDegree || 0, coin: s.balances.coin || 0,
+      disciples: (s.disciples || []).length, savedAt: s.savedAt || 0 };
+  },
+  saveSlot(i){
+    if (i < 1 || i > CONFIG.save.slots) return false;
+    try { S.savedAt = nowMs(); localStorage.setItem(this.slotKey(i), JSON.stringify(S)); return true; }
+    catch (e) { console.warn('[save] slot failed', i, e); return false; }
+  },
+  loadSlot(i){
+    if (i < 1 || i > CONFIG.save.slots) return false;
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(this.slotKey(i)) || 'null'); } catch (e) { raw = null; }
+    const s = this.normalize(raw); if (!s) return false;
+    S = s; S.lastSeenAt = nowMs();        // 槽为时点快照：离线时钟从读档刻起算，不补快照外的时间
+    Game.applyLoadedState();
+    Save.save('slot_load');               // 自动档跟随读入的进度
+    return true;
+  },
+  deleteSlot(i){
+    if (i < 1 || i > CONFIG.save.slots) return false;
+    try { localStorage.removeItem(this.slotKey(i)); return true; } catch (e) { return false; }
+  },
 };
 
 /* ================================================================
@@ -1049,11 +1101,21 @@ const Scene = {
     mineGate:     { x: 1400, y: 348 },
     mineWork:     { x: 1400, y: 210 },
     discipleHome: { x: 520, y: 330 },
+    wheelDoor:    { x: 252, y: 586 },
   },
   solids: [
-    { x: 680, y: 120, w: 240, h: 118 },   // 掌门居
-    { x: 1150, y: 420, w: 168, h: 104 },  // 淬炼坊
-    { x: 1088, y: 760, w: 74, h: 56 },    // 出货箱/订单点
+    /* 修复批④：碰撞盒按单体图实际轮廓重设（旧盒为 M1 程序占位时代数据、与图脱节）。
+       口径：横向收进檐口内侧，纵向只挡基座段（图高后 ~45%），门前锚点一律在盒外南侧可达；
+       人物可绕到建筑北侧（Y 排序出遮挡），但不能穿体。逐栋走查见 tests/fix1.py。 */
+    { x: 664, y: 150, w: 272, h: 96 },    // 宗门大殿基座（图 640,17,320×235）
+    { x: 424, y: 236, w: 192, h: 78, when: 'quarters' },  // 弟子居舍基座（图 400,137,240×193；建成才生效；南界留门前台阶，discipleHome 锚点在盒外）
+    { x: 1133, y: 428, w: 202, h: 100 },  // 淬炼坊基座（图 1109,303,250×231）
+    { x: 1044, y: 748, w: 162, h: 68 },   // 出货台基座（图 1020,667,210×155；吊秤在其内）
+    { x: 40, y: 498, w: 132, h: 96 },     // 水车房基座（图 16,430,180×170）
+    { x: 0, y: 492, w: 140, h: 180 },     // 池塘水面（西段；东段让给药圃西列地块的站位）
+    { x: 656, y: 958, w: 288, h: 34 },    // 山门横梁（图 650,954,300×202）
+    { x: 656, y: 992, w: 58, h: 150 },    // 山门左柱
+    { x: 886, y: 992, w: 58, h: 150 },    // 山门右柱（中央留门洞，gate 锚点在洞内）
     { x: 60, y: 80, w: 80, h: 72 }, { x: 1330, y: 700, w: 80, h: 72 },
     { x: 120, y: 960, w: 80, h: 72 }, { x: 1450, y: 980, w: 80, h: 72 },
     // 后山矿口围栏（M1 上锁，扩建接口预留：unlockZone 时移除 barrier 并重建碰撞）
@@ -1061,12 +1123,50 @@ const Scene = {
     { x: 1240, y: 306, w: 140, h: 14 }, { x: 1420, y: 306, w: 148, h: 14 },
     { id: 'mineBarrier', x: 1380, y: 300, w: 40, h: 26 },
   ],
+  /* 修复批③④：建筑表——img 为单体图绘制框（与 Render.draw 的 Art.draw 坐标逐字一致）；
+     door 为门前互动锚点；plateY 为铭牌悬挂高度（世界 y）。碰撞盒由 img 推导见 solids。 */
+  buildings: [
+    { id: 'hall',     name: '宗门大殿', icon: 'promote',  img: { x: 640,  y: 17,  w: 320, h: 235 }, door: 'homeDoor' },
+    { id: 'quarters', name: '弟子居舍', icon: 'disciple', img: { x: 400,  y: 137, w: 240, h: 193 }, door: 'discipleHome', needQuarters: true },
+    { id: 'forge',    name: '淬炼坊',   icon: 'build',    img: { x: 1109, y: 303, w: 250, h: 231 }, door: 'forge' },
+    { id: 'stall',    name: '出货台',   icon: 'order',    img: { x: 1020, y: 667, w: 210, h: 155 }, door: 'orderPoint' },
+    { id: 'wheel',    name: '水车',     icon: 'stamina',  img: { x: 16,   y: 430, w: 180, h: 170 }, door: 'wheelDoor' },
+    { id: 'gate',     name: '山门',     icon: 'dispatch', img: { x: 650,  y: 954, w: 300, h: 202 }, door: 'gate' },
+    { id: 'mine',     name: '后山矿口', icon: 'dispatch', img: null, plateAt: { x: 1400, y: 284 }, door: 'mineGate' },
+  ],
+  buildingById(id){ return this.buildings.find(b => b.id === id); },
   staticLayer: null,
   loadMap(mapId){ this.mapId = mapId || this.mapId; this._prerenderStatic(); },
   getAnchor(id){ return this.anchors[id]; },
   worldToScreen(p){ return { x: p.x - this.camera.x, y: p.y - this.camera.y }; },
   screenToWorld(p){ return { x: p.x + this.camera.x, y: p.y + this.camera.y }; },
   setCameraTarget(id){ this.camera.targetId = id; },
+  /* 修复批②：镜头阻尼跟随＋拖动巡视。look 为巡视偏移（世界坐标），拖动时由 Input 写、
+     松手后按 lookBackMs 平滑回正；跟随按 dampMs 指数阻尼，瞬移（读档/传送）超 snapDist 直接贴合。 */
+  look: { x: 0, y: 0 }, dragging: false,
+  updateCamera(dt){
+    const p = Actor.player, vw = innerWidth, vh = innerHeight;
+    const maxX = Math.max(0, CONFIG.world.w - vw), maxY = Math.max(0, CONFIG.world.h - vh);
+    if (!this.dragging){
+      const kb = 1 - Math.exp(-dt / CONFIG.camera.lookBackMs);
+      this.look.x += (0 - this.look.x) * kb; this.look.y += (0 - this.look.y) * kb;
+      if (Math.abs(this.look.x) < 0.5) this.look.x = 0;
+      if (Math.abs(this.look.y) < 0.5) this.look.y = 0;
+    }
+    const tx = clamp(p.x + this.look.x - vw / 2, 0, maxX), ty = clamp(p.y + this.look.y - vh / 2, 0, maxY);
+    if (Math.hypot(tx - this.camera.x, ty - this.camera.y) > CONFIG.camera.snapDist){
+      this.camera.x = tx; this.camera.y = ty;
+    } else {
+      const k = 1 - Math.exp(-dt / CONFIG.camera.dampMs);
+      this.camera.x += (tx - this.camera.x) * k; this.camera.y += (ty - this.camera.y) * k;
+    }
+    S.camera.x = this.camera.x; S.camera.y = this.camera.y;
+  },
+  snapCamera(){
+    const p = Actor.player;
+    this.camera.x = clamp(p.x - innerWidth / 2, 0, Math.max(0, CONFIG.world.w - innerWidth));
+    this.camera.y = clamp(p.y - innerHeight / 2, 0, Math.max(0, CONFIG.world.h - innerHeight));
+  },
   rebuildCollision(zoneId){ /* M1 碰撞即 solids 表；扩建时由 sect 调用后在此重建（M2 增量） */ },
   unlockZone(zoneId){ // 扩建接口预留（M2 调用）：解锁区域并移除其栅栏碰撞
     if (!S.unlockedZones.includes(zoneId)) S.unlockedZones.push(zoneId);
@@ -1077,6 +1177,8 @@ const Scene = {
   collide(e){
     e.x = clamp(e.x, e.r, CONFIG.world.w - e.r); e.y = clamp(e.y, e.r, CONFIG.world.h - e.r);
     for (const s of this.solids){
+      if (s.when === 'quarters'){ const q = (S.buildings || []).find(b => b.id === 'quarters');
+        if (!q || q.level < 1) continue; }
       const nx = clamp(e.x, s.x, s.x + s.w), ny = clamp(e.y, s.y, s.y + s.h);
       const dx = e.x - nx, dy = e.y - ny, d = Math.hypot(dx, dy);
       if (d < e.r && d > 0.01){ e.x = nx + dx / d * e.r; e.y = ny + dy / d * e.r; }
@@ -1210,12 +1312,14 @@ const Scene = {
  * ================================================================ */
 const Actor = {
   player: { id: 'player', x: 800, y: 330, r: CONFIG.player.radius, facing: 1, walk: 0, moving: false,
-    moveState: 'idle', animState: 'idle', appearanceId: 'zhangmen_red', actionUntil: 0 },
+    moveState: 'idle', animState: 'idle', appearanceId: 'zhangmen_red', actionUntil: 0,
+    flyH: 0, lastMoveAt: 0, _trailAcc: 0 },
   spawnPlayer(anchorId){
     const a = Scene.getAnchor(anchorId || CONFIG.player.spawnAnchor);
     this.player.x = a.x; this.player.y = a.y + 30;
     if (S.player && S.player.x){ this.player.x = S.player.x; this.player.y = S.player.y; }
-    Scene.setCameraTarget('player');
+    this.player.flyH = 0; this.player.lastMoveAt = 0;
+    Scene.setCameraTarget('player'); Scene.snapCamera();
   },
   setMoveIntent(vec, dt){
     const p = this.player, m = Math.hypot(vec.x, vec.y);
@@ -1227,6 +1331,18 @@ const Actor = {
       p.walk += dt * 0.014; p.moveState = 'walk'; p.animState = 'walk';
       Scene.collide(p);
     } else { p.moveState = 'idle'; if (nowMs() > p.actionUntil) p.animState = 'idle'; }
+    /* 修复批①：主角御剑——移动升空、静止落地。「飘」自此是设定：脚下飞剑见 Render._drawSword。
+       升降按 riseMs 平滑趋近，落地判定用 lastMoveAt 与真实时间，不吃帧率。 */
+    const now = nowMs();
+    if (p.moving) p.lastMoveAt = now;
+    const flyTarget = (now - p.lastMoveAt < CONFIG.flight.landDelayMs) ? CONFIG.flight.height : 0;
+    p.flyH += (flyTarget - p.flyH) * Math.min(1, dt / (CONFIG.flight.riseMs / 3));
+    if (Math.abs(flyTarget - p.flyH) < 0.1) p.flyH = flyTarget;
+    if (p.moving && p.flyH > 6){ // 剑光拖影（低频单粒，沿用 Fx 预算与帧率保护）
+      p._trailAcc += dt;
+      if (p._trailAcc >= CONFIG.flight.trailMs){ p._trailAcc = 0;
+        Fx.burst(p.x - p.facing * 12, p.y - p.flyH + 4, { sprites: ['spark', 'mote'], n: 1, speed: 0.4, life: 420 }); }
+    }
     S.player.x = p.x; S.player.y = p.y; S.player.facing = p.facing;
   },
   playAction(name){ this.player.animState = 'action:' + name; this.player.actionUntil = nowMs() + 320; },
@@ -1906,6 +2022,24 @@ const Input = {
       if (e.key === ' '){ e.preventDefault(); Interaction.performAction(); } });
     addEventListener('keyup', e => this.keys[e.key.toLowerCase()] = false);
     $('act').addEventListener('pointerdown', e => { e.preventDefault(); Interaction.performAction(); });
+    /* 修复批②：拖动巡视——手指/鼠标在场景空白区（画布本体）拖动临时移镜，松手平滑回主角。
+       摇杆/互动键/HUD 按钮均为画布之上的独立元素，指针事件不会落到画布，天然不冲突；
+       面板/功能页打开时其遮罩在画布之上，同样不会误触。 */
+    const cv = $('game');
+    let drag = null;
+    cv.addEventListener('pointerdown', e => {
+      drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, lx: Scene.look.x, ly: Scene.look.y };
+      Scene.dragging = true;
+      try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    cv.addEventListener('pointermove', e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const M = CONFIG.camera.lookMax;
+      Scene.look.x = clamp(drag.lx + (drag.sx - e.clientX), -M, M);
+      Scene.look.y = clamp(drag.ly + (drag.sy - e.clientY), -M, M);
+    });
+    const dend = e => { if (drag && e.pointerId === drag.id){ drag = null; Scene.dragging = false; } };
+    cv.addEventListener('pointerup', dend); cv.addEventListener('pointercancel', dend);
   },
 };
 const Interaction = {
@@ -1918,14 +2052,17 @@ const Interaction = {
     const A = Scene.anchors, R = CONFIG.interaction.anchorRadius;
     if (S.pendingSettlement && dist(pos, A.homeDoor) < R) best = { kind: 'settlement', label: '领结算', enabled: true };
     else if (Sect.canPromote() && dist(pos, A.homeDoor) < 56) best = { kind: 'promote', label: '晋阶', enabled: true };
-    else if (dist(pos, A.homeDoor) < 56) best = { kind: 'sleep', label: '睡觉', enabled: true };
-    else if (dist(pos, A.forge) < R) best = { kind: 'forge', label: '淬炼', enabled: true };
-    else if (dist(pos, A.orderPoint) < 56) best = { kind: 'orders', label: '订单', enabled: true };
+    else if (dist(pos, A.homeDoor) < 56) best = { kind: 'enterHall', label: '进入·宗门大殿', enabled: true };
+    else if (dist(pos, A.forge) < R) best = { kind: 'forge', label: '进入·淬炼坊', enabled: true };
+    else if (dist(pos, A.orderPoint) < 56) best = { kind: 'orders', label: '进入·出货台', enabled: true };
+    else if (dist(pos, A.discipleHome) < 56 && (S.buildings.find(b => b.id === 'quarters') || {}).level >= 1)
+      best = { kind: 'quarters', label: '进入·弟子居舍', enabled: true };
+    else if (dist(pos, A.wheelDoor) < R) best = { kind: 'wheel', label: '进入·水车', enabled: true };
     else if (dist(pos, A.recruitPoint) < 56) best = { kind: 'recruit', label: '招募', enabled: true };
     else if (S.disciples.some(d => d.scenePresence === 'atGate') && dist(pos, A.gate) < R)
       best = { kind: 'dispatchClaim', label: '领派遣', enabled: true };
     else if (dist(pos, A.mineGate) < R) best = Scene.isLocked('mineZone')
-      ? { kind: 'mine', label: '扩建', enabled: true } : { kind: 'mine', label: '采矿', enabled: true };
+      ? { kind: 'mine', label: '扩建', enabled: true } : { kind: 'mine', label: '进入·后山矿口', enabled: true };
     if (best) return best;
     for (const a of Npc.agents) if (dist(pos, a) < CONFIG.interaction.talkRadius)
       return { kind: 'talk', id: a.discipleId, label: '聊聊', enabled: true };
@@ -1941,14 +2078,16 @@ const Interaction = {
     else if (t.kind === 'settlement') UI.openSettlementPanel();
     else if (t.kind === 'promote') UI.openPromotePanel();
     else if (t.kind === 'sleep') Day.sleep();
-    else if (t.kind === 'forge') UI.openStationPanel('forge');
-    else if (t.kind === 'orders') UI.openOrdersPanel();
+    else if (t.kind === 'enterHall') UI.openBuildingPage('hall');
+    else if (t.kind === 'forge') UI.openBuildingPage('forge');
+    else if (t.kind === 'orders') UI.openBuildingPage('stall');
+    else if (t.kind === 'quarters') UI.openBuildingPage('quarters');
+    else if (t.kind === 'wheel') UI.openBuildingPage('wheel');
     else if (t.kind === 'recruit') UI.openRecruitPanel();
     else if (t.kind === 'dispatchClaim'){ let n = 0;
       for (const d of [...S.disciples]) if (Disciples.claimDispatch(d.id)) n++;
       UI.hint(n ? '派遣交接完成，产物已入库（不可出售，只作生产原料）' : '暂无待交接的派遣'); }
-    else if (t.kind === 'mine'){ if (Scene.isLocked('mineZone')) UI.openMineUnlockPanel();
-      else UI.openStationPanel('mine'); }
+    else if (t.kind === 'mine') UI.openBuildingPage('mine');
     else if (t.kind === 'talk'){ const a = Npc.agentOf(t.id);
       if (a) Fx.floatText(a.x, a.y - 46, Disciples.talkLines[Math.floor(Math.random() * Disciples.talkLines.length)], '#ffffff'); }
   },
@@ -1956,7 +2095,8 @@ const Interaction = {
   refreshButton(){
     const pos = Actor.getPlayerPos();
     const t = this.resolveTarget(pos), el = $('act');
-    const ICN = { sleep: 'sleep', settlement: 'coin', promote: 'promote', orders: 'order', recruit: 'recruit', dispatchClaim: 'dispatch' };
+    const ICN = { sleep: 'sleep', settlement: 'coin', promote: 'promote', orders: 'order', recruit: 'recruit', dispatchClaim: 'dispatch',
+      enterHall: 'promote', forge: 'build', quarters: 'disciple', wheel: 'stamina', mine: 'dispatch' };
     if (!t){ el.textContent = '…'; el.classList.add('off'); }
     else { el.innerHTML = (ICN[t.kind] ? '<span class="icn icn-' + ICN[t.kind] + '"></span>' : '') + t.label;
       el.classList.toggle('off', !t.enabled); }
@@ -1984,15 +2124,80 @@ const UI = {
     $('stamBar').style.width = clamp(S.day.stamina / CONFIG.stamina.max * 100, 0, 100) + '%';
     $('pendChip').style.display = S.pendingSettlement ? '' : 'none';
   },
+  /* 修复批③：双容器——底部面板（HUD 入口）与建筑全屏页（门前进入）。各 open* 函数与
+     容器无关：_mode 决定 openPanel 落哪个容器，页内刷新（开工/交付等重开自身）保持同模式。 */
+  _mode: 'panel',
   openPanel(title, sub, rowsHtml, buttons){
-    const p = $('panel');
+    const pageMode = this._mode === 'page';
+    const p = pageMode ? $('page') : $('panel');
+    const other = pageMode ? $('panel') : $('page');
+    if (other) other.innerHTML = '';
     p.innerHTML = '<h3>' + title + '</h3><div class="sub">' + sub + '</div>' + rowsHtml +
-      (buttons || '') + '<button class="pbtn ghost" id="panelClose">关闭</button>';
-    $('panelWrap').classList.add('open');
+      (buttons || '') + '<button class="pbtn ghost" id="panelClose">' + (pageMode ? '返回' : '关闭') + '</button>';
+    (pageMode ? $('pageWrap') : $('panelWrap')).classList.add('open');
     $('panelClose').onclick = () => this.closePanel();
     return p;
   },
-  closePanel(){ $('panelWrap').classList.remove('open'); },
+  closePanel(){ $('panelWrap').classList.remove('open'); $('pageWrap').classList.remove('open'); this._mode = 'panel'; },
+  /* 建筑进入页分发：内容全部复用既有面板函数（同一套数据与按钮逻辑），只换容器与入口 */
+  openBuildingPage(kind){
+    this._mode = 'page';
+    if (kind === 'hall'){
+      this.openSectPanel();
+      const bp = $('btnGoPromote');   // 页内晋阶直达仪式，不再绕回门前
+      if (bp) bp.onclick = () => this.openPromotePanel();
+      const close = $('panelClose');
+      if (close){ const b = document.createElement('button');
+        b.className = 'pbtn'; b.id = 'btnPageSleep';
+        b.innerHTML = this.icn('sleep') + '睡觉过天（回满体力）';
+        b.onclick = () => { this.closePanel(); Day.sleep(); };
+        close.parentNode.insertBefore(b, close); }
+    }
+    else if (kind === 'forge') this.openStationPanel('forge');
+    else if (kind === 'stall') this.openOrdersPanel();
+    else if (kind === 'quarters') this.openDisciplesPanel();
+    else if (kind === 'wheel') this.openWaterwheelPage();
+    else if (kind === 'mine'){ if (Scene.isLocked('mineZone')) this.openMineUnlockPanel(); else this.openMinePage(); }
+  },
+  /* 水车页：汲水与体力口径说明＋既有广告补体力（不新增任何数值通道） */
+  openWaterwheelPage(){
+    const rows =
+      '<div class="row"><span>' + this.icn('stamina', true) + '当前体力</span><b>' + Math.floor(S.day.stamina) + ' / ' + CONFIG.stamina.max + '</b></div>' +
+      '<div class="row"><span>水车汲水</span><span class="mini">溪水昼夜不息地灌满宗门水缸——弟子浇水、搬运都不耗你的体力，只有你亲手锄/播/浇/收才耗。</span></div>' +
+      '<div class="row"><span>体力恢复</span><span class="mini">回大殿睡觉过天回满；离线期间按时辰自动恢复（8 小时回满）。</span></div>';
+    this.openPanel(this.icn('stamina', true) + '水车', '宗门水脉所在；体力告罄时可在此看广告补充（与日常页同一通道、同一上限）', rows,
+      '<button class="pbtn ghost" id="btnWheelStam">' + this.icn('stamina') + '看广告补体力（+' + CONFIG.ads.staminaRefill + '）</button>');
+    $('btnWheelStam').onclick = async (ev) => {
+      ev.target.disabled = true;
+      const r = await Ads.requestReward('stamina_refill', {});
+      if (!r.ok){ this.hint('广告未完成'); this.openWaterwheelPage(); return; }
+      const mult = Ads.settleEffect(r.id);
+      if (mult === null || mult === 0){ this.hint('今日广告收益已达上限，体力未补充'); }
+      else { Day.restoreStamina(Math.floor(CONFIG.ads.staminaRefill * mult), 'ad');
+        this.hint('体力 +' + Math.floor(CONFIG.ads.staminaRefill * mult)); }
+      this.openWaterwheelPage(); };
+  },
+  /* 后山矿口页：派遣管理＋矿脉工位同页（两块都是矿口的活；工位区复用 openStationPanel 渲染后并入） */
+  openMinePage(){
+    this.openStationPanel('mine');
+    const page = $('page'); if (!page) return;
+    const h3 = page.querySelector('h3'); if (h3) h3.innerHTML = this.icn('dispatch', true) + '后山矿口';
+    const sub = page.querySelector('.sub');
+    if (sub) sub.textContent = '派遣弟子下山历练带回启动材料；矿脉工位以灵露＋矿引探采玄玉。';
+    const host = document.createElement('div');
+    host.innerHTML = S.disciples.map(d => {
+      let right = '';
+      if (d.scenePresence === 'dispatched') right = '<span class="tag grey">派遣中 · 剩 ' + this.fmtDur((d.dispatch ? d.dispatch.endsAt : 0) - nowMs()) + '</span>';
+      else if (d.scenePresence === 'atGate') right = '<button class="act2" data-mclaim="' + d.id + '">交接派遣</button>';
+      else right = '<button class="act2" data-mdispatch="' + d.id + '">' + this.icn('dispatch') + '派遣</button>';
+      return '<div class="row"><span><b>' + d.name + '</b> · ' + d.quality + '</span>' + right + '</div>';
+    }).join('') || '<div class="row"><span>暂无弟子，先去山门招贤点招募</span></div>';
+    const close = $('panelClose');
+    page.insertBefore(host, close);
+    host.querySelectorAll('[data-mclaim]').forEach(b => b.onclick = () => {
+      if (Disciples.claimDispatch(b.dataset.mclaim)) this.openMinePage(); });
+    host.querySelectorAll('[data-mdispatch]').forEach(b => b.onclick = () => this.openDispatchPanel(b.dataset.mdispatch));
+  },
   /* M3.5：图集图标（atlas_ground 精灵，CSS .icn 16px / .icnL 24px 两档尺寸） */
   _icnMap: { coin: 'coin', lingzhi: 'lingzhi', ninglu: 'ninglu', xuanyu: 'xuanyu' },
   icn(name, big){ return '<span class="' + (big ? 'icnL icnL-' : 'icn icn-') + name + '"></span>'; },
@@ -2204,6 +2409,14 @@ const UI = {
       (me.rank === 1 ? ' · 暂居榜首' : '');
     else mineEl.textContent = '我还没上榜——' + (kind === 'scale' ? '扩建建筑涨建设度即可上榜。' : '交付订单积累经营入账即可上榜。');
   },
+  /* 两段确认：首击变「确认？」，限时内再击才执行（保存覆盖/读取/删除共用） */
+  _armConfirm(btn, fn){
+    btn.onclick = () => {
+      if (btn.dataset.armed){ delete btn.dataset.armed; fn(); return; }
+      btn.dataset.armed = '1'; const old = btn.textContent; btn.textContent = '确认？';
+      setTimeout(() => { if (btn.isConnected && btn.dataset.armed){ delete btn.dataset.armed; btn.textContent = old; } }, 2600);
+    };
+  },
   /* ---- 宗门面板：建设度/品级/扩建 ---- */
   openSectPanel(){
     const next = Sect.nextRank();
@@ -2218,11 +2431,33 @@ const UI = {
       rows += '<div class="row"><span>后山矿口 · 未开辟</span><button class="act2" data-up="mineGate">' + this.icn('build') + '开辟 ' +
         this.costText(q.cost, true) + '</button></div>';
     }
+    /* 修复批⑥：存档管理——自动档（随进度自动保存）＋5 个手动槽，写/读/删均两段确认 */
+    const fmtT = ts => { if (!ts) return ''; const d = new Date(ts), p2 = n => String(n).padStart(2, '0');
+      return (d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); };
+    const sumHtml = sm => sm ? ('第 ' + sm.day + ' 天 · 建设度 ' + sm.degree + ' · ' + this.icn('coin') + '灵石 ' + sm.coin +
+      ' · 弟子 ' + sm.disciples + ' 人<br><span class="mini">' + fmtT(sm.savedAt) + '</span>') : '<span class="mini">空</span>';
+    rows += '<div class="row"><span><b>' + this.icn('bag', true) + '存档管理</b><br><span class="mini">手动槽保存当前进度；读取/删除需二次确认</span></span></div>';
+    rows += '<div class="row"><span>自动档<br>' + sumHtml(Save.slotSummary(0)) + '</span><span class="tag">自动保存</span></div>';
+    for (let i = 1; i <= CONFIG.save.slots; i++){
+      const sm = Save.slotSummary(i);
+      rows += '<div class="row"><span>存档槽 ' + i + '<br>' + sumHtml(sm) + '</span><span>' +
+        '<button class="act2 ghost2" data-saveslot="' + i + '">保存</button>' +
+        (sm ? ' <button class="act2" data-loadslot="' + i + '">读取</button> <button class="act2 ghost2" data-delslot="' + i + '">删除</button>' : '') +
+        '</span></div>';
+    }
     rows += '<div class="row"><span class="mini">重修一世（转生）：未开放，二期再议。当前轮次记录 ' + (S.prestigeCount || 0) + '。</span></div>';
     this.openPanel(this.icn('promote', true) + '宗门', '扩建即时改变场景与离线产率；晋阶去掌门居门前举行仪式', rows,
       Sect.canPromote() ? '<button class="pbtn" id="btnGoPromote">' + this.icn('promote') + '建设度已够，去门前晋阶</button>' : '');
     document.querySelectorAll('[data-up]').forEach(b => b.onclick = () => {
       if (Sect.upgrade(b.dataset.up)) this.openSectPanel(); });
+    document.querySelectorAll('[data-saveslot]').forEach(b => this._armConfirm(b, () => {
+      if (Save.saveSlot(+b.dataset.saveslot)){ this.hint('已保存到存档槽 ' + b.dataset.saveslot); this.openSectPanel(); }
+      else this.hint('保存失败（存储空间不足？）'); }));
+    document.querySelectorAll('[data-loadslot]').forEach(b => this._armConfirm(b, () => {
+      if (Save.loadSlot(+b.dataset.loadslot)){ this.closePanel(); this.hint('已读取存档槽 ' + b.dataset.loadslot); }
+      else this.hint('读取失败：存档已损坏'); }));
+    document.querySelectorAll('[data-delslot]').forEach(b => this._armConfirm(b, () => {
+      if (Save.deleteSlot(+b.dataset.delslot)){ this.hint('存档槽 ' + b.dataset.delslot + ' 已删除'); this.openSectPanel(); } }));
     const bp = $('btnGoPromote');
     if (bp) bp.onclick = () => { this.closePanel(); this.hint('回掌门居门前，点「晋阶」举行仪式'); };
   },
@@ -2235,7 +2470,7 @@ const UI = {
       '<div class="row"><span>晋阶之后</span><b>' + next.name + '</b></div>' +
       '<div class="row"><span>晋阶礼金</span><b>' + this.icn('coin') + '灵石 +' + reward + '</b></div>' +
       '<div class="row"><span>离线产率随之提升</span><span class="tag">建设度 ' + S.buildDegree + '</span></div>';
-    this.openPanel('宗门晋阶', '仪式由你亲手触发；可看广告令礼金翻倍（同屏可选）', rows,
+    this.openPanel('<span class="plaqueTitle">宗门晋阶</span>', '仪式由你亲手触发；可看广告令礼金翻倍（同屏可选）', rows,
       '<button class="pbtn" id="btnPromote">举行晋阶仪式</button>' +
       '<button class="pbtn ghost" id="btnPromoteAd">看广告双倍礼金（+' + Math.floor(reward * Ads.getRewardMultiplier()) + '）</button>');
     const ceremony = (rw) => { const door = Scene.getAnchor('homeDoor');
@@ -2441,8 +2676,14 @@ const Render = {
   _dirOf(e, key){
     if (!this._dirs) this._dirs = new Map();
     let s = this._dirs.get(key);
-    if (!s){ s = { dir: 'front', face: e.facing || 1, px: e.x, py: e.y }; this._dirs.set(key, s); }
+    if (!s){ s = { dir: 'front', face: e.facing || 1, px: e.x, py: e.y,
+      phase: 0, lastStep: 0, vx: 0, vy: 0, tilt: 0, swordAng: 0 }; this._dirs.set(key, s); }
     const dx = e.x - s.px, dy = e.y - s.py; s.px = e.x; s.py = e.y;
+    /* 修复批①：步帧相位与位移同步——相位增量＝本帧真实位移 / 步幅周期（CONFIG.gait.cyclePx）。
+       旧病根：帧与 bob 都挂墙钟、NPC 相位增速与三种移速无关，脚步与地面滑动＝「飘」。 */
+    const moved = Math.hypot(dx, dy);
+    s.vx = dx; s.vy = dy;
+    if (e.moving && moved > 0.01 && moved < 60 && !(e.flyH > 1.5)) s.phase += moved / CONFIG.gait.cyclePx * Math.PI * 2;  // moved≥60 视为传送/回收：只重同步不推进相位
     if (Math.abs(dx) + Math.abs(dy) > 0.35){
       if (Math.abs(dy) > Math.abs(dx) * 1.25) s.dir = dy > 0 ? 'front' : 'back';
       else { s.dir = 'side'; if (Math.abs(dx) > 0.15) s.face = dx > 0 ? 1 : -1; }
@@ -2469,27 +2710,121 @@ const Render = {
       } else if (act === 'water'){ name = cyc(['frm_male_water_01_v1.png', 'frm_male_water_02_v1.png', 'frm_male_water_03_v1.png'], 160); tint = robe; flip = st.face < 0; }
       else if (act === 'carry'){ name = cyc(['frm_male_carry_01_v1.png', 'frm_male_carry_02_v1.png', 'frm_male_carry_03_v1.png'], 150); tint = robe; flip = st.face < 0; }
     }
+    /* 修复批①：行走帧改由步帧相位选帧（cycP：一周相位走完一轮帧表），落脚相位与位移严格同步。
+       主角移动即御剑：空中用静态站姿帧（腿不摆），姿态靠飞剑/倾斜/拖影表达，不再走路帧。 */
+    const flying = isPlayer && (e.flyH || 0) > 1.5;
+    const cycP = arr => arr[Math.floor(st.phase / (Math.PI * 2) * arr.length) % arr.length];
     if (!name){
-      if (e.moving){
+      if (flying){
+        if (st.dir === 'back') name = 'chr_master_back_v1.png';
+        else if (st.dir === 'side'){ name = 'chr_master_side_v1.png'; flip = st.face > 0; }
+        else name = 'chr_master_front_v1.png';
+      } else if (e.moving){
         if (st.dir === 'front'){
-          if (isPlayer) name = cyc(['frm_master_walk_01_v1.png', 'frm_master_walk_02_v1.png'], 150);
-          else { name = 'chr_male_front_v1.png'; tint = robe; }
+          if (isPlayer) name = cycP(['frm_master_walk_01_v1.png', 'frm_master_walk_02_v1.png']);
+          else { name = 'chr_male_front_v1.png'; tint = robe; }  // 男弟子无正面行走帧：靠相位 bob＋摆幅＋落脚尘补步点感
         } else if (st.dir === 'back'){
-          if (isPlayer) name = cyc(['frm_master_backwalk_02_v1.png', 'chr_master_back_v1.png'], 170);
-          else { name = cyc(['frm_male_walk_02_v1.png', 'chr_male_back_v1.png'], 170); tint = robe; }
-        } else if (isPlayer){ name = cyc(['frm_master_walk_03_v1.png', 'frm_master_walk_04_v1.png', 'frm_master_walk_05_v1.png'], 130); flip = st.face > 0; }
-        else { name = cyc(['frm_male_walk_01_v1.png', 'frm_male_walk_03_v1.png', 'frm_male_walk_04_v1.png', 'frm_male_walk_05_v1.png'], 130); tint = robe; flip = st.face < 0; }
+          if (isPlayer) name = cycP(['frm_master_backwalk_02_v1.png', 'chr_master_back_v1.png']);
+          else { name = cycP(['frm_male_walk_02_v1.png', 'chr_male_back_v1.png']); tint = robe; }
+        } else if (isPlayer){ name = cycP(['frm_master_walk_03_v1.png', 'frm_master_walk_04_v1.png', 'frm_master_walk_05_v1.png']); flip = st.face > 0; }
+        else { name = cycP(['frm_male_walk_01_v1.png', 'frm_male_walk_03_v1.png', 'frm_male_walk_04_v1.png', 'frm_male_walk_05_v1.png']); tint = robe; flip = st.face < 0; }
       } else if (st.dir === 'back'){ name = isPlayer ? 'chr_master_back_v1.png' : 'chr_male_back_v1.png'; if (!isPlayer) tint = robe; }
       else if (st.dir === 'side'){
         if (isPlayer){ name = 'chr_master_side_v1.png'; flip = st.face > 0; }
         else { name = 'chr_male_side_v1.png'; tint = robe; flip = st.face < 0; }
       } else { name = isPlayer ? 'chr_master_front_v1.png' : 'chr_male_front_v1.png'; if (!isPlayer) tint = robe; }
     }
-    const bob = e.moving ? Math.abs(Math.sin(now / 130)) * 2.2 : Math.sin(now / 620 + (e.phase || 0)) * 1.1; // 待机呼吸＝代码 bob（决策 1）
-    const dx = e.x - cam.x - DW / 2, dy = e.y - cam.y - FEET - bob;
-    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(Math.round(e.x - cam.x - 14), Math.round(e.y - cam.y + 1), 28, 6);
-    if (tint) Art.drawTinted(g, name, tint, dx, dy, DW, DH, flip);
-    else Art.draw(g, name, dx, dy, DW, DH, flip);
+    /* bob 锁步帧相位：起伏峰值与落脚同相，不再各走各的墙钟；御剑时为悬停微浮。 */
+    const bob = flying ? Math.sin(now / 520) * 1.3
+      : e.moving ? Math.abs(Math.sin(st.phase)) * 2.1
+      : Math.sin(now / 620 + (e.phase || 0)) * 1.1; // 待机呼吸＝代码 bob（决策 1）
+    const lift = isPlayer ? (e.flyH || 0) : 0;
+    /* 落脚微尘：相位每过一个步点（π）触发一粒，只在贴地行走时 */
+    if (e.moving && !flying){
+      const stepIdx = Math.floor(st.phase / Math.PI);
+      if (stepIdx !== st.lastStep){ st.lastStep = stepIdx;
+        const sx = e.x - cam.x, sy = e.y - cam.y;
+        if (sx > -30 && sx < innerWidth + 30 && sy > -30 && sy < innerHeight + 30)
+          Fx.burst(e.x, e.y + 2, { sprites: ['mote'], n: 1, speed: 0.5, life: 360 }); }
+    }
+    /* 正/背面行走的横向摆幅（补无行走帧朝向的步点感），同样锁相位 */
+    const sway = (e.moving && !flying && st.dir !== 'side') ? Math.sin(st.phase) * 1.4 : 0;
+    const dx = e.x - cam.x - DW / 2 + sway, dy = e.y - cam.y - FEET - bob - lift;
+    /* 影子恒在地面：升空后影子变小变淡，人与影的间距即高度感 */
+    const shW = flying ? 20 : 28, shA = flying ? 0.10 : 0.18;
+    g.fillStyle = 'rgba(0,0,0,' + shA + ')';
+    g.fillRect(Math.round(e.x - cam.x - shW / 2), Math.round(e.y - cam.y + 1), shW, 6);
+    if (isPlayer && lift > 0.5) this._drawSword(e, st, cam, lift);
+    if (isPlayer && flying){ // 御剑身体微倾：绕脚底基点按横向速度倾斜
+      st.tilt += (clamp(st.vx * 0.05, -0.15, 0.15) - st.tilt) * 0.25;
+      g.save();
+      g.translate(e.x - cam.x + sway, e.y - cam.y - lift);
+      g.rotate(st.tilt);
+      g.translate(-(e.x - cam.x + sway), -(e.y - cam.y - lift));
+      if (tint) Art.drawTinted(g, name, tint, dx, dy, DW, DH, flip);
+      else Art.draw(g, name, dx, dy, DW, DH, flip);
+      g.restore();
+    } else {
+      if (tint) Art.drawTinted(g, name, tint, dx, dy, DW, DH, flip);
+      else Art.draw(g, name, dx, dy, DW, DH, flip);
+    }
+  },
+  /* 修复批①：脚下飞剑（程序像素绘制，登记为可换 GPT 素材件 SWORD-ART-TODO）。
+     剑向随移动朝向平滑转头，静止悬停时回正到 facing；剑身带一层微光拖影晕。 */
+  _drawSword(e, st, cam, lift){
+    const g = this.ctx;
+    const moving = Math.hypot(st.vx, st.vy) > 0.3;
+    const target = moving ? Math.atan2(st.vy, st.vx) : (st.face > 0 ? 0 : Math.PI);
+    let d = target - st.swordAng;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    st.swordAng += d * 0.2;
+    const cx = e.x - cam.x, cy = e.y - cam.y - lift + 6;
+    g.save(); g.translate(cx, cy); g.rotate(st.swordAng);
+    g.fillStyle = 'rgba(140,190,255,.28)'; g.fillRect(-26, -6, 58, 12);   // 剑光晕
+    g.fillStyle = '#dfe9ee'; g.fillRect(-2, -2, 36, 4);                   // 剑身
+    g.fillStyle = '#8fa8b5'; g.fillRect(-2, 1, 36, 1);                    // 剑脊阴影
+    g.fillStyle = '#eef6f9'; g.fillRect(34, -1.5, 7, 3);                  // 剑尖
+    g.fillStyle = '#c9a86a'; g.fillRect(-5, -3.5, 3, 7);                  // 剑格
+    g.fillStyle = '#6e5638'; g.fillRect(-12, -1.5, 7, 3);                 // 剑柄
+    g.fillStyle = '#c9a86a'; g.fillRect(-14, -2, 2, 4);                   // 剑首
+    g.restore();
+  },
+  /* 修复批③：建筑铭牌——头顶悬浮小牌（图标＋建筑名），靠近门前时金边高亮。
+     Art 未就绪时退化为纯文字牌（与旧 drawBuilding 牌同口径）。 */
+  _drawPlates(){
+    const g = this.ctx, cam = Scene.camera, p = Actor.player;
+    for (const b of Scene.buildings){
+      if (b.needQuarters){ const q = (S.buildings || []).find(x => x.id === 'quarters');
+        if (!q || q.level < 1) continue; }
+      const cx = b.img ? b.img.x + b.img.w / 2 : b.plateAt.x;
+      const topY = b.img ? b.img.y : b.plateAt.y;
+      const door = Scene.getAnchor(b.door);
+      const near = door && dist(p, door) < 78;
+      let y = topY - 14 + (near ? Math.sin(performance.now() / 280) * 1.5 : 0);
+      if (y - 22 < 2) y = topY + 30;   // 贴世界顶边的建筑（大殿）：铭牌改挂檐口下，不画到界外
+      const label = b.name + (b.id === 'mine' && Scene.isLocked('mineZone') ? ' · 未开放' : '');
+      g.font = '600 12px sans-serif';
+      const tw = g.measureText(label).width;
+      const hasIcn = Art.ready && Art.F['icn_' + b.icon + '_v1.png'];
+      const w = Math.ceil(tw) + (hasIcn ? 30 : 16), h = 22;
+      const x = cx - cam.x - w / 2;
+      let yy = y - cam.y - h;
+      if (yy < 84 && yy > -h) yy = 84;   // 建筑贴屏幕顶时铭牌压到 HUD 之下，不被顶栏盖住
+      if (x + w < -10 || x > innerWidth + 10 || yy + h < -10 || yy > innerHeight + 10) continue;
+      g.fillStyle = 'rgba(46,36,26,.88)';
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x, yy, w, h, 6); else g.rect(x, yy, w, h);
+      g.fill();
+      g.strokeStyle = near ? '#e9c46a' : 'rgba(233,196,106,.35)';
+      g.lineWidth = near ? 2 : 1; g.stroke(); g.lineWidth = 1;
+      let tx = x + 8;
+      if (hasIcn){ Art.draw(g, 'icn_' + b.icon + '_v1.png', x + 5, yy + 2, 18, 18); tx = x + 27; }
+      g.fillStyle = near ? '#ffe9a8' : '#f2ead8';
+      g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText(label, tx, yy + h / 2 + 0.5);
+      g.textBaseline = 'alphabetic';
+    }
   },
   _drawPersonOld(e, robe, isPlayer){
     const g = this.ctx, sp = this.personSprite(robe), cam = Scene.camera;
@@ -2614,6 +2949,7 @@ const Render = {
     ents.push({ y: Actor.player.y, f: () => this.drawPerson(Actor.player, null, true) });
     ents.sort((m, n) => m.y - n.y);
     for (const e of ents) e.f();
+    this._drawPlates();
   },
   drawBuilding(x0, y0, w, h, name){
     const g = this.ctx, x = x0 - Scene.camera.x, y = y0 - Scene.camera.y;
@@ -2637,9 +2973,7 @@ const Game = {
     const frameMs = this.last ? t - this.last : 16;
     const dt = clamp(frameMs, 0, 50); this.last = t;
     Actor.setMoveIntent(Input.getMoveVector(), dt);
-    const p = Actor.player;
-    Scene.camera.x = clamp(p.x - innerWidth / 2, 0, Math.max(0, CONFIG.world.w - innerWidth));
-    Scene.camera.y = clamp(p.y - innerHeight / 2, 0, Math.max(0, CONFIG.world.h - innerHeight));
+    Scene.updateCamera(dt);
     Farming.settlePlots(nowMs());
     Production.settleJobs(nowMs()); Orders.settleOrderTimers(nowMs());
     Disciples.settleDispatches(nowMs());
@@ -2667,12 +3001,12 @@ const Game = {
     // 环境活气：淬炼坊烟气 stream＋大殿前光尘 stream（降级时自动关停）
     Fx.stream(1239, 314, { rate: 4, sprites: ['spark'], vy: -0.8, spread: 6, life: 1100, size: 2.6 }); // M3：新图烟囱口（约 1239,314），图内静态烟已在，动态 stream 减弱保留活气
     Fx.stream(800, 210, { rate: 4, sprites: ['mote'], vy: -0.28, spread: 70, life: 1700, size: 2.6 });
-    $('btnDisciples').onclick = () => UI.openDisciplesPanel();
-    $('btnOrders').onclick = () => UI.openOrdersPanel();
-    $('btnRoutine').onclick = () => UI.openRoutinePanel();
-    $('btnCodex').onclick = () => UI.openCodexPanel();
-    $('btnSect').onclick = () => UI.openSectPanel();
-    $('btnBoard').onclick = () => UI.openBoardPanel();
+    $('btnDisciples').onclick = () => { UI._mode = 'panel'; UI.openDisciplesPanel(); };
+    $('btnOrders').onclick = () => { UI._mode = 'panel'; UI.openOrdersPanel(); };
+    $('btnRoutine').onclick = () => { UI._mode = 'panel'; UI.openRoutinePanel(); };
+    $('btnCodex').onclick = () => { UI._mode = 'panel'; UI.openCodexPanel(); };
+    $('btnSect').onclick = () => { UI._mode = 'panel'; UI.openSectPanel(); };
+    $('btnBoard').onclick = () => { UI._mode = 'panel'; UI.openBoardPanel(); };
     $('seedBtn').onclick = () => { const keys = Object.keys(CONFIG.crops);
       const i = keys.indexOf(S.farmMode || CONFIG.farm.defaultCrop);
       S.farmMode = keys[(i + 1) % keys.length];
@@ -2691,11 +3025,22 @@ const Game = {
     this.running = true; requestAnimationFrame(this.loop.bind(this));
   },
   _lastCoinFix(){ UI._lastCoin = S.balances.coin || 0; $('coin').textContent = UI._lastCoin; },
+  /* 修复批⑥：读手动槽后重装配运行时（模块 init 均为「有数据不重建」口径，与 boot 同序安全重入） */
+  applyLoadedState(){
+    Sect.recomputeBuildDegree();
+    Farming.init(); Disciples.init(); Production.init(); Orders.init(); Codex.init();
+    Events.ensureWeekly(); Ads.resumeChecks();
+    Day.init();
+    Scene.loadMap('kaizongmen_main');
+    Actor.spawnPlayer();
+    Npc.syncRoster();
+    UI.syncHud();
+  },
 };
 Game.boot();
 
 /* 测试钩子（冒烟脚本用） */
-window.__game = { CONFIG, Ledger, Save, Farming, Npc, Offline, Day, Actor, Scene, Disciples, Interaction, Fx,
+window.__game = { CONFIG, Ledger, Save, Farming, Npc, Offline, Day, Actor, Scene, Disciples, Interaction, Fx, Render,
   Production, Orders, Events, Ads, Sect, Codex, UI, Leaderboard, Art,
   get state(){ return S; } };
 </script>
