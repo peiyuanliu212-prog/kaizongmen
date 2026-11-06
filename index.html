@@ -105,6 +105,15 @@
 .icn-sleep{background-position:-82.0px -58.3px}
 .icn-bag{background-position:-98.3px -58.3px}
 .icnL{display:inline-block;width:24px;height:24px;background-image:url('assets/atlas_ground_v1.png');background-repeat:no-repeat;background-size:272.0px 199.5px;vertical-align:-4px}
+  /* 美术补图第二批：功能页横幅 / 弟子头像 / 牌匾图版（atlas_art2 精灵，加载失败自动回退程序版） */
+  .pageBanner{margin:2px 0 10px;border-radius:12px;overflow:hidden;line-height:0}
+  .pageBanner img{width:100%;height:118px;object-fit:cover;display:block}
+  .ava{display:inline-block;width:38px;height:38px;border-radius:50%;background-color:#e8dfc8;border:1px solid #c9b98f;background-repeat:no-repeat;vertical-align:-13px;margin-right:7px}
+  .sp-plaque-img{display:none;width:min(88vw,560px);aspect-ratio:647/149;margin:0 auto;background-image:url('assets/atlas_art2_v1.png');background-size:241.1% 779.9%;background-position:17.9% 87.4%;background-repeat:no-repeat}
+  body.art2-on .sp-plaque-img{display:block}
+  body.art2-on .sp-plaque{display:none}
+  .plaqueBanner{display:block;width:min(76vw,420px);aspect-ratio:647/149;margin:0 auto;background-image:url('assets/atlas_art2_v1.png');background-size:241.1% 779.9%;background-position:17.9% 87.4%;background-repeat:no-repeat}
+  .plaqueSub{display:block;text-align:center;font-size:15px;letter-spacing:.5em;color:#8c2f22;margin-top:2px}
 .icnL-coin{background-position:-47.0px -45.0px}
 .icnL-lingzhi{background-position:-71.5px -45.0px}
 .icnL-ninglu{background-position:-96.0px -45.0px}
@@ -163,7 +172,7 @@
   <div id="act" class="off">…</div>
   <div id="fade"></div>
 </div>
-<div id="splash"><div class="sp-plaque"><div class="sp-title">我在修仙界开宗门</div><div class="sp-sect">青 云 宗</div><div class="sp-sub">种 田 · 淬 炼 · 派 遣 · 长 线 经 营</div></div></div>
+<div id="splash"><div class="sp-plaque"><div class="sp-title">我在修仙界开宗门</div><div class="sp-sect">青 云 宗</div><div class="sp-sub">种 田 · 淬 炼 · 派 遣 · 长 线 经 营</div></div><div class="sp-plaque-img" role="img" aria-label="我在修仙界开宗门"></div></div>
 <div id="panelWrap"><div id="panel" class="sheet"></div></div>
 <div id="pageWrap"><div id="page" class="sheet"></div></div>
 <canvas id="fxCanvas"></canvas>
@@ -942,7 +951,7 @@ const Fx = {
     for (let i = 0; i < n; i++){ const p = this._alloc(); if (!p) break;
       const a = Math.random() * Math.PI * 2, s = (0.3 + Math.random() * 0.7) * spd;
       Object.assign(p, { x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.7, grav: 0.0038, drag: 1,
-        life: 0, maxLife: life * (0.6 + Math.random() * 0.7), size: 2.5 + Math.random() * 3,
+        life: 0, maxLife: life * (0.6 + Math.random() * 0.7), size: (opts.size || 2.5) + Math.random() * 3,
         spr: sprs[i % sprs.length], space: 'world', rot: Math.random() * 7, sway: 0 }); }
   },
   /* ---- stream：持续发射器，返回句柄 { stop() } ---- */
@@ -1014,6 +1023,14 @@ const Fx = {
     if (gleaves.length) this.emitters.push({ x: 800, y: 760, rate: 1.0, acc: 0, on: true, drift: true,
       spread: 780, spreadY: 330, sprites: gleaves, vx: 0.11, vy: 0.16, life: 9000, size: 9 });
   },
+  /* 美术批二：剑光拖影贴图注册（fx2_trail_1..4 → sprites trail1..4）；无图时 Actor 自动回退 spark/mote */
+  attachSwordTrail(){
+    if (this.trailSprites || !this.sprites || typeof Art === 'undefined' || !Art.ready2) return;
+    const names = [];
+    for (let i = 1; i <= 4; i++){ const c = Art.cropCanvas('fx2_trail_' + i + '_v1.png', true);
+      if (c){ this.sprites['trail' + i] = c; names.push('trail' + i); } }
+    if (names.length) this.trailSprites = names;
+  },
   /* ---- 主循环（由游戏主循环以钳制后 dt 调用） ---- */
   tick(dtMs, frameMs){
     // 帧率自适应降级（恢复后不自动升档，防抖动）
@@ -1084,6 +1101,8 @@ const Fx = {
  * 模块：场景与镜头 scene
  * 接口：loadMap / worldToScreen / screenToWorld / getAnchor / rebuildCollision / setCameraTarget
  * ================================================================ */
+/* 追加批（清晰度）：渲染分辨率倍率——主画布按 DPR（上限 2）出图，逻辑坐标恒为 CSS 像素 */
+const VIEW = { dpr: 1 };
 const Scene = {
   mapId: 'kaizongmen_main', mapVersion: 1,
   camera: { x: 0, y: 0, targetId: 'player' },
@@ -1193,7 +1212,7 @@ const Scene = {
     if (this._tileCache[key]) return this._tileCache[key];
     const f = Art.F[name]; if (!f) return null;
     const t = document.createElement('canvas'); t.width = t.height = size;
-    const tg = t.getContext('2d');
+    const tg = t.getContext('2d'); tg.imageSmoothingEnabled = false;   // 追加批1：贴图块不平滑，像素边缘硬朗
     tg.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, size, size);
     if (shade && shade !== 1){ tg.globalCompositeOperation = 'source-atop';
       tg.fillStyle = 'rgba(32,22,8,' + (1 - shade).toFixed(2) + ')'; tg.fillRect(0, 0, size, size);
@@ -1252,8 +1271,9 @@ const Scene = {
   _paintGroundTextured(g){
     const W = CONFIG.world.w, H = CONFIG.world.h;
     this._mosaic(g, ['gnd_grass_a_v1.png', 'gnd_grass_b_v1.png'], -40, -40, W + 80, H + 80, 168, 116, 7);
-    g.fillStyle = '#8d8272'; g.fillRect(1240, 40, 328, 280);
-    g.fillStyle = '#7e7362'; for (let i = 0; i < 14; i++) g.fillRect(1256 + (i * 89) % 290, 60 + (i * 67) % 230, 18, 10);
+    if (Art.F['gnd_rock_v1.png']) this._mosaic(g, ['gnd_rock_v1.png'], 1240, 40, 328, 280, 150, 104, 61);   // 美术批二：矿区岩地真贴图（羽化平铺同 M3.5 法）
+    else { g.fillStyle = '#8d8272'; g.fillRect(1240, 40, 328, 280);
+      g.fillStyle = '#7e7362'; for (let i = 0; i < 14; i++) g.fillRect(1256 + (i * 89) % 290, 60 + (i * 67) % 230, 18, 10); }
     const dirt = ['gnd_dirt_v1.png'];
     this._mosaic(g, dirt, 756, 240, 88, 920, 132, 94, 21);
     this._mosaic(g, dirt, 120, 812, 1330, 64, 132, 94, 22);
@@ -1274,16 +1294,17 @@ const Scene = {
     this._featherDraw(g, 'gnd_steps_v1.png', 742, 230, 116, 106, 16);
   },
   _prerenderStatic(){
-    const c = document.createElement('canvas'); c.width = CONFIG.world.w; c.height = CONFIG.world.h;
-    const g = c.getContext('2d');
+    const dpr = VIEW.dpr || 1, W = CONFIG.world.w, H = CONFIG.world.h;
+    const c = document.createElement('canvas'); c.width = W * dpr; c.height = H * dpr;
+    const g = c.getContext('2d'); g.scale(dpr, dpr); g.imageSmoothingEnabled = false;   // 追加批1：静态层按 DPR 预渲染、关平滑防地面发糊
     if (typeof Art !== 'undefined' && Art.ready && Art.F['gnd_grass_a_v1.png']) this._paintGroundTextured(g);
     else {
-      g.fillStyle = '#7d9b5e'; g.fillRect(0, 0, c.width, c.height);
+      g.fillStyle = '#7d9b5e'; g.fillRect(0, 0, W, H);
       g.fillStyle = '#75915a';
-      for (let x = 0; x < c.width; x += 64) for (let y = 0; y < c.height; y += 64)
+      for (let x = 0; x < W; x += 64) for (let y = 0; y < H; y += 64)
         if ((x + y) % 128 === 0) g.fillRect(x, y, 64, 64);
       g.fillStyle = '#87a668';
-      for (let i = 0; i < 90; i++) g.fillRect((i * 173) % c.width, (i * 271) % c.height, 24, 8);
+      for (let i = 0; i < 90; i++) g.fillRect((i * 173) % W, (i * 271) % H, 24, 8);
       // 后山矿口地面（灰褐）
       g.fillStyle = '#8d8272'; g.fillRect(1240, 40, 328, 280);
       g.fillStyle = '#7e7362'; for (let i = 0; i < 14; i++) g.fillRect(1256 + (i * 89) % 290, 60 + (i * 67) % 230, 18, 10);
@@ -1322,7 +1343,9 @@ const Actor = {
     Scene.setCameraTarget('player'); Scene.snapCamera();
   },
   setMoveIntent(vec, dt){
-    const p = this.player, m = Math.hypot(vec.x, vec.y);
+    const p = this.player, now0 = nowMs();
+    if (now0 < p.actionUntil) vec = { x: 0, y: 0 };   // 追加批5：动作执行期间锁定——人物不位移、动作帧完整播完一轮
+    const m = Math.hypot(vec.x, vec.y);
     p.moving = m > 0.12;
     if (p.moving){
       const s = CONFIG.player.speed * Math.min(1, m);
@@ -1341,11 +1364,12 @@ const Actor = {
     if (p.moving && p.flyH > 6){ // 剑光拖影（低频单粒，沿用 Fx 预算与帧率保护）
       p._trailAcc += dt;
       if (p._trailAcc >= CONFIG.flight.trailMs){ p._trailAcc = 0;
-        Fx.burst(p.x - p.facing * 12, p.y - p.flyH + 4, { sprites: ['spark', 'mote'], n: 1, speed: 0.4, life: 420 }); }
+        Fx.burst(p.x - p.facing * 12, p.y - p.flyH + 4, { sprites: Fx.trailSprites || ['spark', 'mote'],
+          n: 1, speed: 0.4, life: 420, size: Fx.trailSprites ? 13 : 0 }); }
     }
     S.player.x = p.x; S.player.y = p.y; S.player.facing = p.facing;
   },
-  playAction(name){ this.player.animState = 'action:' + name; this.player.actionUntil = nowMs() + 320; },
+  playAction(name){ this.player.animState = 'action:' + name; this.player.actionUntil = nowMs() + 450; },   // 追加批5：450ms＝3 帧×150ms 完整一轮
   getPlayerPos(){ return { x: this.player.x, y: this.player.y }; },
 };
 
@@ -1546,6 +1570,17 @@ const Disciples = {
     return true;
   },
   getDisciple(id){ return S.disciples.find(d => d.id === id); },
+  /* 美术批二：头像分配——按弟子 id 哈希稳定落位（偶→男池 0-2、奇→女池 3-5），
+     分配序号 avatarIdx 随弟子存档持久化，存档只记序号不存图 */
+  avatarOf(d){
+    if (!d) return 0;
+    if (typeof d.avatarIdx !== 'number'){
+      let h = 0; const s = String(d.id || d.name || '');
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+      h = Math.abs(h); d.avatarIdx = (h % 2) * 3 + (Math.floor(h / 2) % 3);
+    }
+    return d.avatarIdx;
+  },
   talkLines: ['掌门早，药圃我照看着呢。', '昨日那株灵芝长势很好。', '山下集市的药价又涨了些。', '活干完了，我再去巡一圈。'],
 };
 
@@ -2043,8 +2078,36 @@ const Input = {
   },
 };
 const Interaction = {
-  target: null,
+  target: null, _stable: null, _stableKey: null, _cand: null,
+  /* 追加批5：目标判定滞回——新目标须持续胜出 150ms 才切换，根治田边按钮在
+     收获/锄地/播种间高频乱跳；当前目标失效（无目标）立即清空不滞留。 */
   resolveTarget(pos){
+    const raw = this._resolveRaw(pos), now = nowMs();
+    const key = raw ? raw.kind + '|' + (raw.id || '') + '|' + raw.label : null;
+    if (!raw){ this._stable = null; this._stableKey = null; this._cand = null; return null; }
+    if (this._stableKey === key){ this._cand = null; this._stable = raw; return raw; }
+    if (this._stable){
+      /* 稳定目标已不在身边（走开/被移除）→ 立即让位，不等滞回（防交替候选把失效目标永久锁死在按钮上） */
+      if (!this._stillValid(this._stable, pos)){ this._stable = raw; this._stableKey = key; this._cand = null; return raw; }
+      if (!this._cand || this._cand.key !== key){ this._cand = { key, since: now }; return this._stable; }
+      if (now - this._cand.since >= 150){ this._stable = raw; this._stableKey = key; this._cand = null; return raw; }
+      return this._stable;
+    }
+    this._stable = raw; this._stableKey = key; return raw;
+  },
+  _stillValid(t, pos){
+    if (!t) return false;
+    if (t.kind === 'plot'){ const p = Farming.plotById(t.id);
+      return !!p && dist(pos, Farming.center(p)) < CONFIG.interaction.plotRadius + 8; }
+    if (t.kind === 'talk'){ const a = Npc.agentOf(t.id);
+      return !!a && dist(pos, a) < CONFIG.interaction.talkRadius + 10; }
+    const A = Scene.anchors, R = Math.max(CONFIG.interaction.anchorRadius + 12, 68);
+    const anchorOf = { settlement: 'homeDoor', promote: 'homeDoor', enterHall: 'homeDoor', forge: 'forge',
+      orders: 'orderPoint', quarters: 'discipleHome', wheel: 'wheelDoor', recruit: 'recruitPoint',
+      dispatchClaim: 'gate', mine: 'mineGate' }[t.kind];
+    return !!(anchorOf && A[anchorOf]) && dist(pos, A[anchorOf]) < R;
+  },
+  _resolveRaw(pos){
     let best = null, bd = CONFIG.interaction.plotRadius;
     for (const p of S.plots){ const d = dist(pos, Farming.center(p));
       if (d < bd){ bd = d; const a = Farming.getPlotAction(p);
@@ -2069,7 +2132,8 @@ const Interaction = {
     return null;
   },
   performAction(){
-    const t = this.resolveTarget(Actor.getPlayerPos()); if (!t) return;
+    if (nowMs() < Actor.player.actionUntil) return;   // 追加批5：动作锁定期间不接受新动作（目标与按钮一并锁定）
+    const t = this._resolveRaw(Actor.getPlayerPos()); if (!t) return;   // 执行走即时解析：滞回只管按钮显示，误触旧目标比按钮慢 150ms 更糟
     this.target = t;
     if (t.kind === 'plot'){ const p = Farming.plotById(t.id);
       Actor.playAction(!p ? 'hoe' : p.state === 'empty' ? 'hoe' : p.state === 'tilled' ? 'seed'
@@ -2126,22 +2190,26 @@ const UI = {
   },
   /* 修复批③：双容器——底部面板（HUD 入口）与建筑全屏页（门前进入）。各 open* 函数与
      容器无关：_mode 决定 openPanel 落哪个容器，页内刷新（开工/交付等重开自身）保持同模式。 */
-  _mode: 'panel',
+  _mode: 'panel', _bannerFor: null,
   openPanel(title, sub, rowsHtml, buttons){
     const pageMode = this._mode === 'page';
     const p = pageMode ? $('page') : $('panel');
     const other = pageMode ? $('panel') : $('page');
     if (other) other.innerHTML = '';
-    p.innerHTML = '<h3>' + title + '</h3><div class="sub">' + sub + '</div>' + rowsHtml +
+    p.innerHTML = '<h3>' + title + '</h3><div class="sub">' + sub + '</div>' +
+      (pageMode && this._bannerFor ? '<div class="pageBanner"><img alt="" src="' + this._bannerFor + '"></div>' : '') + rowsHtml +
       (buttons || '') + '<button class="pbtn ghost" id="panelClose">' + (pageMode ? '返回' : '关闭') + '</button>';
     (pageMode ? $('pageWrap') : $('panelWrap')).classList.add('open');
     $('panelClose').onclick = () => this.closePanel();
     return p;
   },
-  closePanel(){ $('panelWrap').classList.remove('open'); $('pageWrap').classList.remove('open'); this._mode = 'panel'; },
+  closePanel(){ $('panelWrap').classList.remove('open'); $('pageWrap').classList.remove('open'); this._mode = 'panel'; this._bannerFor = null; },
   /* 建筑进入页分发：内容全部复用既有面板函数（同一套数据与按钮逻辑），只换容器与入口 */
   openBuildingPage(kind){
     this._mode = 'page';
+    /* 美术批二：四建筑全屏页顶部内景横幅（页内 118px 高、object-fit cover，不挤功能区）；水车/矿口无内景图 */
+    const BANNERS = { hall: 'int_hall_v1.png', forge: 'int_forge_v1.png', stall: 'int_stall_v1.png', quarters: 'int_quarters_v1.png' };
+    this._bannerFor = (typeof Art !== 'undefined' && Art.ready2 && BANNERS[kind]) ? Art.dataUrl(BANNERS[kind]) : null;
     if (kind === 'hall'){
       this.openSectPanel();
       const bp = $('btnGoPromote');   // 页内晋阶直达仪式，不再绕回门前
@@ -2201,6 +2269,12 @@ const UI = {
   /* M3.5：图集图标（atlas_ground 精灵，CSS .icn 16px / .icnL 24px 两档尺寸） */
   _icnMap: { coin: 'coin', lingzhi: 'lingzhi', ninglu: 'ninglu', xuanyu: 'xuanyu' },
   icn(name, big){ return '<span class="' + (big ? 'icnL icnL-' : 'icn icn-') + name + '"></span>'; },
+  /* 美术批二：弟子头像（atlas_art2 精灵）；图未就绪时返回空串、回退纯文字行 */
+  avatarHtml(d){
+    if (typeof Art === 'undefined' || !Art.ready2 || typeof Disciples === 'undefined') return '';
+    const st = Art.avaStyle(Disciples.avatarOf(d)); if (!st) return '';
+    return '<span class="ava" style="' + st + '"></span>';
+  },
   itemIcn(itemId){ const n = this._icnMap[itemId]; return n ? this.icn(n) : ''; },
   costText(cost, withIcn){ const parts = [];
     if (cost.coin) parts.push((withIcn ? this.icn('coin') : '') + '灵石×' + cost.coin);
@@ -2316,10 +2390,10 @@ const UI = {
     let rows = '<div class="row"><span>在册弟子</span><b>' + S.disciples.length + ' / ' + G.rosterCap + ' 人</b></div>' +
       '<div class="row"><span>招募一位新弟子（随机资质/命格/来历）</span><b>' + this.icn('coin') + '灵石×' + G.recruitCost + '</b></div>';
     const nd = newId ? Disciples.getDisciple(newId) : null;
-    if (nd) rows += '<div class="row"><span>新入山门：<b>' + nd.name + '</b>（' + nd.quality + '）<br><span class="mini">' +
+    if (nd) rows += '<div class="row"><span>' + this.avatarHtml(nd) + '新入山门：<b>' + nd.name + '</b>（' + nd.quality + '）<br><span class="mini">' +
       nd.fates.map(f => f.name).join('、') + ' · ' + nd.originId + (nd.quirk ? '<br>' + nd.quirk : '') + '</span></span></div>';
     const due = S.disciples.filter(d => d.scenePresence === 'atGate');
-    rows += due.map(d => '<div class="row"><span>' + d.name + ' 派遣归来，正在山门等候</span>' +
+    rows += due.map(d => '<div class="row"><span>' + this.avatarHtml(d) + d.name + ' 派遣归来，正在山门等候</span>' +
       '<button class="act2" data-claim="' + d.id + '">交接</button></div>').join('');
     this.openPanel('招贤点', '招募成功后弟子自山门入场；22h 派遣在弟子名册里发起', rows,
       '<button class="pbtn" id="btnRecruit">' + this.icn('recruit') + '招募弟子</button>');
@@ -2340,7 +2414,7 @@ const UI = {
         right = '<button class="act2 ghost2" data-cycle="' + d.id + '">派工：' + (Disciples.JOB_LABEL[d.assignment] || d.assignment) + '</button> ' +
           '<button class="act2" data-dispatch="' + d.id + '">' + this.icn('dispatch') + '派遣</button>';
       }
-      return '<div class="row"><span><b>' + d.name + '</b> · ' + d.quality + ' · ' + d.personality + '<br>' +
+      return '<div class="row"><span>' + this.avatarHtml(d) + '<b>' + d.name + '</b> · ' + d.quality + ' · ' + d.personality + '<br>' +
         '<span class="mini">命格：' + (d.fates.map(f => f.name).join('、') || '无') + '｜资质：' +
         CONFIG.discipleGen.attrNames.map(a => a + (d.attrs[a] || 0)).join(' ') + '<br>来历：' + d.originId +
         (d.quirk ? '<br>' + d.quirk : '') + '</span></span>' + right + '</div>';
@@ -2470,7 +2544,9 @@ const UI = {
       '<div class="row"><span>晋阶之后</span><b>' + next.name + '</b></div>' +
       '<div class="row"><span>晋阶礼金</span><b>' + this.icn('coin') + '灵石 +' + reward + '</b></div>' +
       '<div class="row"><span>离线产率随之提升</span><span class="tag">建设度 ' + S.buildDegree + '</span></div>';
-    this.openPanel('<span class="plaqueTitle">宗门晋阶</span>', '仪式由你亲手触发；可看广告令礼金翻倍（同屏可选）', rows,
+    this.openPanel((typeof Art !== 'undefined' && Art.ready2)
+      ? '<span class="plaqueBanner" role="img" aria-label="我在修仙界开宗门"></span><span class="plaqueSub">宗 门 晋 阶</span>'
+      : '<span class="plaqueTitle">宗门晋阶</span>', '仪式由你亲手触发；可看广告令礼金翻倍（同屏可选）', rows,
       '<button class="pbtn" id="btnPromote">举行晋阶仪式</button>' +
       '<button class="pbtn ghost" id="btnPromoteAd">看广告双倍礼金（+' + Math.floor(reward * Ads.getRewardMultiplier()) + '）</button>');
     const ceremony = (rw) => { const door = Scene.getAnchor('homeDoor');
@@ -2555,8 +2631,8 @@ const UI = {
  *   右向一律由原生左帧镜像、左向由原生右帧镜像。
  * ================================================================ */
 const Art = {
-  ready: false, failed: false, imgs: {}, F: {}, tintCache: {},
-  RECTS: {"chars":{"chr_master_front_v1.png":[0,0,96,144],"chr_master_side34_v1.png":[96,0,96,144],"chr_master_side_v1.png":[192,0,96,144],"chr_master_back_v1.png":[288,0,96,144],"chr_male_front_v1.png":[384,0,96,144],"chr_male_side_v1.png":[480,0,96,144],"chr_male_back_v1.png":[576,0,96,144],"chr_male_back2_v1.png":[0,144,96,144],"chr_female_front_v1.png":[96,144,96,144],"chr_female_side34_v1.png":[192,144,96,144],"chr_female_side_v1.png":[288,144,96,144],"chr_female_back_v1.png":[384,144,96,144],"chr_female2_front_v1.png":[480,144,96,144],"chr_female2_side34_v1.png":[576,144,96,144],"chr_female2_side_v1.png":[0,288,96,144],"chr_female2_back_v1.png":[96,288,96,144],"frm_master_walk_01_v1.png":[192,288,96,144],"frm_master_walk_02_v1.png":[288,288,96,144],"frm_master_walk_03_v1.png":[384,288,96,144],"frm_master_walk_04_v1.png":[480,288,96,144],"frm_master_walk_05_v1.png":[576,288,96,144],"frm_master_hoe_01_v1.png":[0,432,96,144],"frm_master_hoe_02_v1.png":[96,432,96,144],"frm_master_hoe_03_v1.png":[192,432,96,144],"frm_master_water_01_v1.png":[288,432,96,144],"frm_master_water_02_v1.png":[384,432,96,144],"frm_master_water_03_v1.png":[480,432,96,144],"frm_master_backwalk_01_v1.png":[576,432,96,144],"frm_master_backwalk_02_v1.png":[0,576,96,144],"frm_master_backwalk_03_v1.png":[96,576,96,144],"frm_master_backwalk_04_v1.png":[192,576,96,144],"frm_master_backwalk_05_v1.png":[288,576,96,144],"frm_male_harvest_01_v1.png":[384,576,96,144],"frm_male_harvest_02_v1.png":[480,576,96,144],"frm_male_harvest_03_v1.png":[576,576,96,144],"frm_male_water_01_v1.png":[0,720,96,144],"frm_male_water_02_v1.png":[96,720,96,144],"frm_male_water_03_v1.png":[192,720,96,144],"frm_male_walk_01_v1.png":[288,720,96,144],"frm_male_walk_02_v1.png":[384,720,96,144],"frm_male_walk_03_v1.png":[480,720,96,144],"frm_male_walk_04_v1.png":[576,720,96,144],"frm_male_walk_05_v1.png":[0,864,96,144],"frm_male_carry_01_v1.png":[96,864,96,144],"frm_male_carry_02_v1.png":[192,864,96,144],"frm_male_carry_03_v1.png":[288,864,96,144],"frm_female_basket_01_v1.png":[384,864,96,144],"frm_female_basket_02_v1.png":[480,864,96,144],"frm_female_basket_03_v1.png":[576,864,96,144]},"scene":{"bld_hall_v1.png":[0,0,302,222],"bld_forge_v1.png":[302,0,235,217],"bld_quarters_v1.png":[537,0,241,194],"bld_gate_v1.png":[0,222,290,195],"bld_stall_v1.png":[290,222,269,199],"bld_waterwheel_v1.png":[559,222,208,196],"crop_lingzhi_s1_v1.png":[767,222,112,73],"crop_lingzhi_s2_v1.png":[879,222,109,77],"crop_lingzhi_s3_v1.png":[0,421,110,77],"crop_lingzhi_s4_v1.png":[110,421,110,77],"crop_lingzhi_s5_v1.png":[220,421,111,77],"crop_ninglu_s1_v1.png":[331,421,112,75],"crop_ninglu_s2_v1.png":[443,421,111,82],"crop_ninglu_s3_v1.png":[554,421,109,81],"crop_ninglu_s4_v1.png":[663,421,109,89],"crop_ninglu_s5_v1.png":[772,421,110,90],"crop_xuanyu_s1_v1.png":[882,421,112,74],"crop_xuanyu_s2_v1.png":[0,511,111,74],"crop_xuanyu_s3_v1.png":[111,511,111,85],"crop_xuanyu_s4_v1.png":[222,511,111,96],"crop_xuanyu_s5_v1.png":[333,511,111,98],"tile_soil_v1.png":[444,511,107,73]},"ground":{"gnd_grass_a_v1.png":[2,2,160,160],"gnd_grass_b_v1.png":[164,2,160,160],"gnd_stone_v1.png":[326,2,160,160],"gnd_dirt_v1.png":[488,2,160,160],"gnd_roadedge_v1.png":[650,2,48,176],"gnd_water_v1.png":[700,2,160,160],"gnd_shore_v1.png":[862,2,160,134],"gnd_steps_v1.png":[2,180,184,168],"icn_coin_v1.png":[188,180,96,96],"icn_lingzhi_v1.png":[286,180,96,96],"icn_ninglu_v1.png":[384,180,96,96],"icn_xuanyu_v1.png":[482,180,96,96],"icn_stamina_v1.png":[580,180,96,96],"icn_build_v1.png":[678,180,96,96],"icn_disciple_v1.png":[776,180,96,96],"icn_order_v1.png":[874,180,96,96],"icn_signin_v1.png":[972,180,96,96],"icn_board_v1.png":[2,350,96,96],"icn_dispatch_v1.png":[100,350,96,96],"icn_recruit_v1.png":[198,350,96,96],"icn_expand_v1.png":[296,350,96,96],"icn_promote_v1.png":[394,350,96,96],"icn_sleep_v1.png":[492,350,96,96],"icn_bag_v1.png":[590,350,96,96],"fx_splash_1_v1.png":[688,350,147,89],"fx_splash_2_v1.png":[837,350,146,89],"fx_splash_3_v1.png":[2,448,148,90],"fx_splash_4_v1.png":[152,448,149,90],"fx_petal_1_v1.png":[303,448,56,40],"fx_petal_2_v1.png":[361,448,54,33],"fx_petal_3_v1.png":[417,448,35,34],"fx_petal_4_v1.png":[454,448,29,31],"fx_petal_5_v1.png":[485,448,33,28],"fx_petal_6_v1.png":[520,448,31,23],"fx_petal_7_v1.png":[553,448,27,16],"fx_leaf_1_v1.png":[582,448,70,42],"fx_leaf_2_v1.png":[654,448,62,60],"fx_leaf_3_v1.png":[718,448,56,35],"fx_leaf_4_v1.png":[776,448,52,42],"fx_leaf_5_v1.png":[830,448,55,41],"fx_leaf_6_v1.png":[887,448,58,39],"fx_leaf_7_v1.png":[947,448,48,38],"fx_leaf_8_v1.png":[997,448,34,29],"fx_wheel_v1.png":[2,540,256,256],"prop_scale_v1.png":[260,540,200,200]}},
+  ready: false, failed: false, ready2: false, failed2: false, imgs: {}, F: {}, tintCache: {},
+  RECTS: {"chars":{"chr_master_front_v1.png":[0,0,96,144],"chr_master_side34_v1.png":[96,0,96,144],"chr_master_side_v1.png":[192,0,96,144],"chr_master_back_v1.png":[288,0,96,144],"chr_male_front_v1.png":[384,0,96,144],"chr_male_side_v1.png":[480,0,96,144],"chr_male_back_v1.png":[576,0,96,144],"chr_male_back2_v1.png":[0,144,96,144],"chr_female_front_v1.png":[96,144,96,144],"chr_female_side34_v1.png":[192,144,96,144],"chr_female_side_v1.png":[288,144,96,144],"chr_female_back_v1.png":[384,144,96,144],"chr_female2_front_v1.png":[480,144,96,144],"chr_female2_side34_v1.png":[576,144,96,144],"chr_female2_side_v1.png":[0,288,96,144],"chr_female2_back_v1.png":[96,288,96,144],"frm_master_walk_01_v1.png":[192,288,96,144],"frm_master_walk_02_v1.png":[288,288,96,144],"frm_master_walk_03_v1.png":[384,288,96,144],"frm_master_walk_04_v1.png":[480,288,96,144],"frm_master_walk_05_v1.png":[576,288,96,144],"frm_master_hoe_01_v1.png":[0,432,96,144],"frm_master_hoe_02_v1.png":[96,432,96,144],"frm_master_hoe_03_v1.png":[192,432,96,144],"frm_master_water_01_v1.png":[288,432,96,144],"frm_master_water_02_v1.png":[384,432,96,144],"frm_master_water_03_v1.png":[480,432,96,144],"frm_master_backwalk_01_v1.png":[576,432,96,144],"frm_master_backwalk_02_v1.png":[0,576,96,144],"frm_master_backwalk_03_v1.png":[96,576,96,144],"frm_master_backwalk_04_v1.png":[192,576,96,144],"frm_master_backwalk_05_v1.png":[288,576,96,144],"frm_male_harvest_01_v1.png":[384,576,96,144],"frm_male_harvest_02_v1.png":[480,576,96,144],"frm_male_harvest_03_v1.png":[576,576,96,144],"frm_male_water_01_v1.png":[0,720,96,144],"frm_male_water_02_v1.png":[96,720,96,144],"frm_male_water_03_v1.png":[192,720,96,144],"frm_male_walk_01_v1.png":[288,720,96,144],"frm_male_walk_02_v1.png":[384,720,96,144],"frm_male_walk_03_v1.png":[480,720,96,144],"frm_male_walk_04_v1.png":[576,720,96,144],"frm_male_walk_05_v1.png":[0,864,96,144],"frm_male_carry_01_v1.png":[96,864,96,144],"frm_male_carry_02_v1.png":[192,864,96,144],"frm_male_carry_03_v1.png":[288,864,96,144],"frm_female_basket_01_v1.png":[384,864,96,144],"frm_female_basket_02_v1.png":[480,864,96,144],"frm_female_basket_03_v1.png":[576,864,96,144]},"scene":{"bld_hall_v1.png":[0,0,302,222],"bld_forge_v1.png":[302,0,235,217],"bld_quarters_v1.png":[537,0,241,194],"bld_gate_v1.png":[0,222,290,195],"bld_stall_v1.png":[290,222,269,199],"bld_waterwheel_v1.png":[559,222,208,196],"crop_lingzhi_s1_v1.png":[767,222,112,73],"crop_lingzhi_s2_v1.png":[879,222,109,77],"crop_lingzhi_s3_v1.png":[0,421,110,77],"crop_lingzhi_s4_v1.png":[110,421,110,77],"crop_lingzhi_s5_v1.png":[220,421,111,77],"crop_ninglu_s1_v1.png":[331,421,112,75],"crop_ninglu_s2_v1.png":[443,421,111,82],"crop_ninglu_s3_v1.png":[554,421,109,81],"crop_ninglu_s4_v1.png":[663,421,109,89],"crop_ninglu_s5_v1.png":[772,421,110,90],"crop_xuanyu_s1_v1.png":[882,421,112,74],"crop_xuanyu_s2_v1.png":[0,511,111,74],"crop_xuanyu_s3_v1.png":[111,511,111,85],"crop_xuanyu_s4_v1.png":[222,511,111,96],"crop_xuanyu_s5_v1.png":[333,511,111,98],"tile_soil_v1.png":[444,511,107,73]},"ground":{"gnd_grass_a_v1.png":[2,2,160,160],"gnd_grass_b_v1.png":[164,2,160,160],"gnd_stone_v1.png":[326,2,160,160],"gnd_dirt_v1.png":[488,2,160,160],"gnd_roadedge_v1.png":[650,2,48,176],"gnd_water_v1.png":[700,2,160,160],"gnd_shore_v1.png":[862,2,160,134],"gnd_steps_v1.png":[2,180,184,168],"icn_coin_v1.png":[188,180,96,96],"icn_lingzhi_v1.png":[286,180,96,96],"icn_ninglu_v1.png":[384,180,96,96],"icn_xuanyu_v1.png":[482,180,96,96],"icn_stamina_v1.png":[580,180,96,96],"icn_build_v1.png":[678,180,96,96],"icn_disciple_v1.png":[776,180,96,96],"icn_order_v1.png":[874,180,96,96],"icn_signin_v1.png":[972,180,96,96],"icn_board_v1.png":[2,350,96,96],"icn_dispatch_v1.png":[100,350,96,96],"icn_recruit_v1.png":[198,350,96,96],"icn_expand_v1.png":[296,350,96,96],"icn_promote_v1.png":[394,350,96,96],"icn_sleep_v1.png":[492,350,96,96],"icn_bag_v1.png":[590,350,96,96],"fx_splash_1_v1.png":[688,350,147,89],"fx_splash_2_v1.png":[837,350,146,89],"fx_splash_3_v1.png":[2,448,148,90],"fx_splash_4_v1.png":[152,448,149,90],"fx_petal_1_v1.png":[303,448,56,40],"fx_petal_2_v1.png":[361,448,54,33],"fx_petal_3_v1.png":[417,448,35,34],"fx_petal_4_v1.png":[454,448,29,31],"fx_petal_5_v1.png":[485,448,33,28],"fx_petal_6_v1.png":[520,448,31,23],"fx_petal_7_v1.png":[553,448,27,16],"fx_leaf_1_v1.png":[582,448,70,42],"fx_leaf_2_v1.png":[654,448,62,60],"fx_leaf_3_v1.png":[718,448,56,35],"fx_leaf_4_v1.png":[776,448,52,42],"fx_leaf_5_v1.png":[830,448,55,41],"fx_leaf_6_v1.png":[887,448,58,39],"fx_leaf_7_v1.png":[947,448,48,38],"fx_leaf_8_v1.png":[997,448,34,29],"fx_wheel_v1.png":[2,540,256,256],"prop_scale_v1.png":[260,540,200,200]},"art2":{"art2_sword_v1.png": [2, 2, 228, 50], "frm2_master_fly_front_v1.png": [232, 2, 126, 144], "frm2_master_fly_side_r_v1.png": [360, 2, 125, 144], "frm2_master_fly_back_v1.png": [487, 2, 116, 144], "frm2_master_fly_side_l2_v1.png": [605, 2, 128, 144], "frm2_master_fly_side_l_v1.png": [735, 2, 131, 144], "fx2_trail_1_v1.png": [868, 2, 150, 60], "fx2_trail_2_v1.png": [1020, 2, 155, 68], "fx2_trail_3_v1.png": [1177, 2, 155, 66], "fx2_trail_4_v1.png": [1334, 2, 115, 65], "frm2_male_walkf_01_v1.png": [1451, 2, 96, 144], "frm2_male_walkf_02_v1.png": [2, 148, 96, 144], "frm2_male_walkf_03_v1.png": [100, 148, 96, 144], "frm2_male_walkf_04_v1.png": [198, 148, 96, 144], "frm2_male_walkf_05_v1.png": [296, 148, 96, 144], "frm2_male_walkf_06_v1.png": [394, 148, 96, 144], "frm2_male_walkf_07_v1.png": [492, 148, 96, 144], "frm2_male_walkf_08_v1.png": [590, 148, 96, 144], "frm2_male_walkf_09_v1.png": [688, 148, 96, 144], "frm2_male_walkb_01_v1.png": [786, 148, 96, 144], "frm2_male_walkb_02_v1.png": [884, 148, 96, 144], "frm2_male_walkb_03_v1.png": [982, 148, 96, 144], "frm2_male_walkb_04_v1.png": [1080, 148, 96, 144], "frm2_male_walkb_05_v1.png": [1178, 148, 96, 144], "frm2_male_walkb_06_v1.png": [1276, 148, 96, 144], "frm2_male_walkb_07_v1.png": [1374, 148, 96, 144], "frm2_male_walkb_08_v1.png": [2, 294, 96, 144], "frm2_male_walkb_09_v1.png": [100, 294, 96, 144], "frm2_male_walkr_01_v1.png": [198, 294, 96, 144], "frm2_male_walkr_02_v1.png": [296, 294, 96, 144], "frm2_male_walkr_03_v1.png": [394, 294, 96, 144], "frm2_male_walkr_04_v1.png": [492, 294, 96, 144], "frm2_male_walkr_05_v1.png": [590, 294, 96, 144], "frm2_male_walkr_06_v1.png": [688, 294, 96, 144], "frm2_male_walkr_07_v1.png": [786, 294, 96, 144], "frm2_male_walkr_08_v1.png": [884, 294, 96, 144], "frm2_male_walkr_09_v1.png": [982, 294, 96, 144], "frm2_male_walkl_01_v1.png": [1080, 294, 96, 144], "frm2_male_walkl_02_v1.png": [1178, 294, 96, 144], "frm2_male_walkl_03_v1.png": [1276, 294, 96, 144], "frm2_male_walkl_04_v1.png": [1374, 294, 96, 144], "frm2_male_walkl_05_v1.png": [2, 440, 96, 144], "frm2_male_walkl_06_v1.png": [100, 440, 96, 144], "frm2_male_walkl_07_v1.png": [198, 440, 96, 144], "frm2_male_walkl_08_v1.png": [296, 440, 96, 144], "frm2_male_walkl_09_v1.png": [394, 440, 96, 144], "int_forge_v1.png": [492, 440, 331, 186], "int_quarters_v1.png": [825, 440, 323, 186], "int_stall_v1.png": [1150, 440, 331, 222], "int_hall_v1.png": [2, 664, 323, 219], "gnd_rock_v1.png": [327, 664, 160, 160], "prop_minegate_v1.png": [489, 664, 247, 176], "prop_cart_v1.png": [738, 664, 155, 146], "prop_crystal_v1.png": [895, 664, 155, 144], "prop_lantern_v1.png": [1052, 664, 91, 147], "prop_fence_v1.png": [1145, 664, 165, 133], "prop_bush_v1.png": [1312, 664, 191, 143], "prop_flower_v1.png": [2, 885, 159, 137], "art2_plaque_v1.png": [163, 885, 647, 149], "ava_0_v1.png": [812, 885, 124, 124], "ava_1_v1.png": [938, 885, 124, 124], "ava_2_v1.png": [1064, 885, 124, 124], "ava_3_v1.png": [1190, 885, 124, 124], "ava_4_v1.png": [1316, 885, 124, 124], "ava_5_v1.png": [2, 1036, 124, 124], "cropfix_lingzhi_s2_v1.png": [128, 1036, 109, 80], "cropfix_lingzhi_s3_v1.png": [239, 1036, 110, 81], "cropfix_lingzhi_s4_v1.png": [351, 1036, 110, 86], "cropfix_lingzhi_s5_v1.png": [463, 1036, 111, 95], "cropfix_ninglu_s5_v1.png": [576, 1036, 110, 93], "cropfix_xuanyu_s5_v1.png": [688, 1036, 111, 104]}},
   load(){
     const jobs = [['chars', 'assets/atlas_characters_v1.png'], ['scene', 'assets/atlas_scene_v1.png'], ['ground', 'assets/atlas_ground_v1.png']];
     let ok = 0;
@@ -2564,14 +2640,47 @@ const Art = {
       im.onload = () => { this.imgs[k] = im; if (++ok === jobs.length) this._build(); };
       im.onerror = () => { this.failed = true; console.warn('[art] atlas load failed:', src); };
       im.src = src; }
+    /* 美术批二：第二批图集独立加载——失败只降级新素材（程序飞剑/占位牌匾/程序岩面），不拖累主图集 */
+    const im2 = new Image();
+    im2.onload = () => { this.imgs.art2 = im2; this._build2(); };
+    im2.onerror = () => { this.failed2 = true; console.warn('[art] atlas_art2 load failed'); };
+    im2.src = 'assets/atlas_art2_v1.png';
   },
   _build(){
-    for (const k of Object.keys(this.RECTS))
+    for (const k of Object.keys(this.RECTS)){ if (!this.imgs[k]) continue;
       for (const name of Object.keys(this.RECTS[k])){ const r = this.RECTS[k][name];
-        this.F[name] = { img: this.imgs[k], x: r[0], y: r[1], w: r[2], h: r[3] }; }
+        this.F[name] = { img: this.imgs[k], x: r[0], y: r[1], w: r[2], h: r[3] }; } }
     this.ready = true;
     if (typeof Scene !== 'undefined') Scene._prerenderStatic();   // M3.5：地面贴图就绪后重绘静态层
     if (typeof Fx !== 'undefined' && Fx.attachGroundFx) Fx.attachGroundFx();
+  },
+  /* 美术批二：第二批图集合并（就绪后重绘静态层换岩面、注册剑光拖影、splash 切图版牌匾） */
+  _build2(){
+    const r2 = this.RECTS.art2 || {};
+    for (const name of Object.keys(r2)){ const r = r2[name];
+      this.F[name] = { img: this.imgs.art2, x: r[0], y: r[1], w: r[2], h: r[3] }; }
+    this.ready2 = true;
+    document.body.classList.add('art2-on');
+    if (typeof Scene !== 'undefined' && this.ready) Scene._prerenderStatic();
+    if (typeof Fx !== 'undefined' && Fx.attachSwordTrail) Fx.attachSwordTrail();
+  },
+  /* 精灵转 dataURL（功能页横幅 img 用，结果缓存） */
+  dataUrl(name){
+    if (!this._duCache) this._duCache = {};
+    if (this._duCache[name] !== undefined) return this._duCache[name];
+    const c = this.cropCanvas(name);
+    let u = '';
+    try { u = c ? c.toDataURL() : ''; } catch (err) { u = ''; }   // file:// 等环境画布污染时降级无横幅，不阻断开页
+    this._duCache[name] = u;
+    return u;
+  },
+  /* 弟子头像 CSS 精灵样式（38px 圆裁，位置/尺寸按图集 1560×1162 与头像格 124 换算） */
+  avaStyle(idx){
+    const r = (this.RECTS.art2 || {})['ava_' + idx + '_v1.png']; if (!r) return '';
+    const s = 38 / 124;
+    return 'background-image:url(\'assets/atlas_art2_v1.png\');background-size:' +
+      (1560 * s).toFixed(1) + 'px ' + (1162 * s).toFixed(1) + 'px;background-position:' +
+      (-r[0] * s).toFixed(1) + 'px ' + (-r[1] * s).toFixed(1) + 'px';
   },
   draw(g, name, dx, dy, dw, dh, flip){
     const f = this.F[name]; if (!f) return false;
@@ -2654,8 +2763,10 @@ const Render = {
     this.cv = $('game'); this.ctx = this.cv.getContext('2d');
     this.ctx.imageSmoothingEnabled = false;
     this.PERSON_ROWS_B = this.PERSON_ROWS.slice(0, 11).concat(['....rr..rr....', '....ff..ff....']);
-    const resize = () => { this.cv.width = innerWidth; this.cv.height = innerHeight;
-      this.ctx.imageSmoothingEnabled = false; };
+    const resize = () => { VIEW.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      this.cv.width = Math.round(innerWidth * VIEW.dpr); this.cv.height = Math.round(innerHeight * VIEW.dpr);
+      this.ctx.imageSmoothingEnabled = false;
+      if (typeof Scene !== 'undefined' && Scene.staticLayer) Scene._prerenderStatic(); };
     addEventListener('resize', resize); resize();
   },
   personSprite(robe){
@@ -2695,8 +2806,8 @@ const Render = {
     const g = this.ctx, cam = Scene.camera, now = performance.now();
     const st = this._dirOf(e, isPlayer ? 'player' : e.discipleId);
     const robe = disciple ? disciple.appearanceSeed : null;
-    const DW = 64, DH = 96, FEET = 92;   // 帧 96×144 显示 64×96，脚底基线 138/144 → 92
-    let name = null, flip = false, tint = null;
+    const DW = 83, DH = 125, FEET = 120;   // 追加批4：人物×1.3 校准人/建筑比例（帧 96×144 显示 83×125，脚底基线 138/144 → 120；旧 64×96 人显小）
+    let name = null, flip = false, tint = null, usedFlyPose = false;
     const cyc = (arr, ms) => arr[Math.floor(now / ms) % arr.length];
     let act = null;
     if (isPlayer && e.animState && e.animState.indexOf('action:') === 0 && nowMs() < e.actionUntil) act = e.animState.slice(7);
@@ -2704,9 +2815,9 @@ const Render = {
     else if (!isPlayer && disciple && disciple.assignment === 'carry' && (e.navState === 'walkTo' || e.navState === 'work')) act = 'carry';
     if (act){
       if (isPlayer){
-        if (act === 'hoe') name = cyc(['frm_master_hoe_01_v1.png', 'frm_master_hoe_02_v1.png', 'frm_master_hoe_03_v1.png'], 110);
-        else if (act === 'water') name = cyc(['frm_master_water_01_v1.png', 'frm_master_water_02_v1.png', 'frm_master_water_03_v1.png'], 110);
-        else { name = cyc(['frm_male_harvest_01_v1.png', 'frm_male_harvest_02_v1.png', 'frm_male_harvest_03_v1.png'], 110); tint = '#2e3d5c'; }
+        if (act === 'hoe') name = cyc(['frm_master_hoe_01_v1.png', 'frm_master_hoe_02_v1.png', 'frm_master_hoe_03_v1.png'], 150);
+        else if (act === 'water') name = cyc(['frm_master_water_01_v1.png', 'frm_master_water_02_v1.png', 'frm_master_water_03_v1.png'], 150);
+        else { name = cyc(['frm_male_harvest_01_v1.png', 'frm_male_harvest_02_v1.png', 'frm_male_harvest_03_v1.png'], 150); tint = '#2e3d5c'; }
       } else if (act === 'water'){ name = cyc(['frm_male_water_01_v1.png', 'frm_male_water_02_v1.png', 'frm_male_water_03_v1.png'], 160); tint = robe; flip = st.face < 0; }
       else if (act === 'carry'){ name = cyc(['frm_male_carry_01_v1.png', 'frm_male_carry_02_v1.png', 'frm_male_carry_03_v1.png'], 150); tint = robe; flip = st.face < 0; }
     }
@@ -2716,17 +2827,32 @@ const Render = {
     const cycP = arr => arr[Math.floor(st.phase / (Math.PI * 2) * arr.length) % arr.length];
     if (!name){
       if (flying){
-        if (st.dir === 'back') name = 'chr_master_back_v1.png';
+        /* 美术批二＋追加批6：御剑用 GPT 姿态整图（人立剑上、剑为姿态一体），侧向双帧微摆；
+           art2 未就绪才回退静态站姿帧＋程序飞剑拼凑（旧法） */
+        if (Art.ready2 && Art.F['frm2_master_fly_front_v1.png']){
+          usedFlyPose = true;
+          if (st.dir === 'back') name = 'frm2_master_fly_back_v1.png';
+          else if (st.dir === 'side'){
+            const alt = Math.floor(now / 380) % 2 === 1;
+            if (st.face > 0){ name = alt ? 'frm2_master_fly_side_l2_v1.png' : 'frm2_master_fly_side_r_v1.png'; flip = alt; }
+            else name = alt ? 'frm2_master_fly_side_l2_v1.png' : 'frm2_master_fly_side_l_v1.png';
+          }
+          else name = 'frm2_master_fly_front_v1.png';
+        }
+        else if (st.dir === 'back') name = 'chr_master_back_v1.png';
         else if (st.dir === 'side'){ name = 'chr_master_side_v1.png'; flip = st.face > 0; }
         else name = 'chr_master_front_v1.png';
       } else if (e.moving){
         if (st.dir === 'front'){
           if (isPlayer) name = cycP(['frm_master_walk_01_v1.png', 'frm_master_walk_02_v1.png']);
-          else { name = 'chr_male_front_v1.png'; tint = robe; }  // 男弟子无正面行走帧：靠相位 bob＋摆幅＋落脚尘补步点感
+          else if (Art.ready2) { name = cycP(['frm2_male_walkf_01_v1.png', 'frm2_male_walkf_03_v1.png', 'frm2_male_walkf_04_v1.png', 'frm2_male_walkf_06_v1.png', 'frm2_male_walkf_07_v1.png', 'frm2_male_walkf_09_v1.png']); tint = robe; }   // 美术批二：男弟子正面真帧表（相位驱动不变、只换帧源）
+          else { name = 'chr_male_front_v1.png'; tint = robe; }  // art2 未就绪回退：静态帧靠相位 bob＋摆幅＋落脚尘补步点感
         } else if (st.dir === 'back'){
           if (isPlayer) name = cycP(['frm_master_backwalk_02_v1.png', 'chr_master_back_v1.png']);
+          else if (Art.ready2) { name = cycP(['frm2_male_walkb_01_v1.png', 'frm2_male_walkb_03_v1.png', 'frm2_male_walkb_04_v1.png', 'frm2_male_walkb_06_v1.png', 'frm2_male_walkb_07_v1.png', 'frm2_male_walkb_09_v1.png']); tint = robe; }
           else { name = cycP(['frm_male_walk_02_v1.png', 'chr_male_back_v1.png']); tint = robe; }
         } else if (isPlayer){ name = cycP(['frm_master_walk_03_v1.png', 'frm_master_walk_04_v1.png', 'frm_master_walk_05_v1.png']); flip = st.face > 0; }
+        else if (Art.ready2) { name = cycP(st.face > 0 ? ['frm2_male_walkr_01_v1.png', 'frm2_male_walkr_03_v1.png', 'frm2_male_walkr_04_v1.png', 'frm2_male_walkr_06_v1.png', 'frm2_male_walkr_07_v1.png', 'frm2_male_walkr_09_v1.png'] : ['frm2_male_walkl_01_v1.png', 'frm2_male_walkl_03_v1.png', 'frm2_male_walkl_04_v1.png', 'frm2_male_walkl_06_v1.png', 'frm2_male_walkl_07_v1.png', 'frm2_male_walkl_09_v1.png']); tint = robe; }   // 左右各有原生帧，不镜像
         else { name = cycP(['frm_male_walk_01_v1.png', 'frm_male_walk_03_v1.png', 'frm_male_walk_04_v1.png', 'frm_male_walk_05_v1.png']); tint = robe; flip = st.face < 0; }
       } else if (st.dir === 'back'){ name = isPlayer ? 'chr_master_back_v1.png' : 'chr_male_back_v1.png'; if (!isPlayer) tint = robe; }
       else if (st.dir === 'side'){
@@ -2749,27 +2875,29 @@ const Render = {
     }
     /* 正/背面行走的横向摆幅（补无行走帧朝向的步点感），同样锁相位 */
     const sway = (e.moving && !flying && st.dir !== 'side') ? Math.sin(st.phase) * 1.4 : 0;
-    const dx = e.x - cam.x - DW / 2 + sway, dy = e.y - cam.y - FEET - bob - lift;
+    /* 御剑姿态帧画布更宽（剑横展），按帧宽等比取绘制宽、高与基线与地面帧同口径 */
+    const dwP = usedFlyPose ? Math.round(DW * Art.F[name].w / 96) : DW;
+    const dx = e.x - cam.x - dwP / 2 + sway, dy = e.y - cam.y - FEET - bob - lift;
     /* 影子恒在地面：升空后影子变小变淡，人与影的间距即高度感 */
-    const shW = flying ? 20 : 28, shA = flying ? 0.10 : 0.18;
+    const shW = flying ? 26 : 36, shA = flying ? 0.10 : 0.18;
     g.fillStyle = 'rgba(0,0,0,' + shA + ')';
     g.fillRect(Math.round(e.x - cam.x - shW / 2), Math.round(e.y - cam.y + 1), shW, 6);
-    if (isPlayer && lift > 0.5) this._drawSword(e, st, cam, lift);
+    if (isPlayer && lift > 0.5 && !usedFlyPose) this._drawSword(e, st, cam, lift);   // 程序飞剑降为 art2 未就绪兜底（SWORD-ART-TODO 已由姿态整图销账）
     if (isPlayer && flying){ // 御剑身体微倾：绕脚底基点按横向速度倾斜
       st.tilt += (clamp(st.vx * 0.05, -0.15, 0.15) - st.tilt) * 0.25;
       g.save();
       g.translate(e.x - cam.x + sway, e.y - cam.y - lift);
       g.rotate(st.tilt);
       g.translate(-(e.x - cam.x + sway), -(e.y - cam.y - lift));
-      if (tint) Art.drawTinted(g, name, tint, dx, dy, DW, DH, flip);
-      else Art.draw(g, name, dx, dy, DW, DH, flip);
+      if (tint) Art.drawTinted(g, name, tint, dx, dy, dwP, DH, flip);
+      else Art.draw(g, name, dx, dy, dwP, DH, flip);
       g.restore();
     } else {
-      if (tint) Art.drawTinted(g, name, tint, dx, dy, DW, DH, flip);
-      else Art.draw(g, name, dx, dy, DW, DH, flip);
+      if (tint) Art.drawTinted(g, name, tint, dx, dy, dwP, DH, flip);
+      else Art.draw(g, name, dx, dy, dwP, DH, flip);
     }
   },
-  /* 修复批①：脚下飞剑（程序像素绘制，登记为可换 GPT 素材件 SWORD-ART-TODO）。
+  /* 修复批①遗留：程序像素飞剑——美术批二起降为 art2 未就绪兜底（正常路径由 GPT 御剑姿态整图承担，见 drawPerson）。
      剑向随移动朝向平滑转头，静止悬停时回正到 facing；剑身带一层微光拖影晕。 */
   _drawSword(e, st, cam, lift){
     const g = this.ctx;
@@ -2830,14 +2958,14 @@ const Render = {
     const g = this.ctx, sp = this.personSprite(robe), cam = Scene.camera;
     const walking = e.moving, img = walking && Math.floor(e.walk * 2) % 2 ? sp.b : sp.a;
     const bob = walking ? Math.abs(Math.sin(e.walk)) * 2 : Math.sin(performance.now() / 600 + (e.phase || 0)) * 0.7;
-    const x = Math.round(e.x - cam.x - 21), y = Math.round(e.y - cam.y - 37 - bob);
-    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(Math.round(e.x - cam.x - 12), Math.round(e.y - cam.y + 2), 24, 6);
+    const x = Math.round(e.x - cam.x - 27), y = Math.round(e.y - cam.y - 48 - bob);
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(Math.round(e.x - cam.x - 15), Math.round(e.y - cam.y + 2), 31, 6);
     g.save();
-    if (e.facing < 0){ g.translate(x + 42, y); g.scale(-1, 1); g.drawImage(img, 0, 0); }
-    else g.drawImage(img, x, y);
+    if (e.facing < 0){ g.translate(x + 55, y); g.scale(-1, 1); g.drawImage(img, 0, 0, 55, 51); }
+    else g.drawImage(img, x, y, 55, 51);
     g.restore();
-    if (isPlayer){ g.fillStyle = '#c9a86a'; g.fillRect(Math.round(e.x - cam.x - 13), Math.round(e.y - cam.y - 40 - bob), 26, 4);
-      g.fillRect(Math.round(e.x - cam.x - 3), Math.round(e.y - cam.y - 45 - bob), 6, 5); }
+    if (isPlayer){ g.fillStyle = '#c9a86a'; g.fillRect(Math.round(e.x - cam.x - 17), Math.round(e.y - cam.y - 52 - bob), 34, 5);
+      g.fillRect(Math.round(e.x - cam.x - 4), Math.round(e.y - cam.y - 58 - bob), 8, 6); }
   },
   /* M3.5：水车轮体旋转叠加层。烤制图轮心/轮辋按 bld_waterwheel 单体目检对位：
      轮心 (77,118)/208×196、轮辋半径约 59 → 映射到绘制框 (16,430,180,170) 得轮心 (82.6,532.3)、R≈51。
@@ -2851,17 +2979,11 @@ const Render = {
     g.drawImage(m.canvas, -m.cx * dw, -m.cy * dh, dw, dh);
     g.restore();
   },
-  drawTree(x, y){
-    const g = this.ctx;
-    g.fillStyle = '#6e5638'; g.fillRect(x + 34, y + 44, 14, 34);
-    g.fillStyle = '#46684a'; g.fillRect(x + 8, y + 8, 66, 40); g.fillRect(x + 20, y - 4, 42, 14);
-    g.fillStyle = '#54795a'; g.fillRect(x + 16, y + 14, 50, 26);
-    g.fillStyle = '#638a68'; g.fillRect(x + 28, y + 4, 26, 16);
-  },
   draw(){
     const g = this.ctx, cam = Scene.camera;
-    g.fillStyle = '#7d9b5e'; g.fillRect(0, 0, this.cv.width, this.cv.height);
-    if (Scene.staticLayer) g.drawImage(Scene.staticLayer, -cam.x, -cam.y);
+    g.setTransform(VIEW.dpr, 0, 0, VIEW.dpr, 0, 0);   // 追加批1：位图按 DPR 出图、逻辑坐标恒为 CSS 像素（旧版位图恒 1x，真机上被放大发糊）
+    g.fillStyle = '#7d9b5e'; g.fillRect(0, 0, innerWidth, innerHeight);
+    if (Scene.staticLayer) g.drawImage(Scene.staticLayer, Math.round(-cam.x), Math.round(-cam.y), CONFIG.world.w, CONFIG.world.h);
     g.save(); g.translate(-cam.x, -cam.y);
     if (Art.ready && Art.F['fx_splash_1_v1.png']){ // M3.5：池塘水花（两处错相循环）
       const seq = [1, 2, 3, 4, 3, 2], ph = Math.floor(performance.now() / 170);
@@ -2879,6 +3001,9 @@ const Render = {
             : (Farming.growthStage(p) >= 2 ? 4 : 3);
           imgName = 'crop_' + crop + '_s' + sIdx + '_v1.png';
         }
+        if (imgName.indexOf('crop_') === 0 && p.state !== 'tilled' && Art.ready2){ // 美术批二：顶部截断修复件优先（原图 M3 固定带切分切掉植株顶部）
+          const fixName = 'cropfix_' + imgName.slice(5);
+          if (Art.F[fixName]) imgName = fixName; }
         const f = Art.F[imgName];
         if (f){ const dw = 96, dh = dw * f.h / f.w;
           g.drawImage(f.img, f.x, f.y, f.w, f.h, c.x - dw / 2, c.y + 28 - dh, dw, dh); }
@@ -2913,27 +3038,46 @@ const Render = {
     // Y 排序实体
     const ents = [];
     if (Art.ready){ // M3：建筑单体图（位置对位现有 solids/anchors，碰撞盒不随图变）
-      ents.push({ y: 238, f: () => Art.draw(g, 'bld_hall_v1.png', 640 - cam.x, 17 - cam.y, 320, 235) });
-      ents.push({ y: 524, f: () => Art.draw(g, 'bld_forge_v1.png', 1109 - cam.x, 303 - cam.y, 250, 231) });
+      /* 追加批3：Y 排序键逐栋复核＝建筑接地线（solid 底边），旧键最大偏 16px（居舍 330 vs 接地 314）致人物在屋前被屋身盖住 */
+      ents.push({ y: 246, f: () => Art.draw(g, 'bld_hall_v1.png', 640 - cam.x, 17 - cam.y, 320, 235) });
+      ents.push({ y: 528, f: () => Art.draw(g, 'bld_forge_v1.png', 1109 - cam.x, 303 - cam.y, 250, 231) });
       ents.push({ y: 816, f: () => Art.draw(g, 'bld_stall_v1.png', 1020 - cam.x, 667 - cam.y, 210, 155) });
       ents.push({ y: 820, f: () => Art.draw(g, 'prop_scale_v1.png', 1150 - cam.x, 726 - cam.y, 58, 67) }); // M3.5：出货台吊秤识别件
-      ents.push({ y: 1150, f: () => Art.draw(g, 'bld_gate_v1.png', 650 - cam.x, 954 - cam.y, 300, 202) });
-      ents.push({ y: 600, f: () => { Art.draw(g, 'bld_waterwheel_v1.png', 16 - cam.x, 430 - cam.y, 180, 170);
+      ents.push({ y: 1142, f: () => Art.draw(g, 'bld_gate_v1.png', 650 - cam.x, 954 - cam.y, 300, 202) });
+      ents.push({ y: 594, f: () => { Art.draw(g, 'bld_waterwheel_v1.png', 16 - cam.x, 430 - cam.y, 180, 170);
         this._drawWheelOverlay(g, cam); } });
       const qb = (S.buildings || []).find(b => b.id === 'quarters');
       if (qb && qb.level >= 1)
-        ents.push({ y: 330, f: () => Art.draw(g, 'bld_quarters_v1.png', 400 - cam.x, 137 - cam.y, 240, 193) });
+        ents.push({ y: 314, f: () => Art.draw(g, 'bld_quarters_v1.png', 400 - cam.x, 137 - cam.y, 240, 193) });
+      if (Art.ready2){ // 美术批二：矿洞口＋场景装饰（纯装饰、不进碰撞盒，y-sort＝底边；布点见集成报告）
+        ents.push({ y: 200, f: () => Art.draw(g, 'prop_minegate_v1.png', 1295 - cam.x, 51 - cam.y, 210, 149) });
+        ents.push({ y: 296, f: () => Art.draw(g, 'prop_crystal_v1.png', 1258 - cam.x, 230 - cam.y, 84, 66) });
+        ents.push({ y: 296, f: () => Art.draw(g, 'prop_cart_v1.png', 1466 - cam.x, 222 - cam.y, 104, 74) });
+        ents.push({ y: 326, f: () => Art.draw(g, 'prop_bush_v1.png', 652 - cam.x, 268 - cam.y, 76, 58) });
+        ents.push({ y: 648, f: () => Art.draw(g, 'prop_bush_v1.png', 990 - cam.x, 590 - cam.y, 76, 58) });
+        ents.push({ y: 296, f: () => Art.draw(g, 'prop_flower_v1.png', 958 - cam.x, 240 - cam.y, 72, 56) });
+        ents.push({ y: 946, f: () => Art.draw(g, 'prop_fence_v1.png', 300 - cam.x, 884 - cam.y, 120, 62) });
+        ents.push({ y: 946, f: () => Art.draw(g, 'prop_fence_v1.png', 1180 - cam.x, 884 - cam.y, 120, 62) });
+        ents.push({ y: 1062, f: () => Art.draw(g, 'prop_lantern_v1.png', 618 - cam.x, 1006 - cam.y, 40, 56) });
+        ents.push({ y: 1062, f: () => Art.draw(g, 'prop_lantern_v1.png', 950 - cam.x, 1006 - cam.y, 40, 56) });
+        ents.push({ y: 1058, f: () => Art.draw(g, 'prop_flower_v1.png', 980 - cam.x, 1002 - cam.y, 72, 56) });
+        /* 追加批3：M1 程序占位树（方块树冠）全部拔除，原树位以灌木/花丛替代（原树干碰撞保留） */
+        ents.push({ y: 154, f: () => Art.draw(g, 'prop_bush_v1.png', 48 - cam.x, 68 - cam.y, 116, 86) });
+        ents.push({ y: 774, f: () => Art.draw(g, 'prop_bush_v1.png', 1318 - cam.x, 690 - cam.y, 116, 84) });
+        ents.push({ y: 1030, f: () => Art.draw(g, 'prop_flower_v1.png', 112 - cam.x, 954 - cam.y, 104, 76) });
+        ents.push({ y: 1054, f: () => Art.draw(g, 'prop_bush_v1.png', 1438 - cam.x, 968 - cam.y, 116, 86) });
+      }
     } else {
 
-    ents.push({ y: 238, f: () => this.drawBuilding(680, 120, 240, 118, '掌门居') });
-    ents.push({ y: 524, f: () => { this.drawBuilding(1150, 420, 168, 104, '淬炼坊');
+    ents.push({ y: 246, f: () => this.drawBuilding(680, 120, 240, 118, '掌门居') });
+    ents.push({ y: 528, f: () => { this.drawBuilding(1150, 420, 168, 104, '淬炼坊');
       const fl = 8 + Math.sin(performance.now() / 160) * 2;
       g.fillStyle = '#3d3d3d'; g.fillRect(1224, 486, 20, 20);
       g.fillStyle = '#ff9c4a'; g.fillRect(1230, 494 - fl / 2, 8, fl); } });
     ents.push({ y: 816, f: () => { const x = 1088 - cam.x, y = 760 - cam.y;
       g.fillStyle = '#8a6d4f'; g.fillRect(x, y + 14, 74, 42); g.fillStyle = '#6e5638'; g.fillRect(x, y + 4, 74, 14);
       g.fillStyle = '#f2ead8'; g.font = '12px sans-serif'; g.textAlign = 'center'; g.fillText('订单点', x + 37, y - 4); } });
-    ents.push({ y: 1150, f: () => { const x = -cam.x, y = -cam.y;
+    ents.push({ y: 1142, f: () => { const x = -cam.x, y = -cam.y;
       g.fillStyle = '#5a4632'; g.fillRect(x + 736, y + 1064, 14, 86); g.fillRect(x + 850, y + 1064, 14, 86);
       g.fillStyle = '#37474f'; g.fillRect(x + 720, y + 1048, 160, 16);
       g.fillStyle = '#f2ead8'; g.font = '700 13px sans-serif'; g.textAlign = 'center'; g.fillText('青 云 宗', x + 800, y + 1061); } });
@@ -2942,8 +3086,7 @@ const Render = {
       g.fillStyle = '#8c2f22'; g.font = '700 12px sans-serif'; g.textAlign = 'center';
       g.fillText(Scene.isLocked('mineZone') ? '后山矿口 · 未开放' : '后山矿口', x, y + 38); } });
     }
-    for (const t of [{ x: 60, y: 80 }, { x: 1330, y: 700 }, { x: 120, y: 960 }, { x: 1450, y: 980 }])
-      ents.push({ y: t.y + 78, f: () => this.drawTree(t.x - cam.x, t.y - cam.y) });
+    /* 追加批3：M1 程序占位树已全部拔除（原树位由 prop_bush/prop_flower 替代，见 Art.ready 分支装饰段） */
     for (const a of Npc.agents){ const d = Disciples.getDisciple(a.discipleId);
       ents.push({ y: a.y, f: () => this.drawPerson(a, d, false) }); }
     ents.push({ y: Actor.player.y, f: () => this.drawPerson(Actor.player, null, true) });
@@ -2998,6 +3141,7 @@ const Game = {
     Npc.syncRoster();
     Offline.settleOnReturn(nowMs());
     Render.init(); Fx.init(); Input.init();
+    if (Art.ready2) Fx.attachSwordTrail();   // 美术批二：图集先行就绪时补注册剑光（后就绪由 Art._build2 调用，幂等）
     // 环境活气：淬炼坊烟气 stream＋大殿前光尘 stream（降级时自动关停）
     Fx.stream(1239, 314, { rate: 4, sprites: ['spark'], vy: -0.8, spread: 6, life: 1100, size: 2.6 }); // M3：新图烟囱口（约 1239,314），图内静态烟已在，动态 stream 减弱保留活气
     Fx.stream(800, 210, { rate: 4, sprites: ['mote'], vy: -0.28, spread: 70, life: 1700, size: 2.6 });
