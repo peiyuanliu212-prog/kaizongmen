@@ -8,8 +8,14 @@
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; background:#141a16; font-family:"PingFang SC","Microsoft YaHei",sans-serif; }
   #stage { position:absolute; inset:0; }
-  #game { position:absolute; inset:0; display:block; image-rendering:pixelated; touch-action:none; }
-  #fxCanvas { position:fixed; inset:0; pointer-events:none; z-index:40; }
+  #game { position:absolute; inset:0; width:100%; height:100%; display:block; image-rendering:pixelated; touch-action:none; }
+  #fxCanvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:40; }
+  /* 紧急修复批①：封面完全退出前 HUD/摇杆/按钮/提示一律不显（旧版 boot 即全显，
+     splash 淡出 0.7s 期间 HUD 透过半透明封面＝叠印）；boot 收尾给 body 加 .booted 后才淡入。
+     #game/#fxCanvas 必须显式 100%——画布位图是 innerWidth×DPR，无 CSS 尺寸时布局尺寸
+     跟着位图走（真机 2~3 倍），镜头逻辑坐标与上屏坐标脱节（第一眼空地/人比主角大一圈的根源）。 */
+  #hud, #joy, #act, #hint { transition:opacity .35s; }
+  body:not(.booted) #hud, body:not(.booted) #joy, body:not(.booted) #act, body:not(.booted) #hint { opacity:0; }
   #flash { position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:41; }
   /* HUD */
   #hud { position:absolute; top:0; left:0; right:0; padding:10px 12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; z-index:5; pointer-events:none; }
@@ -73,7 +79,7 @@
   /* M3：封面/加载 splash（E 厚涂只许出现在封面/加载/晋阶半屏三处，此为其一） */
   #splash { position:fixed; inset:0; z-index:60; pointer-events:none; display:flex; flex-direction:column; align-items:center;
     background:#1e2b24 url('assets/e-cover-v1.png') center top/cover no-repeat; transition:opacity .7s; }
-  #splash.done { opacity:0; }
+  #splash.done { opacity:0; visibility:hidden; transition:opacity .7s, visibility 0s linear .7s; }
   #splash .sp-plaque { margin-top:8vh; padding:20px 30px 16px; border-radius:12px; text-align:center;
     background:linear-gradient(180deg,#4d3a24,#38291a 70%,#2f2315);
     background-color:#3a2c1c; border:2px solid #c9a86a; outline:1px solid rgba(38,28,16,.9);
@@ -2801,6 +2807,13 @@ const Render = {
     }
     return s;
   },
+  /* 紧急修复批②：弟子外观变体——由 disciple.id 稳定哈希派生（不落存档、跨会话一致）。
+     女弟子与男弟子同帧族同基线，靠袍色染色＋发饰层区分（视觉规范既定路线）。 */
+  _discipleVariant(disciple){
+    if (!disciple || !disciple.id) return 'm';
+    let h = 0; for (const ch of disciple.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return h % 2 ? 'f' : 'm';
+  },
   drawPerson(e, disciple, isPlayer){
     if (!Art.ready){ this._drawPersonOld(e, isPlayer ? '#8c2f22' : (disciple ? disciple.appearanceSeed : '#666'), isPlayer); return; }
     const g = this.ctx, cam = Scene.camera, now = performance.now();
@@ -2854,11 +2867,16 @@ const Render = {
         } else if (isPlayer){ name = cycP(['frm_master_walk_03_v1.png', 'frm_master_walk_04_v1.png', 'frm_master_walk_05_v1.png']); flip = st.face > 0; }
         else if (Art.ready2) { name = cycP(st.face > 0 ? ['frm2_male_walkr_01_v1.png', 'frm2_male_walkr_03_v1.png', 'frm2_male_walkr_04_v1.png', 'frm2_male_walkr_06_v1.png', 'frm2_male_walkr_07_v1.png', 'frm2_male_walkr_09_v1.png'] : ['frm2_male_walkl_01_v1.png', 'frm2_male_walkl_03_v1.png', 'frm2_male_walkl_04_v1.png', 'frm2_male_walkl_06_v1.png', 'frm2_male_walkl_07_v1.png', 'frm2_male_walkl_09_v1.png']); tint = robe; }   // 左右各有原生帧，不镜像
         else { name = cycP(['frm_male_walk_01_v1.png', 'frm_male_walk_03_v1.png', 'frm_male_walk_04_v1.png', 'frm_male_walk_05_v1.png']); tint = robe; flip = st.face < 0; }
-      } else if (st.dir === 'back'){ name = isPlayer ? 'chr_master_back_v1.png' : 'chr_male_back_v1.png'; if (!isPlayer) tint = robe; }
+      } else if (st.dir === 'back'){ if (isPlayer) name = 'chr_master_back_v1.png';
+        else if (Art.ready2){ name = 'frm2_male_walkb_01_v1.png'; tint = robe; }   /* 紧急修复批②：弟子待机改用走路帧表的中立帧，三视母版（chr_*）退回面板/图鉴专用 */
+        else { name = 'chr_male_back_v1.png'; tint = robe; } }
       else if (st.dir === 'side'){
         if (isPlayer){ name = 'chr_master_side_v1.png'; flip = st.face > 0; }
+        else if (Art.ready2){ name = st.face > 0 ? 'frm2_male_walkr_01_v1.png' : 'frm2_male_walkl_01_v1.png'; tint = robe; }
         else { name = 'chr_male_side_v1.png'; tint = robe; flip = st.face < 0; }
-      } else { name = isPlayer ? 'chr_master_front_v1.png' : 'chr_male_front_v1.png'; if (!isPlayer) tint = robe; }
+      } else { if (isPlayer) name = 'chr_master_front_v1.png';
+        else if (Art.ready2){ name = 'frm2_male_walkf_01_v1.png'; tint = robe; }
+        else { name = 'chr_male_front_v1.png'; tint = robe; } }
     }
     /* bob 锁步帧相位：起伏峰值与落脚同相，不再各走各的墙钟；御剑时为悬停微浮。 */
     const bob = flying ? Math.sin(now / 520) * 1.3
@@ -2895,6 +2913,12 @@ const Render = {
     } else {
       if (tint) Art.drawTinted(g, name, tint, dx, dy, dwP, DH, flip);
       else Art.draw(g, name, dx, dy, dwP, DH, flip);
+    }
+    /* 紧急修复批②：女弟子发饰层——与男弟子共用帧表，靠发间花瓣钗区分（视觉规范既定路线）；
+       位置随朝向：正/背在头侧，侧面在朝向侧上方。 */
+    if (!isPlayer && disciple && this._discipleVariant(disciple) === 'f' && Art.F['fx_petal_1_v1.png']){
+      const ox2 = st.dir === 'side' ? (st.face > 0 ? DW * 0.58 : DW * 0.24) : DW * 0.60;
+      Art.draw(g, 'fx_petal_1_v1.png', dx + ox2, dy + 3, 15, 11);
     }
   },
   /* 修复批①遗留：程序像素飞剑——美术批二起降为 art2 未就绪兜底（正常路径由 GPT 御剑姿态整图承担，见 drawPerson）。
@@ -3164,8 +3188,16 @@ const Game = {
       else if (!this.running){ this.last = 0; this.running = true; requestAnimationFrame(this.loop.bind(this)); } });
     addEventListener('beforeunload', () => Save.save('unload'));
     UI.syncHud(); this._lastCoinFix();
-    setTimeout(() => { const sp = $('splash'); if (sp) sp.classList.add('done'); }, 1500);
-    setTimeout(() => UI.hint(S.pendingSettlement ? '有离线产出待领，去掌门居门前领取' : '左边摇杆走动，走到田边点右下按钮干活'), 500);
+    /* 紧急修复批①：封面时序理顺——满 1.5s 且主图集就绪才淡出（上限 4s 防加载失败挂死）；
+       淡出 0.7s 完成后再贴镜头、亮 HUD（body.booted）、发开局/离线提示，
+       不许出现封面与 HUD 同帧叠印、也不许玩家在封面期盲走。 */
+    const bootT0 = Date.now();
+    const finishSplash = () => { const sp = $('splash'); if (sp) sp.classList.add('done');
+      setTimeout(() => { Scene.snapCamera(); document.body.classList.add('booted');
+        UI.hint(S.pendingSettlement ? '有离线产出待领，去掌门居门前领取' : '左边摇杆走动，走到田边点右下按钮干活'); }, 720); };
+    const waitSplash = () => { if (Art.ready || Date.now() - bootT0 > 4000) finishSplash();
+      else setTimeout(waitSplash, 200); };
+    setTimeout(waitSplash, 1500);
     this.running = true; requestAnimationFrame(this.loop.bind(this));
   },
   _lastCoinFix(){ UI._lastCoin = S.balances.coin || 0; $('coin').textContent = UI._lastCoin; },
