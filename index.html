@@ -1555,7 +1555,7 @@ const Scene = {
      file:// 下读像素被污染则只降采样不锁色。试点层以此为兜底基底（石板坪/岩面等无原生贴图区沿用它）。 */
   _pixelBaseCanvas(){
     const src = this.staticLayer; if (!src) return null;
-    const F = 2, w = Math.floor(CONFIG.world.w / F), h = Math.floor(CONFIG.world.h / F);   // fix14：÷3→÷2，地面 texel（2 世界px）与人物 texel（≈1.95）对齐，消除像素尺度三倍差
+    const F = 1, w = Math.floor(CONFIG.world.w / F), h = Math.floor(CONFIG.world.h / F);   // fix15：÷1，地面 texel＝1 世界px（fix14 的 ÷2 仍偏粗，主人复否后改最高密度）
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const g = c.getContext('2d'); g.imageSmoothingEnabled = true;
     g.drawImage(src, 0, 0, w, h);
@@ -1579,11 +1579,11 @@ const Scene = {
   /* 像素地面层（全量批 v2）：布局与 _paintGroundTextured 逐项同构，贴图源全换原生像素——
      草地 pxp 草 A＋pxf 草 B（S7 带花）双贴图马赛克 → 土路动线 → 药圃田基 → 池塘水面＋S7 岸线三向
      → 矿区岩面（S7）→ 石板前坪×5 与大殿石阶（S7 台阶格，石板/台阶共用此格——生图侧清单本就同格）。
-     pxf 地面帧未就绪才回退试点口径（石板/矿区/石阶从样板基底裁回）。构建在 ÷2 层上（fix14 由 ÷3 改），最近邻出图。 */
+     pxf 地面帧未就绪才回退试点口径（石板/矿区/石阶从样板基底裁回）。构建在 ÷1 层上（fix15 由 ÷2 改，贴图 1:1 采样），最近邻出图。 */
   _buildPixelLayerNative(){
     const base = this._pixelBaseCanvas(); if (!base){ this.pixelLayer = null; return; }
     if (!Art.F['pxp_gnd_grass_v1.png'] || !Art.F['pxp_gnd_dirt_v1.png'] || !Art.F['pxp_gnd_field_v1.png'] || !Art.F['pxp_gnd_water_v1.png']){ this.pixelLayer = null; return; }
-    const F = 2, W = CONFIG.world.w, H = CONFIG.world.h;   // fix14：÷3→÷2（与 _pixelBaseCanvas 同步）
+    const F = 1, W = CONFIG.world.w, H = CONFIG.world.h;   // fix15：÷1（与 _pixelBaseCanvas 同步）
     const c = document.createElement('canvas'); c.width = base.width; c.height = base.height;
     const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
     g.drawImage(base, 0, 0);
