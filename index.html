@@ -2637,8 +2637,8 @@ const UI = {
  *   右向一律由原生左帧镜像、左向由原生右帧镜像。
  * ================================================================ */
 const Art = {
-  ready: false, failed: false, ready2: false, failed2: false, imgs: {}, F: {}, tintCache: {},
-  RECTS: {"chars":{"chr_master_front_v1.png":[0,0,96,144],"chr_master_side34_v1.png":[96,0,96,144],"chr_master_side_v1.png":[192,0,96,144],"chr_master_back_v1.png":[288,0,96,144],"chr_male_front_v1.png":[384,0,96,144],"chr_male_side_v1.png":[480,0,96,144],"chr_male_back_v1.png":[576,0,96,144],"chr_male_back2_v1.png":[0,144,96,144],"chr_female_front_v1.png":[96,144,96,144],"chr_female_side34_v1.png":[192,144,96,144],"chr_female_side_v1.png":[288,144,96,144],"chr_female_back_v1.png":[384,144,96,144],"chr_female2_front_v1.png":[480,144,96,144],"chr_female2_side34_v1.png":[576,144,96,144],"chr_female2_side_v1.png":[0,288,96,144],"chr_female2_back_v1.png":[96,288,96,144],"frm_master_walk_01_v1.png":[192,288,96,144],"frm_master_walk_02_v1.png":[288,288,96,144],"frm_master_walk_03_v1.png":[384,288,96,144],"frm_master_walk_04_v1.png":[480,288,96,144],"frm_master_walk_05_v1.png":[576,288,96,144],"frm_master_hoe_01_v1.png":[0,432,96,144],"frm_master_hoe_02_v1.png":[96,432,96,144],"frm_master_hoe_03_v1.png":[192,432,96,144],"frm_master_water_01_v1.png":[288,432,96,144],"frm_master_water_02_v1.png":[384,432,96,144],"frm_master_water_03_v1.png":[480,432,96,144],"frm_master_backwalk_01_v1.png":[576,432,96,144],"frm_master_backwalk_02_v1.png":[0,576,96,144],"frm_master_backwalk_03_v1.png":[96,576,96,144],"frm_master_backwalk_04_v1.png":[192,576,96,144],"frm_master_backwalk_05_v1.png":[288,576,96,144],"frm_male_harvest_01_v1.png":[384,576,96,144],"frm_male_harvest_02_v1.png":[480,576,96,144],"frm_male_harvest_03_v1.png":[576,576,96,144],"frm_male_water_01_v1.png":[0,720,96,144],"frm_male_water_02_v1.png":[96,720,96,144],"frm_male_water_03_v1.png":[192,720,96,144],"frm_male_walk_01_v1.png":[288,720,96,144],"frm_male_walk_02_v1.png":[384,720,96,144],"frm_male_walk_03_v1.png":[480,720,96,144],"frm_male_walk_04_v1.png":[576,720,96,144],"frm_male_walk_05_v1.png":[0,864,96,144],"frm_male_carry_01_v1.png":[96,864,96,144],"frm_male_carry_02_v1.png":[192,864,96,144],"frm_male_carry_03_v1.png":[288,864,96,144],"frm_female_basket_01_v1.png":[384,864,96,144],"frm_female_basket_02_v1.png":[480,864,96,144],"frm_female_basket_03_v1.png":[576,864,96,144]},"scene":{"bld_hall_v1.png":[0,0,302,222],"bld_forge_v1.png":[302,0,235,217],"bld_quarters_v1.png":[537,0,241,194],"bld_gate_v1.png":[0,222,290,195],"bld_stall_v1.png":[290,222,269,199],"bld_waterwheel_v1.png":[559,222,208,196],"crop_lingzhi_s1_v1.png":[767,222,112,73],"crop_lingzhi_s2_v1.png":[879,222,109,77],"crop_lingzhi_s3_v1.png":[0,421,110,77],"crop_lingzhi_s4_v1.png":[110,421,110,77],"crop_lingzhi_s5_v1.png":[220,421,111,77],"crop_ninglu_s1_v1.png":[331,421,112,75],"crop_ninglu_s2_v1.png":[443,421,111,82],"crop_ninglu_s3_v1.png":[554,421,109,81],"crop_ninglu_s4_v1.png":[663,421,109,89],"crop_ninglu_s5_v1.png":[772,421,110,90],"crop_xuanyu_s1_v1.png":[882,421,112,74],"crop_xuanyu_s2_v1.png":[0,511,111,74],"crop_xuanyu_s3_v1.png":[111,511,111,85],"crop_xuanyu_s4_v1.png":[222,511,111,96],"crop_xuanyu_s5_v1.png":[333,511,111,98],"tile_soil_v1.png":[444,511,107,73]},"ground":{"gnd_grass_a_v1.png":[2,2,160,160],"gnd_grass_b_v1.png":[164,2,160,160],"gnd_stone_v1.png":[326,2,160,160],"gnd_dirt_v1.png":[488,2,160,160],"gnd_roadedge_v1.png":[650,2,48,176],"gnd_water_v1.png":[700,2,160,160],"gnd_shore_v1.png":[862,2,160,134],"gnd_steps_v1.png":[2,180,184,168],"icn_coin_v1.png":[188,180,96,96],"icn_lingzhi_v1.png":[286,180,96,96],"icn_ninglu_v1.png":[384,180,96,96],"icn_xuanyu_v1.png":[482,180,96,96],"icn_stamina_v1.png":[580,180,96,96],"icn_build_v1.png":[678,180,96,96],"icn_disciple_v1.png":[776,180,96,96],"icn_order_v1.png":[874,180,96,96],"icn_signin_v1.png":[972,180,96,96],"icn_board_v1.png":[2,350,96,96],"icn_dispatch_v1.png":[100,350,96,96],"icn_recruit_v1.png":[198,350,96,96],"icn_expand_v1.png":[296,350,96,96],"icn_promote_v1.png":[394,350,96,96],"icn_sleep_v1.png":[492,350,96,96],"icn_bag_v1.png":[590,350,96,96],"fx_splash_1_v1.png":[688,350,147,89],"fx_splash_2_v1.png":[837,350,146,89],"fx_splash_3_v1.png":[2,448,148,90],"fx_splash_4_v1.png":[152,448,149,90],"fx_petal_1_v1.png":[303,448,56,40],"fx_petal_2_v1.png":[361,448,54,33],"fx_petal_3_v1.png":[417,448,35,34],"fx_petal_4_v1.png":[454,448,29,31],"fx_petal_5_v1.png":[485,448,33,28],"fx_petal_6_v1.png":[520,448,31,23],"fx_petal_7_v1.png":[553,448,27,16],"fx_leaf_1_v1.png":[582,448,70,42],"fx_leaf_2_v1.png":[654,448,62,60],"fx_leaf_3_v1.png":[718,448,56,35],"fx_leaf_4_v1.png":[776,448,52,42],"fx_leaf_5_v1.png":[830,448,55,41],"fx_leaf_6_v1.png":[887,448,58,39],"fx_leaf_7_v1.png":[947,448,48,38],"fx_leaf_8_v1.png":[997,448,34,29],"fx_wheel_v1.png":[2,540,256,256],"prop_scale_v1.png":[260,540,200,200]},"art2":{"art2_sword_v1.png": [2, 2, 228, 50], "frm2_master_fly_front_v1.png": [232, 2, 126, 144], "frm2_master_fly_side_r_v1.png": [360, 2, 125, 144], "frm2_master_fly_back_v1.png": [487, 2, 116, 144], "frm2_master_fly_side_l2_v1.png": [605, 2, 128, 144], "frm2_master_fly_side_l_v1.png": [735, 2, 131, 144], "fx2_trail_1_v1.png": [868, 2, 150, 60], "fx2_trail_2_v1.png": [1020, 2, 155, 68], "fx2_trail_3_v1.png": [1177, 2, 155, 66], "fx2_trail_4_v1.png": [1334, 2, 115, 65], "frm2_male_walkf_01_v1.png": [1451, 2, 96, 144], "frm2_male_walkf_02_v1.png": [2, 148, 96, 144], "frm2_male_walkf_03_v1.png": [100, 148, 96, 144], "frm2_male_walkf_04_v1.png": [198, 148, 96, 144], "frm2_male_walkf_05_v1.png": [296, 148, 96, 144], "frm2_male_walkf_06_v1.png": [394, 148, 96, 144], "frm2_male_walkf_07_v1.png": [492, 148, 96, 144], "frm2_male_walkf_08_v1.png": [590, 148, 96, 144], "frm2_male_walkf_09_v1.png": [688, 148, 96, 144], "frm2_male_walkb_01_v1.png": [786, 148, 96, 144], "frm2_male_walkb_02_v1.png": [884, 148, 96, 144], "frm2_male_walkb_03_v1.png": [982, 148, 96, 144], "frm2_male_walkb_04_v1.png": [1080, 148, 96, 144], "frm2_male_walkb_05_v1.png": [1178, 148, 96, 144], "frm2_male_walkb_06_v1.png": [1276, 148, 96, 144], "frm2_male_walkb_07_v1.png": [1374, 148, 96, 144], "frm2_male_walkb_08_v1.png": [2, 294, 96, 144], "frm2_male_walkb_09_v1.png": [100, 294, 96, 144], "frm2_male_walkr_01_v1.png": [198, 294, 96, 144], "frm2_male_walkr_02_v1.png": [296, 294, 96, 144], "frm2_male_walkr_03_v1.png": [394, 294, 96, 144], "frm2_male_walkr_04_v1.png": [492, 294, 96, 144], "frm2_male_walkr_05_v1.png": [590, 294, 96, 144], "frm2_male_walkr_06_v1.png": [688, 294, 96, 144], "frm2_male_walkr_07_v1.png": [786, 294, 96, 144], "frm2_male_walkr_08_v1.png": [884, 294, 96, 144], "frm2_male_walkr_09_v1.png": [982, 294, 96, 144], "frm2_male_walkl_01_v1.png": [1080, 294, 96, 144], "frm2_male_walkl_02_v1.png": [1178, 294, 96, 144], "frm2_male_walkl_03_v1.png": [1276, 294, 96, 144], "frm2_male_walkl_04_v1.png": [1374, 294, 96, 144], "frm2_male_walkl_05_v1.png": [2, 440, 96, 144], "frm2_male_walkl_06_v1.png": [100, 440, 96, 144], "frm2_male_walkl_07_v1.png": [198, 440, 96, 144], "frm2_male_walkl_08_v1.png": [296, 440, 96, 144], "frm2_male_walkl_09_v1.png": [394, 440, 96, 144], "int_forge_v1.png": [492, 440, 331, 186], "int_quarters_v1.png": [825, 440, 323, 186], "int_stall_v1.png": [1150, 440, 331, 222], "int_hall_v1.png": [2, 664, 323, 219], "gnd_rock_v1.png": [327, 664, 160, 160], "prop_minegate_v1.png": [489, 664, 247, 176], "prop_cart_v1.png": [738, 664, 155, 146], "prop_crystal_v1.png": [895, 664, 155, 144], "prop_lantern_v1.png": [1052, 664, 91, 147], "prop_fence_v1.png": [1145, 664, 165, 133], "prop_bush_v1.png": [1312, 664, 191, 143], "prop_flower_v1.png": [2, 885, 159, 137], "art2_plaque_v1.png": [163, 885, 647, 149], "ava_0_v1.png": [812, 885, 124, 124], "ava_1_v1.png": [938, 885, 124, 124], "ava_2_v1.png": [1064, 885, 124, 124], "ava_3_v1.png": [1190, 885, 124, 124], "ava_4_v1.png": [1316, 885, 124, 124], "ava_5_v1.png": [2, 1036, 124, 124], "cropfix_lingzhi_s2_v1.png": [128, 1036, 109, 80], "cropfix_lingzhi_s3_v1.png": [239, 1036, 110, 81], "cropfix_lingzhi_s4_v1.png": [351, 1036, 110, 86], "cropfix_lingzhi_s5_v1.png": [463, 1036, 111, 95], "cropfix_ninglu_s5_v1.png": [576, 1036, 110, 93], "cropfix_xuanyu_s5_v1.png": [688, 1036, 111, 104]}},
+  ready: false, failed: false, ready2: false, failed2: false, ready3: false, failed3: false, imgs: {}, F: {}, tintCache: {},
+  RECTS: {"chars":{"chr_master_front_v1.png":[0,0,96,144],"chr_master_side34_v1.png":[96,0,96,144],"chr_master_side_v1.png":[192,0,96,144],"chr_master_back_v1.png":[288,0,96,144],"chr_male_front_v1.png":[384,0,96,144],"chr_male_side_v1.png":[480,0,96,144],"chr_male_back_v1.png":[576,0,96,144],"chr_male_back2_v1.png":[0,144,96,144],"chr_female_front_v1.png":[96,144,96,144],"chr_female_side34_v1.png":[192,144,96,144],"chr_female_side_v1.png":[288,144,96,144],"chr_female_back_v1.png":[384,144,96,144],"chr_female2_front_v1.png":[480,144,96,144],"chr_female2_side34_v1.png":[576,144,96,144],"chr_female2_side_v1.png":[0,288,96,144],"chr_female2_back_v1.png":[96,288,96,144],"frm_master_walk_01_v1.png":[192,288,96,144],"frm_master_walk_02_v1.png":[288,288,96,144],"frm_master_walk_03_v1.png":[384,288,96,144],"frm_master_walk_04_v1.png":[480,288,96,144],"frm_master_walk_05_v1.png":[576,288,96,144],"frm_master_hoe_01_v1.png":[0,432,96,144],"frm_master_hoe_02_v1.png":[96,432,96,144],"frm_master_hoe_03_v1.png":[192,432,96,144],"frm_master_water_01_v1.png":[288,432,96,144],"frm_master_water_02_v1.png":[384,432,96,144],"frm_master_water_03_v1.png":[480,432,96,144],"frm_master_backwalk_01_v1.png":[576,432,96,144],"frm_master_backwalk_02_v1.png":[0,576,96,144],"frm_master_backwalk_03_v1.png":[96,576,96,144],"frm_master_backwalk_04_v1.png":[192,576,96,144],"frm_master_backwalk_05_v1.png":[288,576,96,144],"frm_male_harvest_01_v1.png":[384,576,96,144],"frm_male_harvest_02_v1.png":[480,576,96,144],"frm_male_harvest_03_v1.png":[576,576,96,144],"frm_male_water_01_v1.png":[0,720,96,144],"frm_male_water_02_v1.png":[96,720,96,144],"frm_male_water_03_v1.png":[192,720,96,144],"frm_male_walk_01_v1.png":[288,720,96,144],"frm_male_walk_02_v1.png":[384,720,96,144],"frm_male_walk_03_v1.png":[480,720,96,144],"frm_male_walk_04_v1.png":[576,720,96,144],"frm_male_walk_05_v1.png":[0,864,96,144],"frm_male_carry_01_v1.png":[96,864,96,144],"frm_male_carry_02_v1.png":[192,864,96,144],"frm_male_carry_03_v1.png":[288,864,96,144],"frm_female_basket_01_v1.png":[384,864,96,144],"frm_female_basket_02_v1.png":[480,864,96,144],"frm_female_basket_03_v1.png":[576,864,96,144]},"scene":{"bld_hall_v1.png":[0,0,302,222],"bld_forge_v1.png":[302,0,235,217],"bld_quarters_v1.png":[537,0,241,194],"bld_gate_v1.png":[0,222,290,195],"bld_stall_v1.png":[290,222,269,199],"bld_waterwheel_v1.png":[559,222,208,196],"crop_lingzhi_s1_v1.png":[767,222,112,73],"crop_lingzhi_s2_v1.png":[879,222,109,77],"crop_lingzhi_s3_v1.png":[0,421,110,77],"crop_lingzhi_s4_v1.png":[110,421,110,77],"crop_lingzhi_s5_v1.png":[220,421,111,77],"crop_ninglu_s1_v1.png":[331,421,112,75],"crop_ninglu_s2_v1.png":[443,421,111,82],"crop_ninglu_s3_v1.png":[554,421,109,81],"crop_ninglu_s4_v1.png":[663,421,109,89],"crop_ninglu_s5_v1.png":[772,421,110,90],"crop_xuanyu_s1_v1.png":[882,421,112,74],"crop_xuanyu_s2_v1.png":[0,511,111,74],"crop_xuanyu_s3_v1.png":[111,511,111,85],"crop_xuanyu_s4_v1.png":[222,511,111,96],"crop_xuanyu_s5_v1.png":[333,511,111,98],"tile_soil_v1.png":[444,511,107,73]},"ground":{"gnd_grass_a_v1.png":[2,2,160,160],"gnd_grass_b_v1.png":[164,2,160,160],"gnd_stone_v1.png":[326,2,160,160],"gnd_dirt_v1.png":[488,2,160,160],"gnd_roadedge_v1.png":[650,2,48,176],"gnd_water_v1.png":[700,2,160,160],"gnd_shore_v1.png":[862,2,160,134],"gnd_steps_v1.png":[2,180,184,168],"icn_coin_v1.png":[188,180,96,96],"icn_lingzhi_v1.png":[286,180,96,96],"icn_ninglu_v1.png":[384,180,96,96],"icn_xuanyu_v1.png":[482,180,96,96],"icn_stamina_v1.png":[580,180,96,96],"icn_build_v1.png":[678,180,96,96],"icn_disciple_v1.png":[776,180,96,96],"icn_order_v1.png":[874,180,96,96],"icn_signin_v1.png":[972,180,96,96],"icn_board_v1.png":[2,350,96,96],"icn_dispatch_v1.png":[100,350,96,96],"icn_recruit_v1.png":[198,350,96,96],"icn_expand_v1.png":[296,350,96,96],"icn_promote_v1.png":[394,350,96,96],"icn_sleep_v1.png":[492,350,96,96],"icn_bag_v1.png":[590,350,96,96],"fx_splash_1_v1.png":[688,350,147,89],"fx_splash_2_v1.png":[837,350,146,89],"fx_splash_3_v1.png":[2,448,148,90],"fx_splash_4_v1.png":[152,448,149,90],"fx_petal_1_v1.png":[303,448,56,40],"fx_petal_2_v1.png":[361,448,54,33],"fx_petal_3_v1.png":[417,448,35,34],"fx_petal_4_v1.png":[454,448,29,31],"fx_petal_5_v1.png":[485,448,33,28],"fx_petal_6_v1.png":[520,448,31,23],"fx_petal_7_v1.png":[553,448,27,16],"fx_leaf_1_v1.png":[582,448,70,42],"fx_leaf_2_v1.png":[654,448,62,60],"fx_leaf_3_v1.png":[718,448,56,35],"fx_leaf_4_v1.png":[776,448,52,42],"fx_leaf_5_v1.png":[830,448,55,41],"fx_leaf_6_v1.png":[887,448,58,39],"fx_leaf_7_v1.png":[947,448,48,38],"fx_leaf_8_v1.png":[997,448,34,29],"fx_wheel_v1.png":[2,540,256,256],"prop_scale_v1.png":[260,540,200,200]},"art2":{"art2_sword_v1.png": [2, 2, 228, 50], "frm2_master_fly_front_v1.png": [232, 2, 126, 144], "frm2_master_fly_side_r_v1.png": [360, 2, 125, 144], "frm2_master_fly_back_v1.png": [487, 2, 116, 144], "frm2_master_fly_side_l2_v1.png": [605, 2, 128, 144], "frm2_master_fly_side_l_v1.png": [735, 2, 131, 144], "fx2_trail_1_v1.png": [868, 2, 150, 60], "fx2_trail_2_v1.png": [1020, 2, 155, 68], "fx2_trail_3_v1.png": [1177, 2, 155, 66], "fx2_trail_4_v1.png": [1334, 2, 115, 65], "frm2_male_walkf_01_v1.png": [1451, 2, 96, 144], "frm2_male_walkf_02_v1.png": [2, 148, 96, 144], "frm2_male_walkf_03_v1.png": [100, 148, 96, 144], "frm2_male_walkf_04_v1.png": [198, 148, 96, 144], "frm2_male_walkf_05_v1.png": [296, 148, 96, 144], "frm2_male_walkf_06_v1.png": [394, 148, 96, 144], "frm2_male_walkf_07_v1.png": [492, 148, 96, 144], "frm2_male_walkf_08_v1.png": [590, 148, 96, 144], "frm2_male_walkf_09_v1.png": [688, 148, 96, 144], "frm2_male_walkb_01_v1.png": [786, 148, 96, 144], "frm2_male_walkb_02_v1.png": [884, 148, 96, 144], "frm2_male_walkb_03_v1.png": [982, 148, 96, 144], "frm2_male_walkb_04_v1.png": [1080, 148, 96, 144], "frm2_male_walkb_05_v1.png": [1178, 148, 96, 144], "frm2_male_walkb_06_v1.png": [1276, 148, 96, 144], "frm2_male_walkb_07_v1.png": [1374, 148, 96, 144], "frm2_male_walkb_08_v1.png": [2, 294, 96, 144], "frm2_male_walkb_09_v1.png": [100, 294, 96, 144], "frm2_male_walkr_01_v1.png": [198, 294, 96, 144], "frm2_male_walkr_02_v1.png": [296, 294, 96, 144], "frm2_male_walkr_03_v1.png": [394, 294, 96, 144], "frm2_male_walkr_04_v1.png": [492, 294, 96, 144], "frm2_male_walkr_05_v1.png": [590, 294, 96, 144], "frm2_male_walkr_06_v1.png": [688, 294, 96, 144], "frm2_male_walkr_07_v1.png": [786, 294, 96, 144], "frm2_male_walkr_08_v1.png": [884, 294, 96, 144], "frm2_male_walkr_09_v1.png": [982, 294, 96, 144], "frm2_male_walkl_01_v1.png": [1080, 294, 96, 144], "frm2_male_walkl_02_v1.png": [1178, 294, 96, 144], "frm2_male_walkl_03_v1.png": [1276, 294, 96, 144], "frm2_male_walkl_04_v1.png": [1374, 294, 96, 144], "frm2_male_walkl_05_v1.png": [2, 440, 96, 144], "frm2_male_walkl_06_v1.png": [100, 440, 96, 144], "frm2_male_walkl_07_v1.png": [198, 440, 96, 144], "frm2_male_walkl_08_v1.png": [296, 440, 96, 144], "frm2_male_walkl_09_v1.png": [394, 440, 96, 144], "int_forge_v1.png": [492, 440, 331, 186], "int_quarters_v1.png": [825, 440, 323, 186], "int_stall_v1.png": [1150, 440, 331, 222], "int_hall_v1.png": [2, 664, 323, 219], "gnd_rock_v1.png": [327, 664, 160, 160], "prop_minegate_v1.png": [489, 664, 247, 176], "prop_cart_v1.png": [738, 664, 155, 146], "prop_crystal_v1.png": [895, 664, 155, 144], "prop_lantern_v1.png": [1052, 664, 91, 147], "prop_fence_v1.png": [1145, 664, 165, 133], "prop_bush_v1.png": [1312, 664, 191, 143], "prop_flower_v1.png": [2, 885, 159, 137], "art2_plaque_v1.png": [163, 885, 647, 149], "ava_0_v1.png": [812, 885, 124, 124], "ava_1_v1.png": [938, 885, 124, 124], "ava_2_v1.png": [1064, 885, 124, 124], "ava_3_v1.png": [1190, 885, 124, 124], "ava_4_v1.png": [1316, 885, 124, 124], "ava_5_v1.png": [2, 1036, 124, 124], "cropfix_lingzhi_s2_v1.png": [128, 1036, 109, 80], "cropfix_lingzhi_s3_v1.png": [239, 1036, 110, 81], "cropfix_lingzhi_s4_v1.png": [351, 1036, 110, 86], "cropfix_lingzhi_s5_v1.png": [463, 1036, 111, 95], "cropfix_ninglu_s5_v1.png": [576, 1036, 110, 93], "cropfix_xuanyu_s5_v1.png": [688, 1036, 111, 104]},"fix3":{"frm3_frm_male_water_01_v1.png":[0,0,96,144],"frm3_frm_male_water_02_v1.png":[96,0,96,144],"frm3_frm_male_water_03_v1.png":[192,0,96,144],"frm3_frm_male_carry_01_v1.png":[0,144,96,144],"frm3_frm_male_carry_02_v1.png":[96,144,96,144],"frm3_frm_male_carry_03_v1.png":[192,144,96,144],"frm3_frm_male_harvest_01_v1.png":[0,288,96,144],"frm3_frm_male_harvest_02_v1.png":[96,288,96,144],"frm3_frm_male_harvest_03_v1.png":[192,288,96,144]}},
   load(){
     const jobs = [['chars', 'assets/atlas_characters_v1.png'], ['scene', 'assets/atlas_scene_v1.png'], ['ground', 'assets/atlas_ground_v1.png']];
     let ok = 0;
@@ -2651,6 +2651,17 @@ const Art = {
     im2.onload = () => { this.imgs.art2 = im2; this._build2(); };
     im2.onerror = () => { this.failed2 = true; console.warn('[art] atlas_art2 load failed'); };
     im2.src = 'assets/atlas_art2_v1.png';
+    /* 修复三批：调色劳作帧图集独立加载——失败回退原劳作帧（颜色略偏但可玩），不拖累主图集 */
+    const im3 = new Image();
+    im3.onload = () => { this.imgs.fix3 = im3; this._build3(); };
+    im3.onerror = () => { this.failed3 = true; console.warn('[art] atlas_fix3 load failed'); };
+    im3.src = 'assets/atlas_fix3_v1.png';
+  },
+  _build3(){
+    const r3 = this.RECTS.fix3 || {};
+    for (const name of Object.keys(r3)){ const r = r3[name];
+      this.F[name] = { img: this.imgs.fix3, x: r[0], y: r[1], w: r[2], h: r[3] }; }
+    this.ready3 = true;
   },
   _build(){
     for (const k of Object.keys(this.RECTS)){ if (!this.imgs[k]) continue;
@@ -2757,6 +2768,8 @@ const Art = {
 /* ================================================================
  * 渲染（像素占位精灵：精灵图离屏预渲染，按像素网格绘制、关平滑）
  * ================================================================ */
+/* 修复三批③：身体高归一表（离线实测 slice_work3/body_table.json）[缩放, 脚底行, 内容中心x, 头顶行]；基准＝主角站立身体高 126 */
+const BODY3 = {'chr_female2_back_v1.png':[1.0,137,47.0,12],'chr_female2_front_v1.png':[1.0,137,47.5,12],'chr_female2_side34_v1.png':[1.0,137,47.5,12],'chr_female2_side_v1.png':[1.0,137,47.5,12],'chr_female_back_v1.png':[1.0,137,47.0,12],'chr_female_front_v1.png':[1.0,137,47.5,12],'chr_female_side34_v1.png':[1.0,137,47.5,12],'chr_female_side_v1.png':[1.0,137,47.0,12],'chr_male_back2_v1.png':[1.0,137,47.0,12],'chr_male_back_v1.png':[1.0,137,47.0,12],'chr_male_front_v1.png':[1.0,137,47.0,12],'chr_male_side_v1.png':[1.0,137,47.5,12],'chr_master_back_v1.png':[1.0,137,47.0,12],'chr_master_front_v1.png':[1.0,137,47.5,12],'chr_master_side34_v1.png':[1.0,137,47.0,12],'chr_master_side_v1.png':[1.0,137,47.5,12],'frm2_male_walkb_01_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_02_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_03_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_04_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_05_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_06_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_07_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_08_v1.png':[1.0,136,47.0,11],'frm2_male_walkb_09_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_01_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_02_v1.png':[1.0,136,47.0,11],'frm2_male_walkf_03_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_04_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_05_v1.png':[1.0,136,47.0,11],'frm2_male_walkf_06_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_07_v1.png':[1.0,136,47.0,11],'frm2_male_walkf_08_v1.png':[1.0,136,47.0,11],'frm2_male_walkf_09_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_01_v1.png':[1.0,136,47.0,11],'frm2_male_walkl_02_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_03_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_04_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_05_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_06_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_07_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_08_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_09_v1.png':[1.0,136,47.5,11],'frm2_male_walkr_01_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_02_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_03_v1.png':[1.0,136,47.5,11],'frm2_male_walkr_04_v1.png':[1.0,136,47.5,11],'frm2_male_walkr_05_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_06_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_07_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_08_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_09_v1.png':[1.0,136,47.5,11],'frm2_master_fly_back_v1.png':[1.0,136,57.5,11],'frm2_master_fly_front_v1.png':[1.1667,118,62.5,11],'frm2_master_fly_side_l2_v1.png':[1.0,136,63.5,11],'frm2_master_fly_side_l_v1.png':[1.1667,118,65.0,11],'frm2_master_fly_side_r_v1.png':[1.125,122,62.0,11],'frm3_frm_male_carry_01_v1.png':[1.06,137,47.5,31],'frm3_frm_male_carry_02_v1.png':[1.06,137,47.5,31],'frm3_frm_male_carry_03_v1.png':[1.06,137,47.5,32],'frm3_frm_male_harvest_01_v1.png':[1.0,137,47.0,12],'frm3_frm_male_harvest_02_v1.png':[1.0,137,47.0,12],'frm3_frm_male_harvest_03_v1.png':[1.0,137,47.0,12],'frm3_frm_male_water_01_v1.png':[1.0,137,47.5,32],'frm3_frm_male_water_02_v1.png':[1.0,137,47.5,23],'frm3_frm_male_water_03_v1.png':[1.0,137,47.5,12],'frm_female_basket_01_v1.png':[1.0,137,47.5,12],'frm_female_basket_02_v1.png':[1.0,137,47.5,12],'frm_female_basket_03_v1.png':[1.0,137,47.0,12],'frm_male_carry_01_v1.png':[1.06,137,47.5,31],'frm_male_carry_02_v1.png':[1.06,137,47.5,31],'frm_male_carry_03_v1.png':[1.06,137,47.5,32],'frm_male_harvest_01_v1.png':[1.0,137,47.0,12],'frm_male_harvest_02_v1.png':[1.0,137,47.0,12],'frm_male_harvest_03_v1.png':[1.0,137,47.0,12],'frm_male_walk_01_v1.png':[1.0,137,47.0,12],'frm_male_walk_02_v1.png':[1.0,137,47.0,12],'frm_male_walk_03_v1.png':[1.0,137,47.0,12],'frm_male_walk_04_v1.png':[1.0,137,47.0,12],'frm_male_walk_05_v1.png':[1.0,137,47.0,12],'frm_male_water_01_v1.png':[1.0,137,47.5,32],'frm_male_water_02_v1.png':[1.0,137,47.5,23],'frm_male_water_03_v1.png':[1.0,137,47.5,12],'frm_master_backwalk_01_v1.png':[1.0,137,47.0,12],'frm_master_backwalk_02_v1.png':[1.0,137,47.5,12],'frm_master_backwalk_03_v1.png':[1.0,137,47.0,12],'frm_master_backwalk_04_v1.png':[1.0,137,47.0,12],'frm_master_backwalk_05_v1.png':[1.0,137,47.0,12],'frm_master_hoe_01_v1.png':[1.06,137,47.5,29],'frm_master_hoe_02_v1.png':[1.06,137,47.5,30],'frm_master_hoe_03_v1.png':[1.06,137,47.5,46],'frm_master_walk_01_v1.png':[1.0,137,47.0,12],'frm_master_walk_02_v1.png':[1.0,137,47.5,12],'frm_master_walk_03_v1.png':[1.0,137,47.5,12],'frm_master_walk_04_v1.png':[1.0,137,47.0,12],'frm_master_walk_05_v1.png':[1.0,137,47.0,12],'frm_master_water_01_v1.png':[1.0,137,47.5,12],'frm_master_water_02_v1.png':[1.0,137,47.0,12],'frm_master_water_03_v1.png':[1.0,137,47.5,12]};
 const Render = {
   cv: null, ctx: null, sprites: {},
   PERSON_ROWS: [
@@ -2801,9 +2814,35 @@ const Render = {
     const moved = Math.hypot(dx, dy);
     s.vx = dx; s.vy = dy;
     if (e.moving && moved > 0.01 && moved < 60 && !(e.flyH > 1.5)) s.phase += moved / CONFIG.gait.cyclePx * Math.PI * 2;  // moved≥60 视为传送/回收：只重同步不推进相位
-    if (Math.abs(dx) + Math.abs(dy) > 0.35){
-      if (Math.abs(dy) > Math.abs(dx) * 1.25) s.dir = dy > 0 ? 'front' : 'back';
-      else { s.dir = 'side'; if (Math.abs(dx) > 0.15) s.face = dx > 0 ? 1 : -1; }
+    /* 修复三批①：方向判定改滑窗平滑＋迟滞——旧版按单帧位移 1.25 倍率硬判、无迟滞，
+       拇指斜推（模拟量无轴吸附）时逐帧在 side/front 间跳，御剑上下飞也挂侧姿。
+       新版：位移先过 ~120ms 指数平滑；候选向须以 >1.3 优势比持续 ≥90ms 才切换；
+       face 符号同样给 60ms 持续门（强横移 >0.5px/帧可即时跟随）。 */
+    if (moved >= 60){ s.smx = 0; s.smy = 0; s.cand = null; }
+    if (s.smx === undefined){ s.smx = 0; s.smy = 0; s.cand = null; s.candAt = 0; s.faceCand = 0; s.faceAt = 0; }
+    s.smx += (dx - s.smx) * 0.35; s.smy += (dy - s.smy) * 0.35;
+    const ax = Math.abs(s.smx), ay = Math.abs(s.smy), nowD = performance.now();
+    if (ax + ay > 0.35){
+      let cand, ratio;
+      if (ay > ax * 1.25){ cand = s.smy > 0 ? 'front' : 'back'; ratio = ay / Math.max(ax, 1e-6); }
+      else { cand = 'side'; ratio = ax / Math.max(ay, 1e-6); }
+      if (cand === s.dir){ s.cand = null; }
+      else {
+        if (s.cand !== cand){ s.cand = cand; s.candAt = nowD; }
+        if (ratio > 1.3 && nowD - s.candAt >= 90){ s.dir = cand; s.cand = null; }
+      }
+      if (cand === 'side' || s.dir === 'side'){
+        if (ax > 0.15){
+          const fc = s.smx > 0 ? 1 : -1;
+          if (fc !== s.face){
+            if (ax > 0.5){ s.face = fc; s.faceCand = 0; }
+            else {
+              if (s.faceCand !== fc){ s.faceCand = fc; s.faceAt = nowD; }
+              else if (nowD - s.faceAt >= 60){ s.face = fc; s.faceCand = 0; }
+            }
+          } else s.faceCand = 0;
+        }
+      }
     }
     return s;
   },
@@ -2846,9 +2885,10 @@ const Render = {
           usedFlyPose = true;
           if (st.dir === 'back') name = 'frm2_master_fly_back_v1.png';
           else if (st.dir === 'side'){
-            const alt = Math.floor(now / 380) % 2 === 1;
-            if (st.face > 0){ name = alt ? 'frm2_master_fly_side_l2_v1.png' : 'frm2_master_fly_side_r_v1.png'; flip = alt; }
-            else name = alt ? 'frm2_master_fly_side_l2_v1.png' : 'frm2_master_fly_side_l_v1.png';
+            /* 修复三批②：侧向定版单姿 side_l（原生朝左）——右行镜像、左行原图。
+               旧版每 380ms 在 side_r/side_l2 两张异姿间交替（剑形/剑穗完全不同）＝剑身高频闪烁的根因，交替已删。
+               朝向登记纠错：side_r/side_l/side_l2 三姿经放大目检全部原生面朝左（见 ORIENTATION-map 修正）。 */
+            name = 'frm2_master_fly_side_l_v1.png'; flip = st.face > 0;
           }
           else name = 'frm2_master_fly_front_v1.png';
         }
@@ -2878,6 +2918,9 @@ const Render = {
         else if (Art.ready2){ name = 'frm2_male_walkf_01_v1.png'; tint = robe; }
         else { name = 'chr_male_front_v1.png'; tint = robe; } }
     }
+    /* 修复三批④：劳作帧优先用调色版 frm3（袍色已离线映射回 frm2 色系，运行时同种子色染色结果与待机帧一致）；
+       fix3 图集未就绪时自动回退原帧。覆盖弟子 water/carry 与主角 harvest（同走 frm_male_* 帧名）。 */
+    if (name && Art.ready3 && Art.F['frm3_' + name] && /^frm_male_(water|carry|harvest)_/.test(name)) name = 'frm3_' + name;
     /* bob 锁步帧相位：起伏峰值与落脚同相，不再各走各的墙钟；御剑时为悬停微浮。 */
     const bob = flying ? Math.sin(now / 520) * 1.3
       : e.moving ? Math.abs(Math.sin(st.phase)) * 2.1
@@ -2893,9 +2936,27 @@ const Render = {
     }
     /* 正/背面行走的横向摆幅（补无行走帧朝向的步点感），同样锁相位 */
     const sway = (e.moving && !flying && st.dir !== 'side') ? Math.sin(st.phase) * 1.4 : 0;
-    /* 御剑姿态帧画布更宽（剑横展），按帧宽等比取绘制宽、高与基线与地面帧同口径 */
-    const dwP = usedFlyPose ? Math.round(DW * Art.F[name].w / 96) : DW;
-    const dx = e.x - cam.x - dwP / 2 + sway, dy = e.y - cam.y - FEET - bob - lift;
+    /* 修复三批③：按身体高归一（BODY3 离线实测表）——旧版按画布高统一 83×125，御剑帧身体占比小、
+       弟子帧身体占满，同画布高下实际身体大小不一。现按帧实测身体高缩放、脚底行锚定、内容中心对齐；
+       无表项的帧回退旧口径。 */
+    const B3 = (typeof BODY3 !== 'undefined' && name) ? BODY3[name] : null;
+    const fW = Art.F[name] ? Art.F[name].w : 96, fH = Art.F[name] ? Art.F[name].h : 144;
+    let dwP, dhP, dx, dy;
+    if (B3){
+      dhP = DH * B3[0]; dwP = DW * (fW / 96) * B3[0];
+      dx = e.x - cam.x - (B3[2] / fW) * dwP + sway;
+      dy = e.y - cam.y - (B3[1] / fH) * dhP - bob - lift;
+    } else {
+      dwP = usedFlyPose ? Math.round(DW * fW / 96) : DW; dhP = DH;
+      dx = e.x - cam.x - dwP / 2 + sway; dy = e.y - cam.y - FEET - bob - lift;
+    }
+    /* 修复三批④：帧族切换 120ms 下沉回弹过渡（切换后先下沉 2px 再回弹，压平硬切感；同族换帧不触发） */
+    const famK = name ? name.replace(/_\d\d_v1\.png$/, '') : '';
+    if (st.famK !== undefined && st.famK !== famK) st.famAt = now;
+    st.famK = famK;
+    const dipT = st.famAt ? (now - st.famAt) / 120 : 1;
+    const dip = dipT < 1 ? Math.sin(Math.PI * Math.max(0, dipT)) * 2 : 0;
+    st._dipY = dip; dy += dip;
     /* 影子恒在地面：升空后影子变小变淡，人与影的间距即高度感 */
     const shW = flying ? 26 : 36, shA = flying ? 0.10 : 0.18;
     g.fillStyle = 'rgba(0,0,0,' + shA + ')';
@@ -2907,18 +2968,21 @@ const Render = {
       g.translate(e.x - cam.x + sway, e.y - cam.y - lift);
       g.rotate(st.tilt);
       g.translate(-(e.x - cam.x + sway), -(e.y - cam.y - lift));
-      if (tint) Art.drawTinted(g, name, tint, dx, dy, dwP, DH, flip);
-      else Art.draw(g, name, dx, dy, dwP, DH, flip);
+      if (tint) Art.drawTinted(g, name, tint, dx, dy, dwP, dhP, flip);
+      else Art.draw(g, name, dx, dy, dwP, dhP, flip);
       g.restore();
     } else {
-      if (tint) Art.drawTinted(g, name, tint, dx, dy, dwP, DH, flip);
-      else Art.draw(g, name, dx, dy, dwP, DH, flip);
+      if (tint) Art.drawTinted(g, name, tint, dx, dy, dwP, dhP, flip);
+      else Art.draw(g, name, dx, dy, dwP, dhP, flip);
     }
     /* 紧急修复批②：女弟子发饰层——与男弟子共用帧表，靠发间花瓣钗区分（视觉规范既定路线）；
        位置随朝向：正/背在头侧，侧面在朝向侧上方。 */
     if (!isPlayer && disciple && this._discipleVariant(disciple) === 'f' && Art.F['fx_petal_1_v1.png']){
-      const ox2 = st.dir === 'side' ? (st.face > 0 ? DW * 0.58 : DW * 0.24) : DW * 0.60;
-      Art.draw(g, 'fx_petal_1_v1.png', dx + ox2, dy + 3, 15, 11);
+      /* 修复三批③联动：发饰位置改按归一后实际绘制框与内容中心/头顶行计算（旧版按 DW 分数，归一后会错位） */
+      const pcx = B3 ? (B3[2] / fW) * dwP : dwP / 2, ptop = B3 ? (B3[3] / fH) * dhP : 0;
+      const poff = st.dir === 'side' ? (st.face > 0 ? dwP * 0.13 : -dwP * 0.30) : dwP * 0.13;
+      const psz = dhP / DH;
+      Art.draw(g, 'fx_petal_1_v1.png', dx + pcx + poff, dy + ptop - 2, 15 * psz, 11 * psz);
     }
   },
   /* 修复批①遗留：程序像素飞剑——美术批二起降为 art2 未就绪兜底（正常路径由 GPT 御剑姿态整图承担，见 drawPerson）。
