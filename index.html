@@ -3574,6 +3574,13 @@ const Render = {
     if (moved >= 60){ s.smx = 0; s.smy = 0; s.cand = null; }
     if (s.smx === undefined){ s.smx = 0; s.smy = 0; s.cand = null; s.candAt = 0; s.faceCand = 0; s.faceAt = 0; }
     s.smx += (dx - s.smx) * 0.35; s.smy += (dy - s.smy) * 0.35;
+    /* fix20：横向速度的时间归一口径 vxps（px/s，指数平滑 τ≈90ms）——旧 tilt 直接吃每帧
+       位移 dx，倾角随刷新率缩放（120Hz 屏只剩 60Hz 的一半），改供 drawPerson 倾斜用；
+       传送/回收帧（moved≥60）直接清零防尖峰。 */
+    if (s._vxLt === undefined){ s._vxLt = performance.now(); s.vxps = 0; }
+    const dtD = Math.min(100, Math.max(1, performance.now() - s._vxLt)); s._vxLt = performance.now();
+    if (moved >= 60) s.vxps = 0;
+    else s.vxps += (dx / dtD * 1000 - s.vxps) * (1 - Math.exp(-dtD / 90));
     const ax = Math.abs(s.smx), ay = Math.abs(s.smy), nowD = performance.now();
     if (ax + ay > 0.35){
       let cand, ratio;
@@ -3825,8 +3832,13 @@ const Render = {
       else if (tint) Art.drawTinted(g, name, tint, dx, dy, dwP, dhP, flip);
       else Art.draw(g, name, dx, dy, dwP, dhP, flip);
     };
-    if (isPlayer && flying){ // 御剑身体微倾：绕脚底基点按横向速度倾斜
-      st.tilt += (clamp(st.vx * 0.05, -0.15, 0.15) - st.tilt) * 0.25;
+    if (isPlayer && flying){ // 御剑倾斜：绕脚底基点按横向速度倾斜（人剑同帧整帧旋转）
+      /* fix20：倾角改走 vxps（px/s 时间归一，帧率无关）——全速横飞＝封顶 6°、模拟量
+         摇杆按速度比，τ=110ms 平滑趋近（无跳变/抖动）；旧口径吃每帧位移 vx（0.05/px、
+         封顶 0.15rad），120Hz 真机上每帧位移减半、倾角只剩 ≈3.8°，即飞姿发平的主因。
+         纵向纯飞行 vx≈0 → 倾角 0（z 轴旋转表达不了俯仰，口径同旧版）。 */
+      const tgtTilt = clamp((st.vxps || 0) / CONFIG.player.speed, -1, 1) * (6 * Math.PI / 180);
+      st.tilt += (tgtTilt - st.tilt) * (1 - Math.exp(-aDt / 110));
       g.save();
       g.translate(e.x - cam.x + sway, e.y - cam.y - lift);
       g.rotate(st.tilt);
@@ -3834,6 +3846,8 @@ const Render = {
       drawMain();
       g.restore();
     } else {
+      /* fix20：地面/落地期倾角按同 τ 衰减回正——旧版落地后 tilt 残值冻结，下次起飞首帧带歪 */
+      if (isPlayer && st.tilt) st.tilt *= Math.exp(-aDt / 110);
       drawMain();
     }
     /* 紧急修复批②：女弟子发饰层——与男弟子共用帧表，靠发间花瓣钗区分（视觉规范既定路线）；
