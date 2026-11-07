@@ -237,8 +237,8 @@ body.pxf-on .icnL-stamina { background-position:-122.5px -240.0px; }
 body.pxf-on .icnL-steward { background-position:-24.5px -264.5px; }
 body.pxf-on .icnL-vault { background-position:-49.0px -264.5px; }
 body.pxf-on .icnL-xuanyu { background-position:-318.5px -240.0px; }
-body.pxf-on .plaqueBanner { background-image:url('assets/atlas_pxf_ui.png'); aspect-ratio:600/185; background-size:234.67% 623.78%; background-position:0.00% 33.33%; }
-body.pxf-on .sp-plaque-img { background-image:url('assets/atlas_pxf_ui.png'); aspect-ratio:600/185; background-size:234.67% 623.78%; background-position:0.00% 33.33%; }
+body.pxf-on .plaqueBanner { background-image:url('assets/atlas_pxf_ui.png'); aspect-ratio:600/185; background-size:234.67% 623.78%; background-position:0.00% 33.33%; image-rendering:pixelated; }
+body.pxf-on .sp-plaque-img { background-image:url('assets/atlas_pxf_ui.png'); aspect-ratio:600/185; background-size:234.67% 623.78%; background-position:0.00% 33.33%; image-rendering:pixelated; }
 </style>
 </head>
 <body>
@@ -300,6 +300,7 @@ const CONFIG = {
   ],
   farm: {
     cols: 4, rows: 3, plotW: 56, plotH: 42, gap: 12, originX: 150, originY: 620,
+    groundMargin: 64,   // fix14：田区强制地面模式外扩（站在地块边互动的站位也算田区，见 Actor.inFarmArea）
     defaultTier: 1, defaultCrop: 'lingzhi',
     demoTier1Ms: 6000,                                           // 仅 ?demo=1 冒烟测试用
   },
@@ -1339,6 +1340,19 @@ const Scene = {
     { x: 886, y: 992, w: 58, h: 150 },    // 山门右柱（中央留门洞，gate 锚点在洞内）
     { x: 60, y: 80, w: 80, h: 72 }, { x: 1330, y: 700, w: 80, h: 72 },
     { x: 120, y: 960, w: 80, h: 72 }, { x: 1450, y: 980, w: 80, h: 72 },
+    /* fix14：场景道具贴地脚印补缺——此前矿口洞口本体/矿车/水晶/栅栏/灯柱/灌木/花丛均无碰撞、可直接穿模
+       （旧四盒为原树位遗留）。脚印口径与建筑基座一致：只挡基座段，图面其余部分靠 Y 排序遮挡。 */
+    { x: 1305, y: 160, w: 190, h: 40 },  // 后山矿口洞口基座（图 1295,51,210×149，pxf 底边 200；mineWork 锚点 1400,210 在盒南侧可达）
+    { x: 1266, y: 274, w: 68, h: 22 },   // 灵石水晶（图 1258,230,84×66）
+    { x: 1474, y: 270, w: 88, h: 26 },   // 矿车（图 1466,222,104×74）
+    { x: 306, y: 924, w: 108, h: 20 },   // 木栅栏·西（图 300,884,120×62）
+    { x: 1186, y: 924, w: 108, h: 20 },  // 木栅栏·东（图 1180,884,120×62）
+    { x: 634, y: 1044, w: 12, h: 14 },   // 灯柱·西（图 618,1006,40×56）
+    { x: 966, y: 1044, w: 12, h: 14 },   // 灯柱·东（图 950,1006,40×56）
+    { x: 674, y: 306, w: 32, h: 16 },    // 灌木·坊前坪（图 652,268,76×58）
+    { x: 1012, y: 628, w: 32, h: 16 },   // 灌木·出货台西（图 990,590,76×58）
+    { x: 984, y: 278, w: 32, h: 14 },    // 花丛·坊前（图 958,240,72×56）
+    { x: 1006, y: 1040, w: 32, h: 14 },  // 花丛·山门东（图 980,1002,72×56）
     // 后山矿口围栏（M1 上锁，扩建接口预留：unlockZone 时移除 barrier 并重建碰撞）
     { x: 1240, y: 40, w: 328, h: 14 }, { x: 1240, y: 40, w: 14, h: 280 }, { x: 1554, y: 40, w: 14, h: 280 },
     { x: 1240, y: 306, w: 140, h: 14 }, { x: 1420, y: 306, w: 148, h: 14 },
@@ -1413,7 +1427,8 @@ const Scene = {
      变体与镜像由格哈希决定，双草地交替降重复感。_tileCache 按 贴图|尺寸|压暗 缓存。 */
   _tileCache: {},
   _softTile(name, size, shade){
-    const key = name + '|' + size + '|' + (shade || 1);
+    const soft = this._tileSoft || 0.72;   // fix14：像素层构建期临时收窄羽化带（0.9），HD 地面维持 0.72
+    const key = name + '|' + size + '|' + (shade || 1) + '|' + soft;
     if (this._tileCache[key]) return this._tileCache[key];
     const f = Art.F[name]; if (!f) return null;
     const t = document.createElement('canvas'); t.width = t.height = size;
@@ -1424,7 +1439,7 @@ const Scene = {
       tg.globalCompositeOperation = 'source-over'; }
     tg.globalCompositeOperation = 'destination-in';
     const gr = tg.createRadialGradient(size / 2, size / 2, size * 0.30, size / 2, size / 2, size * 0.52);
-    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.72, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(soft, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
     tg.fillStyle = gr; tg.fillRect(0, 0, size, size);
     this._tileCache[key] = t; return t;
   },
@@ -1540,7 +1555,7 @@ const Scene = {
      file:// 下读像素被污染则只降采样不锁色。试点层以此为兜底基底（石板坪/岩面等无原生贴图区沿用它）。 */
   _pixelBaseCanvas(){
     const src = this.staticLayer; if (!src) return null;
-    const F = 3, w = Math.floor(CONFIG.world.w / F), h = Math.floor(CONFIG.world.h / F);
+    const F = 2, w = Math.floor(CONFIG.world.w / F), h = Math.floor(CONFIG.world.h / F);   // fix14：÷3→÷2，地面 texel（2 世界px）与人物 texel（≈1.95）对齐，消除像素尺度三倍差
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const g = c.getContext('2d'); g.imageSmoothingEnabled = true;
     g.drawImage(src, 0, 0, w, h);
@@ -1564,29 +1579,31 @@ const Scene = {
   /* 像素地面层（全量批 v2）：布局与 _paintGroundTextured 逐项同构，贴图源全换原生像素——
      草地 pxp 草 A＋pxf 草 B（S7 带花）双贴图马赛克 → 土路动线 → 药圃田基 → 池塘水面＋S7 岸线三向
      → 矿区岩面（S7）→ 石板前坪×5 与大殿石阶（S7 台阶格，石板/台阶共用此格——生图侧清单本就同格）。
-     pxf 地面帧未就绪才回退试点口径（石板/矿区/石阶从样板基底裁回）。构建在 ÷3 层上，最近邻出图。 */
+     pxf 地面帧未就绪才回退试点口径（石板/矿区/石阶从样板基底裁回）。构建在 ÷2 层上（fix14 由 ÷3 改），最近邻出图。 */
   _buildPixelLayerNative(){
     const base = this._pixelBaseCanvas(); if (!base){ this.pixelLayer = null; return; }
     if (!Art.F['pxp_gnd_grass_v1.png'] || !Art.F['pxp_gnd_dirt_v1.png'] || !Art.F['pxp_gnd_field_v1.png'] || !Art.F['pxp_gnd_water_v1.png']){ this.pixelLayer = null; return; }
-    const F = 3, W = CONFIG.world.w, H = CONFIG.world.h;
+    const F = 2, W = CONFIG.world.w, H = CONFIG.world.h;   // fix14：÷3→÷2（与 _pixelBaseCanvas 同步）
     const c = document.createElement('canvas'); c.width = base.width; c.height = base.height;
     const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
     g.drawImage(base, 0, 0);
+    this._tileSoft = 0.9;   // fix14：像素层贴块羽化带收窄（接缝仍由 28+ 单位重叠盖住），构建完恢复
     g.save(); g.scale(1 / F, 1 / F);
     const full = !!Art.F['pxf_gnd_rock.png'];
     const grassSet = full ? ['pxp_gnd_grass_v1.png', 'pxf_gnd_grassb.png'] : ['pxp_gnd_grass_v1.png'];
-    this._mosaic(g, grassSet, -40, -40, W + 80, H + 80, 168, 116, 7);
+    /* fix14：贴图尺寸统一 144＝地面帧原生边长（处理后逻辑格 72），层内采样恰为逻辑格 1:1，不再二次重采样糊化 */
+    this._mosaic(g, grassSet, -40, -40, W + 80, H + 80, 144, 116, 7);
     const dirt = ['pxp_gnd_dirt_v1.png'];
-    this._mosaic(g, dirt, 756, 240, 88, 920, 132, 94, 21);
-    this._mosaic(g, dirt, 120, 812, 1330, 64, 132, 94, 22);
-    this._mosaic(g, dirt, 410, 560, 60, 260, 132, 94, 23);
-    this._mosaic(g, dirt, 756, 1064, 560, 40, 132, 94, 24);
+    this._mosaic(g, dirt, 756, 240, 88, 920, 144, 94, 21);
+    this._mosaic(g, dirt, 120, 812, 1330, 64, 144, 94, 22);
+    this._mosaic(g, dirt, 410, 560, 60, 260, 144, 94, 23);
+    this._mosaic(g, dirt, 756, 1064, 560, 40, 144, 94, 24);
     const f = CONFIG.farm;
-    this._mosaic(g, ['pxp_gnd_field_v1.png'], f.originX - 14, f.originY - 14, f.cols * (f.plotW + f.gap) + 16, f.rows * (f.plotH + f.gap) + 16, 120, 88, 51);
+    this._mosaic(g, ['pxp_gnd_field_v1.png'], f.originX - 14, f.originY - 14, f.cols * (f.plotW + f.gap) + 16, f.rows * (f.plotH + f.gap) + 16, 144, 88, 51);
     /* 水面硬裁切：_softTile 贴块带羽化、视觉外溢约半块会压到药圃西列地块下（田块如浮水面）；
        按池塘实占（碰撞西段 0..140）裁切收边，矩形范围同裁切口径（初版无裁切＋宽 232 双重溢出，fix12 田池对照实证） */
     g.save(); g.beginPath(); g.rect(-10, 492, 160, 180); g.clip();
-    this._mosaic(g, ['pxp_gnd_water_v1.png'], -10, 492, 160, 180, 140, 100, 41);
+    this._mosaic(g, ['pxp_gnd_water_v1.png'], -10, 492, 160, 180, 144, 100, 41);
     g.restore();
     const dr = (n, x, y, w, h) => { const fr = Art.F[n]; if (fr) g.drawImage(fr.img, fr.x, fr.y, fr.w, fr.h, x, y, w, h); };
     if (full){
@@ -1597,13 +1614,13 @@ const Scene = {
       dr('pxf_gnd_shore_e.png', 202, 494, 40, 176);
       /* 矿区岩面 */
       g.save(); g.beginPath(); g.rect(1240, 40, 328, 292); g.clip();
-      this._mosaic(g, ['pxf_gnd_rock.png'], 1240, 40, 328, 292, 168, 116, 61);
+      this._mosaic(g, ['pxf_gnd_rock.png'], 1240, 40, 328, 292, 144, 116, 61);
       g.restore();
       /* 石板前坪 ×5（裁切内马赛克）＋大殿石阶（整格拉伸） */
       const plazas = [[596, 96, 408, 252], [364, 116, 312, 240], [1052, 286, 356, 282], [984, 624, 316, 244], [528, 924, 544, 276]];
       plazas.forEach(([x, y, kw, kh], i) => {
         g.save(); g.beginPath(); g.rect(x, y, kw, kh); g.clip();
-        this._mosaic(g, ['pxf_gnd_steps.png'], x, y, kw, kh, 168, 116, 71 + i);
+        this._mosaic(g, ['pxf_gnd_steps.png'], x, y, kw, kh, 144, 116, 71 + i);
         g.restore();
       });
       dr('pxf_gnd_steps.png', 742, 230, 116, 106);
@@ -1615,6 +1632,7 @@ const Scene = {
       for (const [x, y, kw, kh] of keep)
         g.drawImage(base, x / F, y / F, kw / F, kh / F, x / F, y / F, kw / F, kh / F);
     }
+    this._tileSoft = 0.72;   // fix14：羽化口径恢复 HD 默认
     this.pixelLayer = c;
   },
 };
@@ -1649,7 +1667,8 @@ const Actor = {
        升降按 riseMs 平滑趋近，落地判定用 lastMoveAt 与真实时间，不吃帧率。 */
     const now = nowMs();
     if (p.moving) p.lastMoveAt = now;
-    const flyTarget = (now - p.lastMoveAt < CONFIG.flight.landDelayMs) ? CONFIG.flight.height : 0;
+    /* fix14：田区内 flyTarget 恒 0——耕地时移动不再升空（飞入田区也按 riseMs 平滑落地衔接） */
+    const flyTarget = (!this.inFarmArea(p) && now - p.lastMoveAt < CONFIG.flight.landDelayMs) ? CONFIG.flight.height : 0;
     p.flyH += (flyTarget - p.flyH) * Math.min(1, dt / (CONFIG.flight.riseMs / 3));
     if (Math.abs(flyTarget - p.flyH) < 0.1) p.flyH = flyTarget;
     if (flyTarget > 0 && p.flyH > CONFIG.flight.height * 0.6 && !p._sndAir){ p._sndAir = true; Sfx.play('sword'); }
@@ -1662,6 +1681,14 @@ const Actor = {
     S.player.x = p.x; S.player.y = p.y; S.player.facing = p.facing;
   },
   playAction(name){ this.player.animState = 'action:' + name; this.player.actionUntil = nowMs() + 450; },   // 追加批5：450ms＝3 帧×150ms 完整一轮
+  /* fix14：灵田强制地面判定——田区＝地块阵列外扩 groundMargin 的矩形（站在地块南/侧边互动的
+     站位也落在区内）。区内移动不起飞（行走帧）、劳作动画不被御剑打断；离开田区恢复移动即御剑。
+     用矩形而非逐地块邻近：判定 O(1)、边界稳定不抖动。弟子无 flyH 机制、不受影响。 */
+  inFarmArea(p){
+    const f = CONFIG.farm, m = f.groundMargin || 0;
+    const w = f.cols * (f.plotW + f.gap) - f.gap, h = f.rows * (f.plotH + f.gap) - f.gap;
+    return p.x > f.originX - m && p.x < f.originX + w + m && p.y > f.originY - m && p.y < f.originY + h + m;
+  },
   getPlayerPos(){ return { x: this.player.x, y: this.player.y }; },
 };
 
@@ -3728,8 +3755,11 @@ const Render = {
     let dwP, dhP, dx, dy;
     if (pxNative && B3){
       /* 像素试点几何：不用 HD 的 (fW/96) 宽度口径（那是为 96×144 母版标定的），按帧原生宽高比出图——
-         高度与 HD 同为 DH（内容高占比同归一），宽度随帧宽高比，锚点按 BODY3 帧内实测行列对位。 */
-      dhP = DH * K4; dwP = dhP * (fW / fH);
+         高度与 HD 同为 DH（内容高占比同归一），宽度随帧宽高比，锚点按 BODY3 帧内实测行列对位。
+         fix14：整数倍率绘制——倍率按目标高取整（64px 帧→×2、dhP=128），dw/dh 恒为源帧整数倍；
+         旧口径 dhP=125 对 64px 帧＝1.953 分数倍率，逐 texel 采样宽窄不均＝真机发糊主因之一，现废止。 */
+      const kPx = Math.max(1, Math.round(DH * K4 / fH));
+      dhP = fH * kPx; dwP = fW * kPx;
       dx = e.x - cam.x - (B3[2] / fW) * dwP + sway;
       dy = e.y - cam.y - (B3[1] / fH) * dhP - bob - lift;
     } else if (B3){
@@ -3870,6 +3900,21 @@ const Render = {
     g.fillStyle = 'rgba(32,28,18,.20)';
     g.beginPath(); g.ellipse(cx - cam.x, baseY - cam.y, w / 2, Math.max(5, w * 0.055), 0, 0, Math.PI * 2); g.fill();
   },
+  /* fix14：铭牌文字适配——旧版恒 12px 字号＋measureText 实测宽定牌宽有两坑：
+     ①FusionPixelKZM 未加载完时 measureText 按回退字体量测偏小；②牌面纹理内框只占牌宽约
+     12%–88%，带图标时文字起点 27px＋四字名（后山矿口）＋锁定后缀直接溢出内框（主人实证只显三字）。
+     现行：字宽取「实测」与「字数×字号×0.99（点阵字每字约 1em）」的大者；超上限（170）逐级缩字号至 9；
+     牌宽按内框几何反推 w＝(文字起点＋字宽)/0.88＋4，保证全名落在内框内。返回后 g.font 已设为适配字号。 */
+  _fitPlate(label, hasIcn, px){
+    const g = this.ctx, start = hasIcn ? 27 : 8, maxTw = 170;
+    let fs = 12, tw = 0;
+    for (; fs >= 9; fs--){
+      g.font = px ? fs + 'px FusionPixelKZM, sans-serif' : '600 ' + fs + 'px sans-serif';
+      tw = Math.max(g.measureText(label).width, px ? label.length * fs * 0.99 : 0);
+      if (tw <= maxTw) break;
+    }
+    return { fs, tw, start, w: Math.ceil((start + tw) / 0.88) + 4 };
+  },
   /* 修复批③：建筑铭牌——头顶悬浮小牌（图标＋建筑名），靠近门前时金边高亮。
      Art 未就绪时退化为纯文字牌（与旧 drawBuilding 牌同口径）。 */
   _drawPlates(){
@@ -3885,10 +3930,9 @@ const Render = {
       if (y - 22 < 2) y = topY + 30;   // 贴世界顶边的建筑（大殿）：铭牌改挂檐口下，不画到界外
       const label = b.name + (b.id === 'mine' && Scene.isLocked('mineZone') ? ' · 未开放' : '');
       const pxPlateB = CONFIG.art.pixelSample && Art.readyPxu && Art.F['pxu_uic_nameplate.png'];
-      g.font = pxPlateB ? '12px FusionPixelKZM, sans-serif' : '600 12px sans-serif';
-      const tw = g.measureText(label).width;
       const hasIcn = Art.ready && Art.F['icn_' + b.icon + '_v1.png'];
-      const w = Math.ceil(tw) + (hasIcn ? 30 : 16), h = 22;
+      const fit = this._fitPlate(label, hasIcn, !!pxPlateB);   // fix14：字号/牌宽适配（字体已由 _fitPlate 设为适配字号）
+      const w = fit.w, h = 22;
       const x = cx - cam.x - w / 2;
       let yy = y - cam.y - h;
       if (yy < 84 && yy > -h) yy = 84;   // 建筑贴屏幕顶时铭牌压到 HUD 之下，不被顶栏盖住
