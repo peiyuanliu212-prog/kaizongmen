@@ -171,6 +171,8 @@
   .sheet .lb-mine { margin-top:10px; font-size:13px; color:#7a5a17; }
   /* UI声音集成批：面板描框（角花＋边饰，JS 按 .sheet 实测矩形定位、dataURL 贴图；图未就绪不显） */
   .sheetDeco { position:absolute; pointer-events:none; }
+  /* 真机三问题批①：滚动进行中整框淡出（无过渡——过渡动画本身是 fix7 认定的合成层残影源，不复用） */
+  #panelWrap.decoScroll .sheetDeco, #pageWrap.decoScroll .sheetDeco { opacity:0; }
   .frC { position:absolute; width:54px; height:54px; background-size:contain; background-repeat:no-repeat; }
   .frC.tl { left:1px; top:1px; } .frC.tr { right:1px; top:1px; }
   .frC.bl { left:1px; bottom:1px; } .frC.br { right:1px; bottom:1px; }
@@ -306,7 +308,12 @@ const CONFIG = {
     },
   },
   fx: { poolSize: 512, hardCap: 400, dtClampMs: 33, degradeFrameMs: 20, dprCap: 1.5 },
-  camera: { dampMs: 130, lookBackMs: 240, lookMax: 300, snapDist: 420 },  // 修复批②：阻尼跟随＋拖动巡视回正
+  camera: { dampMs: 130, lookBackMs: 240, lookMax: 300, snapDist: 420, settlePx: 0.75 },  // 修复批②：阻尼跟随＋拖动巡视回正；真机三问题批②：settlePx 内直接贴合目标——旧版指数阻尼无收敛钳，停步后镜头亚像素无限爬行，人物被逐帧重采样＝真机「原地抽搐」主因之一
+  idle: { bobEnabled: false, bobAmpPx: 1.1, bobPeriodMs: 620 },   // 真机三问题批②：待机呼吸 bob 默认关（旧版恒开：sin 经 Art.draw 取整成 ±1px 阶梯跳变、与镜头爬行叠加成抽搐）；开启须主人拍板，振幅/周期在此
+  art: { pixelSample: false,   // 真机三问题批③：D 像素回归样板开关位（默认关＝现行高清版；宗门页可切换、或 ?pixel=1 进场开启）。只覆盖主角四向站立＋弟子正面待机＋地面静态层
+    paletteD: ['#5FA353', '#4C8148', '#7C5A38', '#5A4030', '#8A4B3A', '#7A5A3E', '#C9A86B', '#46586B',
+      '#CFB69A', '#B9BDC2', '#46B1C1', '#F2B8C6', '#EDF1F5', '#B9D3A8', '#A9C6DE', '#252126',
+      '#F6CFA9', '#E9C46A'] },   // 视觉规范 18 色 D 调色板（与离线管线 slice_work9/make_pixel_sample.py 同表，改色须两处同步）
   flight: { height: 15, riseMs: 360, landDelayMs: 1000, trailMs: 70,   // trailMs 为旧环件拖尾口径（已弃用，保留键防外部引用失效）
     trailSampleMs: 34, trailLifeMs: 400, trailWidth: 9,               // 高清真机反馈批②：程序剑光带拖尾（采样间隔/寿命/头宽 px）
     swordLenFB: 0.85, swordSqMs: 100 },                               // 沉淀打磨批①：竖向剑长＝横向长×0.85（透视缩短，旧 1.35 竖向放大已被主人否决）；转向时标 90°/swordSqMs
@@ -1304,6 +1311,9 @@ const Scene = {
     } else {
       const k = 1 - Math.exp(-dt / CONFIG.camera.dampMs);
       this.camera.x += (tx - this.camera.x) * k; this.camera.y += (ty - this.camera.y) * k;
+      /* 真机三问题批②：收敛钳——残差小于 settlePx 直接贴合，镜头自此逐帧恒定（静止零位移的前提） */
+      if (Math.abs(tx - this.camera.x) < CONFIG.camera.settlePx && Math.abs(ty - this.camera.y) < CONFIG.camera.settlePx){
+        this.camera.x = tx; this.camera.y = ty; }
     }
     S.camera.x = this.camera.x; S.camera.y = this.camera.y;
   },
@@ -1451,6 +1461,30 @@ const Scene = {
     g.fillRect(1240, 306, 140, 14); g.fillRect(1420, 306, 148, 14);
     if (this.isLocked('mineZone')){ g.fillStyle = '#8c2f22'; g.fillRect(1380, 300, 40, 26); }
     this.staticLayer = c;
+    if (typeof CONFIG !== 'undefined' && CONFIG.art && CONFIG.art.pixelSample) this._buildPixelLayer();
+    else this.pixelLayer = null;
+  },
+  /* 真机三问题批③：像素样板地面——静态层 ÷3 降采样（平滑开＝面积平均近似）→逐像素锁 18 色 D 调色板。
+     一次性构建（静态层重绘时跟随重建），绘制时以最近邻放大回世界尺寸。file:// 下读像素被污染则只降采样不锁色。 */
+  pixelLayer: null,
+  _buildPixelLayer(){
+    const src = this.staticLayer; if (!src){ this.pixelLayer = null; return; }
+    const F = 3, w = Math.floor(CONFIG.world.w / F), h = Math.floor(CONFIG.world.h / F);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = true;
+    g.drawImage(src, 0, 0, w, h);
+    try {
+      const pal = CONFIG.art.paletteD.map(hx => [parseInt(hx.slice(1, 3), 16), parseInt(hx.slice(3, 5), 16), parseInt(hx.slice(5, 7), 16)]);
+      const id = g.getImageData(0, 0, w, h), d = id.data;
+      for (let i = 0; i < d.length; i += 4){
+        let bi = 0, bd = Infinity;
+        for (let j = 0; j < pal.length; j++){ const dr = d[i] - pal[j][0], dg = d[i + 1] - pal[j][1], db = d[i + 2] - pal[j][2];
+          const dd = dr * dr + dg * dg + db * db; if (dd < bd){ bd = dd; bi = j; } }
+        d[i] = pal[bi][0]; d[i + 1] = pal[bi][1]; d[i + 2] = pal[bi][2]; d[i + 3] = 255;
+      }
+      g.putImageData(id, 0, 0);
+    } catch (e) { /* 画布污染降级：保留降采样版 */ }
+    this.pixelLayer = c;
   },
 };
 
@@ -2495,8 +2529,27 @@ const UI = {
     el.style.borderImageWidth = bw; el.style.borderImageRepeat = 'stretch';
     el.style.background = 'transparent'; el.style.color = color;
   },
+  /* 真机三问题批①：描框几何自愈——旧版只在开面板瞬间量一次 sheet 矩形，而榜单是「先空表开板、后同步/异步填行」：
+     sheet 随即由 224px 长到 569px（本批桌面实测），描框永久停在空表几何上，框体切进列表中段、滚动时压住文字行
+     ＝主人录屏「榜单滚动重影」的根因（框边瓷砖在行间反复入镜，观感即拖影/重叠）。
+     改：ResizeObserver 盯 sheet 尺寸、变化即重贴；滚动进行中整框淡出（防弱 GPU 背景瓷砖随滚动重绘拖影），停滚 160ms 重贴。 */
+  _initDecoWatch(){
+    if (this._decoWatchInit) return; this._decoWatchInit = true;
+    if (typeof ResizeObserver !== 'undefined'){
+      this._decoRO = new ResizeObserver(() => this._placeDeco());
+      for (const id of ['panel', 'page']){ const el = $(id); if (el) this._decoRO.observe(el); }
+    }
+    for (const pair of [['panelWrap', 'panel'], ['pageWrap', 'page']]){
+      const wrap = $(pair[0]), sheet = $(pair[1]); if (!wrap || !sheet) continue;
+      let t = 0;
+      sheet.addEventListener('scroll', () => { wrap.classList.add('decoScroll');
+        clearTimeout(t); t = setTimeout(() => { wrap.classList.remove('decoScroll'); this._placeDeco(); }, 160);
+      }, { passive: true });
+    }
+  },
   /* 面板描框：角花＋边饰定位层（.sheetDeco 挂在 wrap 内、按 .sheet 实测矩形贴合；指针穿透） */
   _placeDeco(){
+    this._initDecoWatch();
     for (const pair of [['panelWrap', 'panel'], ['pageWrap', 'page']]){
       const wrap = $(pair[0]), sheet = $(pair[1]); if (!wrap || !sheet) continue;
       let deco = wrap.querySelector('.sheetDeco');
@@ -2868,6 +2921,7 @@ const UI = {
     if (me && me.rank) mineEl.textContent = '我的名次：第 ' + me.rank + ' 名 · 当前' + unit + cur +
       (me.rank === 1 ? ' · 暂居榜首' : '');
     else mineEl.textContent = '我还没上榜——' + (kind === 'scale' ? '扩建建筑涨建设度即可上榜。' : '交付订单积累经营入账即可上榜。');
+    this._placeDeco();   // 真机三问题批①：填行后 sheet 长高，描框立即重贴（ResizeObserver 兜底异步布局）
   },
   /* 两段确认：首击变「确认？」，限时内再击才执行（保存覆盖/读取/删除共用） */
   _armConfirm(btn, fn){
@@ -2894,6 +2948,8 @@ const UI = {
     }
     rows += '<div class="row" style="padding:4px 2px"><span>' + this.icn('vault') + '<b>宗门宝库</b>' +
       ' <span class="mini">献纳三链产物、点亮宝库陈设（筹备中）</span></span><span class="tag grey">筹备中</span></div>';
+    /* 真机三问题批③：D 像素回归样板开关位在页脚（关闭键之后，与鸣谢同法）——不放 rows 中段：
+       大殿页内容高有 fix8 穿透几何预算，中段加行会把睡觉按钮顶进互动键重叠区（本批实测触发 fix8 FAIL 后挪位） */
     /* 修复批⑥：存档管理——自动档（随进度自动保存）＋5 个手动槽，写/读/删均两段确认 */
     const fmtT = ts => { if (!ts) return ''; const d = new Date(ts), p2 = n => String(n).padStart(2, '0');
       return (d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); };
@@ -2917,7 +2973,15 @@ const UI = {
       '<div class="mini" style="line-height:1.75">声音开关在主界面右上角（音乐、音效与人声一并开关）。本作音乐与音效素材鸣谢：<br>' +
       '\u201CSunrise in the Dynasty\u201D by Yottabyte1024 — CC-BY 3.0（https://opengameart.org/content/sunrise-in-the-dynasty）<br>' +
       '\u201CTolling Bell SFX\u201D by Fun Gi Development — CC-BY 3.0（https://opengameart.org/content/tolling-bell-sfx）<br>' +
-      '日常音乐 \u201COrient Peace Valley\u201D by Tozan（CC0）；其余界面与劳作音效为 Kenney、rubberduck、Fupi 的 CC0 素材。</div>');
+      '日常音乐 \u201COrient Peace Valley\u201D by Tozan（CC0）；其余界面与劳作音效为 Kenney、rubberduck、Fupi 的 CC0 素材。</div>' +
+      /* 真机三问题批③：像素样板开关位（页脚，默认关；开启只换主角/弟子待机帧与地面层，见 CONFIG.art.pixelSample） */
+      '<div class="row" style="margin-top:10px"><span><b>像素风样板</b> <span class="mini">实验：人物待机与地面换 D 定版像素</span></span>' +
+      '<button class="act2" data-pixelsample="1">' + (CONFIG.art.pixelSample ? '已开 · 点此关闭' : '开启') + '</button></div>');
+    document.querySelectorAll('[data-pixelsample]').forEach(b => b.onclick = () => {
+      if (!CONFIG.art.pixelSample){ Art.loadPixelSample(ok => { if (!ok){ this.hint('样板图集加载失败，仍为现行画风'); return; }
+        CONFIG.art.pixelSample = true; Scene._prerenderStatic(); this.hint('像素样板已开（实验）'); this.openSectPanel(); }); }
+      else { CONFIG.art.pixelSample = false; Scene._prerenderStatic(); this.hint('像素样板已关，回到现行画风'); this.openSectPanel(); }
+    });
     document.querySelectorAll('[data-up]').forEach(b => b.onclick = () => {
       if (Sect.upgrade(b.dataset.up)) this.openSectPanel(); });
     document.querySelectorAll('[data-saveslot]').forEach(b => this._armConfirm(b, () => {
@@ -3031,7 +3095,7 @@ const UI = {
  *   v1 朝向映射（assets/ORIENTATION-map.md）为旧图集口径，已被本批取代。
  * ================================================================ */
 const Art = {
-  ready: false, failed: false, ready2: false, failed2: false, ready3: false, failed3: false, imgs: {}, F: {}, tintCache: {},
+  ready: false, failed: false, ready2: false, failed2: false, ready3: false, failed3: false, readyPx: false, imgs: {}, F: {}, tintCache: {},
   RECTS: {"chars":{"frm_master_backwalk_01_v1.png":[0,0,96,144],"frm_master_backwalk_02_v1.png":[98,0,96,144],"frm_master_backwalk_03_v1.png":[196,0,96,144],"frm_master_backwalk_04_v1.png":[294,0,96,144],"frm_master_backwalk_05_v1.png":[392,0,96,144],"frm_master_walk_01_v1.png":[490,0,96,144],"frm_master_walk_02_v1.png":[588,0,96,144],"frm_master_walk_03_v1.png":[686,0,96,144],"frm_master_walk_04_v1.png":[784,0,96,144],"frm_master_walk_05_v1.png":[882,0,96,144],"frm_master_hoe_01_v1.png":[980,0,115,144],"frm_master_water_01_v1.png":[1097,0,96,144],"frm_master_hoe_02_v1.png":[1195,0,107,144],"frm_master_water_02_v1.png":[0,146,116,144],"frm_master_hoe_03_v1.png":[118,146,110,144],"frm_master_water_03_v1.png":[230,146,116,144],"frm_master_cast_01_v1.png":[348,146,96,144],"frm_master_cast_02_v1.png":[446,146,96,144],"frm_master_cast_03_v1.png":[544,146,96,144],"frm_master_cast_04_v1.png":[642,146,96,144],"frm_male_walk_01_v1.png":[740,146,96,144],"frm_male_walk_02_v1.png":[838,146,96,144],"frm_male_walk_03_v1.png":[936,146,96,144],"frm_male_walk_04_v1.png":[1034,146,96,144],"frm_male_walk_05_v1.png":[1132,146,96,144],"frm_male_harvest_01_v1.png":[1230,146,103,144],"frm_male_harvest_02_v1.png":[0,292,96,144],"frm_male_harvest_03_v1.png":[98,292,101,144],"frm_male_water_01_v1.png":[201,292,115,144],"frm_male_water_02_v1.png":[318,292,106,144],"frm_male_water_03_v1.png":[426,292,109,144],"frm_male_carry_01_v1.png":[537,292,102,144],"frm_male_carry_02_v1.png":[641,292,96,144],"frm_male_carry_03_v1.png":[739,292,100,144],"frm2_male_walkf_01_v1.png":[841,292,96,144],"frm2_male_walkf_02_v1.png":[939,292,96,144],"frm2_male_walkf_03_v1.png":[1037,292,96,144],"frm2_male_walkf_04_v1.png":[1135,292,96,144],"frm2_male_walkf_05_v1.png":[1233,292,96,144],"frm2_male_walkb_01_v1.png":[0,438,96,144],"frm2_male_walkb_02_v1.png":[98,438,96,144],"frm2_male_walkb_03_v1.png":[196,438,96,144],"frm2_male_walkb_04_v1.png":[294,438,96,144],"frm2_male_walkb_05_v1.png":[392,438,96,144],"frm2_male_walkr_01_v1.png":[490,438,96,144],"frm2_male_walkr_02_v1.png":[588,438,96,144],"frm2_male_walkr_03_v1.png":[686,438,96,144],"frm2_male_walkr_04_v1.png":[784,438,96,144],"frm2_male_walkr_05_v1.png":[882,438,96,144],"frm2_male_walkl_01_v1.png":[980,438,96,144],"frm2_male_walkl_02_v1.png":[1078,438,96,144],"frm2_male_walkl_03_v1.png":[1176,438,96,144],"frm2_male_walkl_04_v1.png":[1274,438,96,144],"frm2_male_walkl_05_v1.png":[0,584,96,144],"frm_female_basket_01_v1.png":[98,584,96,144],"frm_female_basket_02_v1.png":[196,584,96,144],"frm_female_basket_03_v1.png":[294,584,96,144],"chr_master_front_v1.png":[392,584,96,144],"chr_master_side_v1.png":[490,584,96,144],"chr_master_back_v1.png":[588,584,96,144],"chr_master_side34_v1.png":[686,584,96,144],"chr_male_front_v1.png":[784,584,96,144],"chr_male_side_v1.png":[882,584,96,144],"chr_male_back_v1.png":[980,584,96,144],"chr_female_front_v1.png":[1078,584,96,144],"chr_female_side_v1.png":[1176,584,96,144],"chr_female_back_v1.png":[1274,584,96,144],"chr_female_side34_v1.png":[0,730,96,144],"frm2_master_fly_front_v1.png":[98,730,134,144],"frm2_master_fly_back_v1.png":[234,730,134,144],"frm2_master_fly_side_l_v1.png":[370,730,135,144],"frm2_master_fly_side_r_v1.png":[507,730,135,144],"frm2_master_fly_side_l2_v1.png":[644,730,96,144],"chr_female2_front_v1.png":[742,730,96,144],"chr_female2_side_v1.png":[840,730,96,144],"chr_female2_back_v1.png":[938,730,96,144],"chr_female2_side34_v1.png":[1036,730,96,144],"frm_master_sow_01_v1.png":[1134,730,96,144],"frm_master_harvest_01_v1.png":[1232,730,96,144],"frm_master_sow_02_v1.png":[0,876,102,144],"frm_master_harvest_02_v1.png":[104,876,106,144],"frm_master_sow_03_v1.png":[212,876,102,144],"frm_master_harvest_03_v1.png":[316,876,101,144],"frm2_master_fly_front_bd_v1.png":[419,876,134,144],"frm2_master_fly_front_sw_v1.png":[555,876,134,144],"frm2_master_fly_back_bd_v1.png":[691,876,134,144],"frm2_master_fly_back_sw_v1.png":[827,876,134,144],"frm2_master_fly_side_l_bd_v1.png":[963,876,135,144],"fx2_trail_1_v1.png":[1100,876,176,68],"fx2_trail_2_v1.png":[0,1022,176,68],"fx2_trail_3_v1.png":[178,1022,176,68],"fx2_trail_4_v1.png":[356,1022,176,68],"art2_sword_v1.png":[534,1022,228,50],"frm2_sword_v1.png":[764,1022,132,11],"frm2_male_walkf_06_v1.png":[1135,292,96,144],"frm2_male_walkf_07_v1.png":[1037,292,96,144],"frm2_male_walkf_08_v1.png":[939,292,96,144],"frm2_male_walkf_09_v1.png":[841,292,96,144],"frm2_male_walkb_06_v1.png":[294,438,96,144],"frm2_male_walkb_07_v1.png":[196,438,96,144],"frm2_male_walkb_08_v1.png":[98,438,96,144],"frm2_male_walkb_09_v1.png":[0,438,96,144],"frm2_male_walkr_06_v1.png":[784,438,96,144],"frm2_male_walkr_07_v1.png":[686,438,96,144],"frm2_male_walkr_08_v1.png":[588,438,96,144],"frm2_male_walkr_09_v1.png":[490,438,96,144],"frm2_male_walkl_06_v1.png":[1274,438,96,144],"frm2_male_walkl_07_v1.png":[1176,438,96,144],"frm2_male_walkl_08_v1.png":[1078,438,96,144],"frm2_male_walkl_09_v1.png":[980,438,96,144],"chr_male_back2_v1.png":[980,584,96,144]},"fix3":{"frm3_frm_male_harvest_01_v1.png":[1230,146,103,144],"frm3_frm_male_harvest_02_v1.png":[0,292,96,144],"frm3_frm_male_harvest_03_v1.png":[98,292,101,144],"frm3_frm_male_water_01_v1.png":[201,292,115,144],"frm3_frm_male_water_02_v1.png":[318,292,106,144],"frm3_frm_male_water_03_v1.png":[426,292,109,144],"frm3_frm_male_carry_01_v1.png":[537,292,102,144],"frm3_frm_male_carry_02_v1.png":[641,292,96,144],"frm3_frm_male_carry_03_v1.png":[739,292,100,144]},"scene":{"int_forge_v1.png":[0,0,320,320],"int_hall_v1.png":[322,0,320,320],"int_quarters_v1.png":[644,0,320,320],"int_stall_v1.png":[0,322,320,320],"bld_forge_v1.png":[322,322,302,254],"bld_waterwheel_v1.png":[626,322,302,225],"bld_hall_v1.png":[930,322,302,222],"bld_quarters_v1.png":[0,644,302,213],"bld_stall_v1.png":[304,644,262,205],"bld_gate_v1.png":[568,644,302,180],"prop_minegate_v1.png":[872,644,154,132],"prop_scale_v1.png":[1028,644,96,108],"prop_cart_v1.png":[1126,644,95,88],"crop_lingzhi_s2_v1.png":[0,859,110,84],"crop_lingzhi_s3_v1.png":[112,859,96,84],"crop_lingzhi_s4_v1.png":[210,859,84,84],"crop_lingzhi_s5_v1.png":[296,859,75,84],"crop_ninglu_s3_v1.png":[373,859,95,84],"crop_ninglu_s4_v1.png":[470,859,85,84],"crop_ninglu_s5_v1.png":[557,859,81,84],"crop_xuanyu_s2_v1.png":[640,859,109,84],"crop_xuanyu_s3_v1.png":[751,859,99,84],"crop_xuanyu_s4_v1.png":[852,859,91,84],"crop_xuanyu_s5_v1.png":[945,859,89,84],"prop_crystal_v1.png":[1036,859,93,84],"crop_ninglu_s2_v1.png":[1131,859,112,81],"crop_xuanyu_s1_v1.png":[0,945,112,80],"crop_ninglu_s1_v1.png":[114,945,112,78],"crop_lingzhi_s1_v1.png":[228,945,112,77],"tile_soil_v1.png":[342,945,112,77],"prop_lantern_v1.png":[456,945,54,69],"prop_fence_v1.png":[512,945,95,58],"prop_bush_v1.png":[609,945,61,55],"prop_flower_v1.png":[672,945,57,47],"cropfix_lingzhi_s2_v1.png":[0,859,110,84],"cropfix_lingzhi_s3_v1.png":[112,859,96,84],"cropfix_lingzhi_s4_v1.png":[210,859,84,84],"cropfix_lingzhi_s5_v1.png":[296,859,75,84],"cropfix_ninglu_s5_v1.png":[557,859,81,84],"cropfix_xuanyu_s5_v1.png":[945,859,89,84]},"ground":{"fx_wheel_v1.png":[0,0,256,256],"fx_splash_3_v1.png":[258,0,148,177],"gnd_roadedge_v1.png":[408,0,48,176],"gnd_grass_a_v1.png":[458,0,160,160],"gnd_grass_b_v1.png":[620,0,160,160],"gnd_dirt_v1.png":[782,0,160,160],"gnd_stone_v1.png":[0,258,160,160],"gnd_water_v1.png":[162,258,160,160],"gnd_rock_v1.png":[324,258,160,160],"gnd_steps_v1.png":[486,258,160,160],"gnd_shore_v1.png":[648,258,176,148],"fx_splash_2_v1.png":[826,258,148,144],"fx_splash_1_v1.png":[0,420,148,102],"fx_splash_4_v1.png":[150,420,148,65],"fx_leaf_2_v1.png":[300,420,38,44],"fx_leaf_3_v1.png":[340,420,43,44],"fx_leaf_4_v1.png":[385,420,58,44],"fx_leaf_5_v1.png":[445,420,44,44],"fx_leaf_6_v1.png":[491,420,64,44],"fx_leaf_7_v1.png":[557,420,53,44],"fx_leaf_1_v1.png":[612,420,64,36],"fx_leaf_8_v1.png":[678,420,64,34],"fx_petal_1_v1.png":[744,420,35,34],"fx_petal_3_v1.png":[781,420,30,34],"fx_petal_4_v1.png":[813,420,25,34],"fx_petal_5_v1.png":[840,420,36,34],"fx_petal_7_v1.png":[878,420,28,34],"fx_petal_2_v1.png":[908,420,44,32],"fx_petal_6_v1.png":[954,420,44,31]},"ui":{"art2_plaque_v1.png":[0,0,600,271],"ava_0_v1.png":[602,0,124,124],"ava_1_v1.png":[728,0,124,124],"ava_2_v1.png":[854,0,124,124],"ava_3_v1.png":[0,273,124,124],"ava_4_v1.png":[126,273,124,124],"ava_5_v1.png":[252,273,124,124],"icn_coin_v1.png":[378,273,96,96],"icn_disciple_v1.png":[476,273,96,96],"icn_build_v1.png":[574,273,96,96],"icn_bag_v1.png":[672,273,96,96],"icn_order_v1.png":[770,273,96,96],"icn_signin_v1.png":[868,273,96,96],"icn_sleep_v1.png":[0,399,96,96],"icn_stamina_v1.png":[98,399,96,96],"icn_recruit_v1.png":[196,399,96,96],"icn_promote_v1.png":[294,399,96,96],"icn_expand_v1.png":[392,399,96,96],"icn_dispatch_v1.png":[490,399,96,96],"icn_board_v1.png":[588,399,96,96],"icn_lingzhi_v1.png":[686,399,96,96],"icn_ninglu_v1.png":[784,399,96,96],"icn_xuanyu_v1.png":[882,399,96,96],"uik_btn_red_n_v1.png":[0,497,300,108],"uik_btn_red_p_v1.png":[302,497,300,108],"uik_btn_red_d_v1.png":[604,497,300,108],"uik_btn_brn_n_v1.png":[0,607,300,108],"uik_btn_brn_p_v1.png":[302,607,300,108],"uik_btn_brn_d_v1.png":[604,607,300,108],"uik_btn_gld_n_v1.png":[0,717,300,108],"uik_btn_gld_p_v1.png":[302,717,300,108],"uik_btn_gld_d_v1.png":[604,717,300,108],"uik_tab_on_v1.png":[0,827,264,110],"uik_tab_off_v1.png":[266,827,264,110],"uik_bar_track_v1.png":[532,827,440,40],"uik_bar_fill_v1.png":[532,869,440,40],"uik_corner_tl_v1.png":[0,939,120,120],"uik_corner_tr_v1.png":[122,939,120,120],"uik_corner_bl_v1.png":[244,939,120,120],"uik_corner_br_v1.png":[366,939,120,120],"uik_edge_h_v1.png":[538,977,300,44],"uik_edge_v_v1.png":[488,939,48,120],"uik_icn_hosting_dk_v1.png":[0,1061,96,96],"uik_icn_hosting_lt_v1.png":[490,1061,96,96],"uik_icn_steward_dk_v1.png":[98,1061,96,96],"uik_icn_steward_lt_v1.png":[588,1061,96,96],"uik_icn_vault_dk_v1.png":[196,1061,96,96],"uik_icn_vault_lt_v1.png":[686,1061,96,96],"uik_icn_snd_on_dk_v1.png":[294,1061,96,96],"uik_icn_snd_on_lt_v1.png":[784,1061,96,96],"uik_icn_snd_off_dk_v1.png":[392,1061,96,96],"uik_icn_snd_off_lt_v1.png":[882,1061,96,96]}},
   load(){
     /* 高清集成批 v2：四张图集（chars/scene/ground 主批 + ui 独立批）；fix3 组帧物理位于 chars 图集。
@@ -3048,6 +3112,19 @@ const Art = {
     imu.onload = () => { this.imgs.ui = imu; this._build2(); };
     imu.onerror = () => { this.failed2 = true; console.warn('[art] atlas_ui load failed'); };
     imu.src = 'assets/atlas_ui_v4.png';
+    if (typeof CONFIG !== 'undefined' && CONFIG.art && CONFIG.art.pixelSample) this.loadPixelSample();
+  },
+  /* 真机三问题批③：像素样板图集（32×48×4 帧，离线管线 slice_work9 产出）——按需装载，失败只降级样板不开天窗 */
+  loadPixelSample(cb){
+    if (this.readyPx){ if (cb) cb(true); return; }
+    if (!this.RECTS.pxs) this.RECTS.pxs = { "px_master_front_v1.png": [0, 0, 32, 48], "px_master_side_v1.png": [32, 0, 32, 48],
+      "px_master_back_v1.png": [64, 0, 32, 48], "px_disciple_front_v1.png": [96, 0, 32, 48] };
+    if (!this._grpImg) this._grpImg = {};
+    this._grpImg.pxs = 'pxs';
+    const im = new Image();
+    im.onload = () => { this.imgs.pxs = im; this._bindGroup('pxs'); this.readyPx = true; if (cb) cb(true); };
+    im.onerror = () => { console.warn('[art] pixel sample load failed'); if (cb) cb(false); };
+    im.src = 'assets/atlas_pixel_sample_v1.png';
   },
   _bindGroup(g){
     const img = this.imgs[this._grpImg[g]]; if (!img) return;
@@ -3170,6 +3247,9 @@ const BODY3 = {"chr_female2_back_v1.png":[1.0,137,47.5,15],"chr_female2_front_v1
    flyK＝御剑族一次性标定吸收常量：三姿与站立帧同为 144 高画布、头部原生尺寸同尺，无成体系原生比例差，取 1.000；
    盘坐/下蹲/弯腰的纵向压缩属姿态本身，不补偿（标定表见 game/真机反馈修复四批-报告-20261107.md）。 */
 const SCALE4 = { master: 1.0, disciple: 1.0, flyK: 1.0 };
+/* 真机三问题批③：像素样板帧的锚点与母版同值（几何冒充口径，见 drawPerson pxSample） */
+Object.assign(BODY3, { "px_master_front_v1.png": [1.0, 137, 48.0, 12], "px_master_side_v1.png": [1.0, 137, 48.0, 13],
+  "px_master_back_v1.png": [1.0, 137, 48.0, 14], "px_disciple_front_v1.png": [1.0, 137, 47.5, 12] });
 const Render = {
   cv: null, ctx: null, sprites: {},
   PERSON_ROWS: [
@@ -3324,6 +3404,15 @@ const Render = {
         else if (Art.ready2){ name = 'frm2_male_walkf_01_v1.png'; tint = robe; }
         else { name = 'chr_male_front_v1.png'; tint = robe; } }
     }
+    /* 真机三问题批③：D 像素回归样板换帧——仅待机站立（主角四向＋弟子正面），行走/劳作/御剑仍走现行帧，
+       样板范围如实（全量与否等主人看对照图拍板）。样板帧在下方以 96×144 母版几何冒充、源图实为 32×48。 */
+    let pxSample = false;
+    if (CONFIG.art.pixelSample && Art.readyPx && !act && !e.moving && !flying && name){
+      if (isPlayer && st.dir === 'back' && Art.F['px_master_back_v1.png']){ name = 'px_master_back_v1.png'; pxSample = true; }
+      else if (isPlayer && st.dir === 'side' && Art.F['px_master_side_v1.png']){ name = 'px_master_side_v1.png'; pxSample = true; }
+      else if (isPlayer && Art.F['px_master_front_v1.png']){ name = 'px_master_front_v1.png'; pxSample = true; }
+      else if (!isPlayer && disciple && st.dir === 'front' && Art.F['px_disciple_front_v1.png']){ name = 'px_disciple_front_v1.png'; pxSample = true; }
+    }
     /* 修复三批④：劳作帧优先用调色版 frm3（袍色已离线映射回 frm2 色系，运行时同种子色染色结果与待机帧一致）；
        fix3 图集未就绪时自动回退原帧。覆盖弟子 water/carry/harvest（主角自高清真机反馈批①起 harvest 走本尊帧、不再经此覆盖）。 */
     if (name && Art.ready3 && Art.F['frm3_' + name] && /^frm_male_(water|carry|harvest)_/.test(name)) name = 'frm3_' + name;
@@ -3354,7 +3443,7 @@ const Render = {
     /* bob 锁步帧相位：起伏峰值与落脚同相，不再各走各的墙钟；御剑时为悬停微浮。 */
     const bob = flying ? Math.sin(now / 520) * 1.3
       : e.moving ? Math.abs(Math.sin(st.phase)) * 2.1
-      : Math.sin(now / 620 + (e.phase || 0)) * 1.1; // 待机呼吸＝代码 bob（决策 1）
+      : (CONFIG.idle.bobEnabled ? Math.sin(now / CONFIG.idle.bobPeriodMs + (e.phase || 0)) * CONFIG.idle.bobAmpPx : 0); // 真机三问题批②：待机呼吸默认关（CONFIG.idle）——旧版恒开经取整成 ±1px 阶梯跳变＝抽搐共犯
     const lift = isPlayer ? (e.flyH || 0) : 0;
     /* 落脚微尘：相位每过一个步点（π）触发一粒，只在贴地行走时 */
     if (e.moving && !flying){
@@ -3372,7 +3461,8 @@ const Render = {
        锚点仍按帧取 BODY3 的脚底行/中心列（那是位置对齐、不是缩放）。无表项帧回退同倍率口径。 */
     const K4 = (isPlayer ? SCALE4.master : SCALE4.disciple) * (usedFlyPose ? SCALE4.flyK : 1);
     const B3 = (typeof BODY3 !== 'undefined' && name) ? BODY3[name] : null;
-    const fW = Art.F[name] ? Art.F[name].w : 96, fH = Art.F[name] ? Art.F[name].h : 144;
+    let fW = Art.F[name] ? Art.F[name].w : 96, fH = Art.F[name] ? Art.F[name].h : 144;
+    if (pxSample){ fW = 96; fH = 144; }   // 样板帧几何冒充：锚点/倍率按母版口径，源图 32×48 最近邻放大出颗粒
     let dwP, dhP, dx, dy;
     if (B3){
       dhP = DH * K4; dwP = DW * (fW / 96) * K4;
@@ -3563,9 +3653,14 @@ const Render = {
   },
   draw(){
     const g = this.ctx, cam = Scene.camera;
+    /* 真机三问题批②③：绘制期镜头整数化——旧版静态层用 round 偏移、实体层却挂浮点 translate，
+       两层亚像素错位＋人物逐帧重采样（抽搐与发晕同源）。本帧内临时取整 Scene.camera、画完还原；
+       逻辑层（碰撞/交互/存档）仍走浮点镜头，不受影响。 */
+    const _camFx = cam.x, _camFy = cam.y; cam.x = Math.round(_camFx); cam.y = Math.round(_camFy);
     g.setTransform(VIEW.dpr, 0, 0, VIEW.dpr, 0, 0);   // 追加批1：位图按 DPR 出图、逻辑坐标恒为 CSS 像素（旧版位图恒 1x，真机上被放大发糊）
     g.fillStyle = '#7d9b5e'; g.fillRect(0, 0, innerWidth, innerHeight);
-    if (Scene.staticLayer) g.drawImage(Scene.staticLayer, Math.round(-cam.x), Math.round(-cam.y), CONFIG.world.w, CONFIG.world.h);
+    const _sl = (CONFIG.art.pixelSample && Scene.pixelLayer) ? Scene.pixelLayer : Scene.staticLayer;   // 像素样板：地面层换锁定 18 色的降采样版（Scene._buildPixelLayer）
+    if (_sl) g.drawImage(_sl, Math.round(-cam.x), Math.round(-cam.y), CONFIG.world.w, CONFIG.world.h);
     g.save(); g.translate(-cam.x, -cam.y);
     if (Art.ready && Art.F['fx_splash_1_v1.png']){ // M3.5：池塘水花（两处错相循环）
       const seq = [1, 2, 3, 4, 3, 2], ph = Math.floor(performance.now() / 170);
@@ -3675,6 +3770,7 @@ const Render = {
     ents.sort((m, n) => m.y - n.y);
     for (const e of ents) e.f();
     this._drawPlates();
+    cam.x = _camFx; cam.y = _camFy;   // 整数化镜头还原（见 draw 头注）
   },
   drawBuilding(x0, y0, w, h, name){
     const g = this.ctx, x = x0 - Scene.camera.x, y = y0 - Scene.camera.y;
@@ -3801,6 +3897,7 @@ const Game = {
     if (this.saveTimer > CONFIG.save.autosaveMs){ this.saveTimer = 0; Save.save('autosave'); }
   },
   boot(){
+    if (/[?&]pixel=1\b/.test(location.search)) CONFIG.art.pixelSample = true;   // 真机三问题批③：样板直达入口（宗门页开关为正式口径）
     Art.load();
     Save.load();
     Sect.recomputeBuildDegree();
