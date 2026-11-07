@@ -286,7 +286,7 @@ const CONFIG = {
     trailSampleMs: 34, trailLifeMs: 400, trailWidth: 9,               // 高清真机反馈批②：程序剑光带拖尾（采样间隔/寿命/头宽 px）
     swordLenFB: 0.85, swordSqMs: 100 },                               // 沉淀打磨批①：竖向剑长＝横向长×0.85（透视缩短，旧 1.35 竖向放大已被主人否决）；转向时标 90°/swordSqMs
   gait: { cyclePx: 48 },                                                   // 修复批①：步帧相位＝位移/步幅周期，帧与脚步同步
-  save: { key: 'kaizongmen_save', lastGoodKey: 'kaizongmen_save_lastgood', version: 2, autosaveMs: 5000,
+  save: { key: 'kaizongmen_save', lastGoodKey: 'kaizongmen_save_lastgood', version: 3, autosaveMs: 5000,
     slots: 5, slotPrefix: 'kaizongmen_slot_' },   // 修复批⑥：自动档（主 key）＋5 手动槽
   buildings: [ // 建设度可由建筑状态重算（ sect.recomputeBuildDegree 的输入）
     { id: 'hall',  name: '大殿',   level: 1, degreePerLevel: 10 },
@@ -358,6 +358,16 @@ const CONFIG = {
       { id: 'streamWorks', name: '溪边工坊', item: 'forge_plan', qty: 1 },
       { id: 'oldMine', name: '旧矿洞', item: 'mine_charm', qty: 1 },
     ],
+    // 历练队托管（新功能批1）：归队自动交接＋同目的地续派；托管趟更慢、只赢在免死等——保底不加速
+    hosting: {
+      cycleFactor: 1.5,        // 托管趟时长＝档5时长×1.5（33h/趟）；占比带由 tests/sim_hosting.py 校准
+      maxTeams: 2,             // 同时托管历练队上限（占比护栏＋名额）
+      simChainValue: { herb_seed: 15, forge_plan: 15, mine_charm: 40 }, // 仅 sim 用的单趟产物灵石等值上限，不进运行时经济
+    },
+  },
+  // 执事（新功能批1）：指定 1 名弟子代收（熟田/完工工单），跑腿走场景 NPC 状态机、入账走账本
+  steward: {
+    dutyFactor: 0.8,           // 执事回落自身原岗位时吞吐系数（移速×0.8、工时÷0.8）；执事队列任务全速（待主人试玩调）
   },
   // 订单三节奏（A7）：日常/定时/急单；需求只许引用 sellable 产物
   orders: {
@@ -453,6 +463,7 @@ function freshState(){
       daily: { key: '', done: {} },
     },
     events: {}, faceLastAt: 0, faceLastDay: '', facePending: null,
+    stewardId: null,
     stats: { earnedCoin: 0, opEarned: 0, opOrders: 0, opDays: 0, opLastDate: '' },
     boardCache: { scale: [], efficiency: [], updatedAt: 0 },
     lastReport: { scale: '', efficiency: '' },
@@ -495,6 +506,12 @@ const Save = {
       }
       if (!(s.buildings || []).some(b => b.id === 'quarters'))
         s.buildings.push({ ...CONFIG.buildings.find(b => b.id === 'quarters') });
+      return s;
+    },
+    2: s => { // v2 -> v3：新功能批1——执事 stewardId＋弟子托管 autoDispatch 字段补齐（进度零改动）
+      if (s.stewardId === undefined) s.stewardId = null;
+      for (const d of (s.disciples || []))
+        if (d.autoDispatch === undefined) d.autoDispatch = null;
       return s;
     },
   },
@@ -1528,7 +1545,7 @@ const Disciples = {
   _mk(id, name, robe, job, origin, pos){
     return { id, name, appearanceSeed: robe, attrs: {}, fates: [], personality: '踏实', quality: '寻常',
       originId: origin, quirk: '', rankState: '外门', assignment: job, scenePresence: 'scene',
-      dispatch: null, homePos: pos };
+      dispatch: null, autoDispatch: null, homePos: pos };
   },
   _pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; },
   generateDisciple(){ // A1：品质/资质/命格/性格/来历全随机（种子参数预留给月更池版本）
@@ -1581,25 +1598,49 @@ const Disciples = {
     for (const f of (d.fates || [])) if (f.job === kind) m = Math.max(m, f.mul || 1);
     return m;
   },
-  startDispatch(id, destId){ // 22h 派遣：离场，独立节拍（档5 时长）
+  startDispatch(id, destId, hosted){ // 22h 派遣：离场，独立节拍（档5 时长）；托管趟时长×cycleFactor
     const d = this.getDisciple(id);
     const dest = CONFIG.dispatch.dests.find(x => x.id === destId);
     if (!d || !dest || d.scenePresence !== 'scene') return false;
+    if (hosted && !d.autoDispatch && this.hostedCount() >= CONFIG.dispatch.hosting.maxTeams){
+      UI.hint('托管名额已满（' + CONFIG.dispatch.hosting.maxTeams + ' 队），先关掉一队再说'); return false; }
     const a = Npc.agentOf(id); if (a) Npc.releaseTarget(a);
+    if (hosted) d.autoDispatch = destId;
     d.scenePresence = 'dispatched';
-    d.dispatch = { destId, startedAt: nowMs(), endsAt: nowMs() + Farming.tierDuration(5) };
+    const dur = Farming.tierDuration(5) * (d.autoDispatch === destId ? CONFIG.dispatch.hosting.cycleFactor : 1);
+    d.dispatch = { destId, startedAt: nowMs(), endsAt: nowMs() + dur, hosted: d.autoDispatch === destId };
     Npc.syncRoster();
     Save.save('dispatch_start');
     return true;
   },
-  settleDispatches(now){ // 到期：弟子回山门待交接
+  /* ---- 历练队托管（新功能批1）：开关/名额；托管状态存弟子 autoDispatch（目的地 id 或 null） ---- */
+  hostedCount(exceptId){ return S.disciples.filter(d => d.autoDispatch && d.id !== exceptId).length; },
+  setHosting(id, on){ // 开：须有当前趟或待派目的地（以当前 dispatch 为准）；关：当前趟跑完落 atGate 不再续
+    const d = this.getDisciple(id); if (!d) return false;
+    if (!on){ if (d.autoDispatch){ d.autoDispatch = null; Save.save('hosting_off'); } return true; }
+    if (d.autoDispatch) return true;
+    if (!d.dispatch){ UI.hint('先派出这队历练，再开托管续派'); return false; }
+    if (this.hostedCount(id) >= CONFIG.dispatch.hosting.maxTeams){
+      UI.hint('托管名额已满（' + CONFIG.dispatch.hosting.maxTeams + ' 队），先关掉一队再说'); return false; }
+    d.autoDispatch = d.dispatch.destId;
+    Save.save('hosting_on');
+    return true;
+  },
+  settleDispatches(now){ // 到期：托管队自动交接＋同目的地续派；普通队回山门待交接
     let changed = false;
-    for (const d of S.disciples)
-      if (d.scenePresence === 'dispatched' && d.dispatch && now >= d.dispatch.endsAt){
-        d.scenePresence = 'atGate';
-        const g = Scene.getAnchor('gate');
-        d.homePos = { x: g.x + (Math.random() * 90 - 45), y: g.y - 56 };
-        changed = true; }
+    for (const d of S.disciples){
+      if (d.scenePresence !== 'dispatched' || !d.dispatch || now < d.dispatch.endsAt) continue;
+      const dest = CONFIG.dispatch.dests.find(x => x.id === d.dispatch.destId);
+      if (d.autoDispatch === d.dispatch.destId && dest){ // 托管：账本交接→原地续派（弟子不回场）
+        Ledger.addItem(dest.item, dest.qty, 'dispatch_claim');
+        Events.markRoutine('dispatch');
+        const dur = Farming.tierDuration(5) * CONFIG.dispatch.hosting.cycleFactor;
+        d.dispatch = { destId: dest.id, startedAt: now, endsAt: now + dur, hosted: true };
+        changed = true; continue; }
+      d.scenePresence = 'atGate';
+      const g = Scene.getAnchor('gate');
+      d.homePos = { x: g.x + (Math.random() * 90 - 45), y: g.y - 56 };
+      changed = true; }
     if (changed){ Npc.syncRoster();
       for (const d of S.disciples) if (d.scenePresence === 'atGate'){
         const a = Npc.agentOf(d.id); if (a){ a.x = d.homePos.x; a.y = d.homePos.y; } }
@@ -1612,11 +1653,16 @@ const Disciples = {
     if (!dest) return false;
     Ledger.addItem(dest.item, dest.qty, 'dispatch_claim');
     Fx.floatText(d.homePos.x, d.homePos.y - 40, CONFIG.items[dest.item].name + ' +' + dest.qty, '#ffcf5e');
+    Events.markRoutine('dispatch');
+    if (d.autoDispatch === dest.id){ // 托管兜底：旧档托管弟子落在山门时，交接后立即按托管节拍续派
+      const dur = Farming.tierDuration(5) * CONFIG.dispatch.hosting.cycleFactor;
+      d.scenePresence = 'dispatched';
+      d.dispatch = { destId: dest.id, startedAt: nowMs(), endsAt: nowMs() + dur, hosted: true };
+      Npc.syncRoster(); Save.save('dispatch_claim'); return true; }
     d.scenePresence = 'scene'; d.dispatch = null;
     const home = Scene.getAnchor('discipleHome');
     d.homePos = { x: home.x + (Math.random() * 120 - 60), y: home.y + (Math.random() * 60 - 30) };
     Npc.syncRoster();
-    Events.markRoutine('dispatch');
     Save.save('dispatch_claim');
     return true;
   },
@@ -1633,6 +1679,66 @@ const Disciples = {
     return d.avatarIdx;
   },
   talkLines: ['掌门早，药圃我照看着呢。', '昨日那株灵芝长势很好。', '山下集市的药价又涨了些。', '活干完了，我再去巡一圈。'],
+};
+
+/* ================================================================
+ * 模块：执事 steward（新功能批1：B2 一键收/代收落地）
+ * 职责：执事指定（1 名、在场弟子）、代收任务源、玩家一键收。
+ * 口径：代收/一键收只搬运已产出物（熟田/完工工单），逐件走 Farming/Production
+ * 既有接口落账本，不创造资源、不扣玩家体力；执事跑腿复用 Npc 状态机（nextTask
+ * 供 requestTask 优先取用），无代收活时回落自身派工（吞吐按 dutyFactor 打折）。
+ * 接口：getSteward / setSteward / clearSteward / nextTask / collectAll
+ * ================================================================ */
+const Steward = {
+  getSteward(){ return S.stewardId ? Disciples.getDisciple(S.stewardId) || null : null; },
+  isSteward(id){ return !!id && S.stewardId === id; },
+  setSteward(id){ // 指定/更换：目标须在场；旧执事先释放其预留目标，防双占
+    const d = Disciples.getDisciple(id);
+    if (!d || d.scenePresence !== 'scene'){ UI.hint('只能指定在山上的弟子任执事'); return false; }
+    const old = this.getSteward();
+    if (old && old.id !== id){ const a = Npc.agentOf(old.id); if (a) Npc.releaseTarget(a); }
+    S.stewardId = id;
+    Save.save('steward_set');
+    return true;
+  },
+  clearSteward(){
+    const old = this.getSteward();
+    if (old){ const a = Npc.agentOf(old.id); if (a){ Npc.releaseTarget(a); a.stewardTask = false; } }
+    S.stewardId = null;
+    Save.save('steward_clear');
+    return true;
+  },
+  /* 代收任务源（Npc.requestTask 执事分支调用）：熟田 > 完工工单 > 待浇地；返回 true 表示已派活 */
+  nextTask(agent){
+    const mp = S.plots.find(p => p.state === 'mature' && (!p.reservedBy || p.reservedBy === agent.discipleId));
+    if (mp && Npc.reserveTarget(agent, mp.id)){
+      const c = Farming.center(mp);
+      agent.targetId = mp.id; agent.goal = { x: c.x, y: c.y + 36 };
+      agent.navState = 'walkTo'; agent.stewardTask = true; return true; }
+    const job = S.jobs.find(j => j.state === 'ready' && !j.claimedBy);
+    if (job){ job.claimedBy = agent.discipleId; agent.jobId = job.id;
+      const st = CONFIG.stations[job.stationId];
+      const anch = Scene.getAnchor(st.anchor);
+      agent.goal = { x: anch.x, y: anch.y + 16 };
+      agent.navState = 'walkTo'; agent.stewardTask = true; return true; }
+    const sp = S.plots.find(p => p.state === 'seeded' && (!p.reservedBy || p.reservedBy === agent.discipleId));
+    if (sp && Npc.reserveTarget(agent, sp.id)){
+      const c = Farming.center(sp);
+      agent.targetId = sp.id; agent.goal = { x: c.x, y: c.y + 36 };
+      agent.navState = 'walkTo'; agent.stewardTask = true; return true; }
+    return false;
+  },
+  /* 一键收：玩家手动触发的全量收取（与代收同通道同口径，不扣体力）；返回汇总供播报 */
+  collectAll(){
+    const before = Ledger.snapshotBalances();
+    let plots = 0, jobs = 0;
+    for (const p of [...S.plots]) if (p.state === 'mature' && Farming.collectPlot(p.id, { type: 'player', id: 'player' })) plots++;
+    for (const j of [...S.jobs]) if (j.state === 'ready' && Production.collectJob(j.id, { type: 'player', id: 'player' })) jobs++;
+    const gained = {};
+    for (const k in S.inventory){ const d = (S.inventory[k] || 0) - (before.inventory[k] || 0); if (d > 0) gained[k] = d; }
+    if (plots || jobs) Save.save('collect_all');
+    return { plots, jobs, gained };
+  },
 };
 
 /* ================================================================
@@ -1666,7 +1772,8 @@ const Npc = {
     for (const p of S.plots) if (p.reservedBy === id) p.reservedBy = null;
     for (const j of S.jobs) if (j.claimedBy === id) j.claimedBy = null;
     const a = this.agentOf(id);
-    if (a){ a.reservedTargetId = null; if (a.targetId) a.targetId = null; if (a.navState === 'walkTo' || a.navState === 'work') a.navState = 'idle'; }
+    if (a){ a.reservedTargetId = null; if (a.targetId) a.targetId = null; a.jobId = null; a.stewardTask = false;
+      if (a.navState === 'walkTo' || a.navState === 'work') a.navState = 'idle'; }
   },
   forceRecover(agent){
     console.warn('[npc] forceRecover', agent.discipleId);
@@ -1680,6 +1787,9 @@ const Npc = {
     if (d){ a.x = d.homePos.x; a.y = d.homePos.y; } a.navState = 'idle'; a.goal = null; } },
   requestTask(agent){
     const d = Disciples.getDisciple(agent.discipleId); if (!d) return;
+    // 执事优先代收（新功能批1）：有代收活先跑代收，无活回落自身派工（吞吐按 dutyFactor 打折，见 tick）
+    if (Steward.isSteward(agent.discipleId) && Steward.nextTask(agent)) return;
+    agent.stewardTask = false;
     const job = d.assignment;
     if (job === 'water'){
       const p = S.plots.find(p => p.state === 'seeded' && (!p.reservedBy || p.reservedBy === agent.discipleId));
@@ -1728,22 +1838,28 @@ const Npc = {
         // 给玩家让路：玩家贴近时 NPC 本帧停步侧让
         const dp = dist(a, player);
         if (dp >= CONFIG.npc.avoidRadius){
-          const speed = (d.assignment === 'carry' ? CONFIG.npc.carrySpeed
+          let speed = (d.assignment === 'carry' ? CONFIG.npc.carrySpeed
             : d.assignment === 'patrol' ? CONFIG.npc.patrolSpeed : CONFIG.npc.walkSpeed)
             * Disciples.fateMul(d, d.assignment) * Disciples.fateMul(d, 'move');
-          if (this._moveToward(a, dt, speed)){ a.navState = 'work'; a.waitUntil = nowMs() + CONFIG.npc.workMs; }
+          // 执事回落原岗位打折（新功能批1）：执事队列任务全速，原岗位移速×dutyFactor、工时÷dutyFactor
+          const dutyOff = Steward.isSteward(a.discipleId) && !a.stewardTask;
+          if (dutyOff) speed *= CONFIG.steward.dutyFactor;
+          if (this._moveToward(a, dt, speed)){ a.navState = 'work';
+            a.waitUntil = nowMs() + CONFIG.npc.workMs / (dutyOff ? CONFIG.steward.dutyFactor : 1); }
         }
       } else if (a.navState === 'work'){
         if (nowMs() >= a.waitUntil){
-          if (a.targetId){ // water 工种执行浇水（走 farming 模块，不扣玩家体力）
+          if (a.targetId){ // 地块活：浇水（seeded）/执事代收（mature→collectPlot），走 farming 模块，不扣玩家体力
             const p = Farming.plotById(a.targetId);
-            if (p && p.state === 'seeded') Farming.applyPlotAction(p.id, { type: 'disciple', id: a.discipleId });
+            if (p && (p.state === 'seeded' || p.state === 'mature'))
+              Farming.applyPlotAction(p.id, { type: 'disciple', id: a.discipleId });
             if (p && p.reservedBy === a.discipleId) p.reservedBy = null;
             a.targetId = null; a.reservedTargetId = null;
-          } else if (d.assignment === 'carry' && a.jobId){
+          } else if (a.jobId){ // 持有工单即收取（搬运工种/执事代收共用；claimedBy 已在派活时占用）
             Production.collectJob(a.jobId, { type: 'disciple', id: a.discipleId });
             a.jobId = null;
           }
+          a.stewardTask = false;
           a.idleWander = false;
           a.navState = 'idle'; a.waitUntil = nowMs() + 400 + Math.random() * 900;
         }
@@ -2317,7 +2433,10 @@ const UI = {
     const host = document.createElement('div');
     host.innerHTML = S.disciples.map(d => {
       let right = '';
-      if (d.scenePresence === 'dispatched') right = '<span class="tag grey">派遣中 · 剩 ' + this.fmtDur((d.dispatch ? d.dispatch.endsAt : 0) - nowMs()) + '</span>';
+      if (d.scenePresence === 'dispatched') right = '<span class="tag grey">' + (d.autoDispatch ? '托管中' : '派遣中') + ' · 剩 ' + this.fmtDur((d.dispatch ? d.dispatch.endsAt : 0) - nowMs()) + '</span> ' +
+        (d.autoDispatch
+          ? '<button class="act2 ghost2" data-mhostoff="' + d.id + '">关托管</button>'
+          : '<button class="act2 ghost2" data-mhoston="' + d.id + '">开托管</button>');
       else if (d.scenePresence === 'atGate') right = '<button class="act2" data-mclaim="' + d.id + '">交接派遣</button>';
       else right = '<button class="act2" data-mdispatch="' + d.id + '">' + this.icn('dispatch') + '派遣</button>';
       return '<div class="row"><span><b>' + d.name + '</b> · ' + d.quality + '</span>' + right + '</div>';
@@ -2327,6 +2446,10 @@ const UI = {
     host.querySelectorAll('[data-mclaim]').forEach(b => b.onclick = () => {
       if (Disciples.claimDispatch(b.dataset.mclaim)) this.openMinePage(); });
     host.querySelectorAll('[data-mdispatch]').forEach(b => b.onclick = () => this.openDispatchPanel(b.dataset.mdispatch));
+    host.querySelectorAll('[data-mhoston]').forEach(b => b.onclick = () => {
+      if (Disciples.setHosting(b.dataset.mhoston, true)){ this.hint('托管已开：归队自动交接并续派'); this.openMinePage(); } });
+    host.querySelectorAll('[data-mhostoff]').forEach(b => b.onclick = () => {
+      Disciples.setHosting(b.dataset.mhostoff, false); this.hint('托管已关：当前这趟跑完回山门交接'); this.openMinePage(); });
   },
   /* M3.5：图集图标（atlas_ground 精灵，CSS .icn 16px / .icnL 24px 两档尺寸） */
   _icnMap: { coin: 'coin', lingzhi: 'lingzhi', ninglu: 'ninglu', xuanyu: 'xuanyu' },
@@ -2433,8 +2556,10 @@ const UI = {
       '<button class="act2" data-deliver="' + o.id + '"' + (Orders.canDeliver(o) ? '' : ' disabled') + '>交付</button></div>').join('')
       : '<div class="row"><span>暂无订单，去生产些货物再来</span></div>';
     this.openPanel(this.icn('order', true) + '订单墙', '急单限时高价；定时单每 4 小时换一批；交付不扣体力', rows,
+      '<button class="pbtn" data-collectall="1">' + this.icn('lingzhi') + '一键收（熟田＋完工工单）</button>' +
       '<button class="pbtn ghost" id="btnFreeRefresh">免费刷新日常单（剩 ' + S.ordersMeta.freeRefreshLeft + ' 次）</button>' +
       '<button class="pbtn ghost" id="btnAdRefresh">看广告刷新订单</button>');
+    this._bindCollectAll(() => this.openOrdersPanel());
     document.querySelectorAll('[data-deliver]').forEach(b => b.onclick = () => {
       if (Orders.deliverOrder(b.dataset.deliver)) this.openOrdersPanel(); });
     $('btnFreeRefresh').onclick = () => { if (Orders.refreshOrders('free')) this.openOrdersPanel(); };
@@ -2463,40 +2588,82 @@ const UI = {
     document.querySelectorAll('[data-claim]').forEach(b => b.onclick = () => {
       if (Disciples.claimDispatch(b.dataset.claim)) this.openRecruitPanel(); });
   },
-  /* ---- 弟子名册：派工/派遣/来历实装 ---- */
+  /* ---- 弟子名册：派工/派遣/来历实装＋执事指定＋托管状态（新功能批1） ---- */
   openDisciplesPanel(){
     const destOpts = CONFIG.dispatch.dests.map(d => d.name + '→' + CONFIG.items[d.item].name).join(' / ');
-    const rows = S.disciples.map(d => {
+    const st = Steward.getSteward();
+    let rows = '<div class="row"><span>' + this.icn('disciple', true) + '<b>执事</b>：' +
+      (st ? '<b>' + st.name + '</b> 当值——熟田与完工工单由他跑腿代收（不耗你的体力）；他回落原岗位时手脚略慢' :
+            '尚未指定——点任意在山弟子行的「任执事」即可指定（更换/卸任需二次确认）') +
+      '</span>' + (st ? '<button class="act2 ghost2" data-unsteward="1">卸任执事</button>' : '') + '</div>';
+    rows += S.disciples.map(d => {
       let right = '';
       if (d.scenePresence === 'dispatched'){
-        right = '<span class="tag grey">派遣中 · 剩 ' + this.fmtDur((d.dispatch ? d.dispatch.endsAt : 0) - nowMs()) + '</span>';
+        right = '<span class="tag grey">' + (d.autoDispatch ? '托管中' : '派遣中') + ' · 剩 ' +
+          this.fmtDur((d.dispatch ? d.dispatch.endsAt : 0) - nowMs()) + '</span> ' +
+          (d.autoDispatch
+            ? '<button class="act2 ghost2" data-hostoff="' + d.id + '">关托管</button>'
+            : '<button class="act2 ghost2" data-hoston="' + d.id + '">开托管</button>');
       } else if (d.scenePresence === 'atGate'){
         right = '<button class="act2" data-claim="' + d.id + '">交接派遣</button>';
       } else {
         right = '<button class="act2 ghost2" data-cycle="' + d.id + '">派工：' + (Disciples.JOB_LABEL[d.assignment] || d.assignment) + '</button> ' +
-          '<button class="act2" data-dispatch="' + d.id + '">' + this.icn('dispatch') + '派遣</button>';
+          '<button class="act2" data-dispatch="' + d.id + '">' + this.icn('dispatch') + '派遣</button> ' +
+          (Steward.isSteward(d.id) ? '<span class="tag">执事当值</span>'
+            : '<button class="act2 ghost2" data-steward="' + d.id + '">任执事</button>');
       }
       return '<div class="row"><span>' + this.avatarHtml(d) + '<b>' + d.name + '</b> · ' + d.quality + ' · ' + d.personality + '<br>' +
         '<span class="mini">命格：' + (d.fates.map(f => f.name).join('、') || '无') + '｜资质：' +
         CONFIG.discipleGen.attrNames.map(a => a + (d.attrs[a] || 0)).join(' ') + '<br>来历：' + d.originId +
         (d.quirk ? '<br>' + d.quirk : '') + '</span></span>' + right + '</div>';
     }).join('');
-    this.openPanel(this.icn('disciple', true) + '弟子名册', '派工即时生效；派遣 22 小时，产物（' + destOpts + '）不可出售、只作生产启动材料', rows, '');
+    this.openPanel(this.icn('disciple', true) + '弟子名册', '派工即时生效；派遣 22 小时，产物（' + destOpts + '）不可出售、只作生产启动材料；托管归队自动交接续派（每趟 33 小时，名额 ' + CONFIG.dispatch.hosting.maxTeams + ' 队）', rows,
+      '<button class="pbtn" data-collectall="1">' + this.icn('lingzhi') + '一键收（熟田＋完工工单）</button>');
     document.querySelectorAll('[data-cycle]').forEach(b => b.onclick = () => {
       Disciples.cycleJob(b.dataset.cycle); this.openDisciplesPanel(); });
     document.querySelectorAll('[data-claim]').forEach(b => b.onclick = () => {
       if (Disciples.claimDispatch(b.dataset.claim)) this.openDisciplesPanel(); });
     document.querySelectorAll('[data-dispatch]').forEach(b => b.onclick = () => this.openDispatchPanel(b.dataset.dispatch));
+    document.querySelectorAll('[data-steward]').forEach(b => this._armConfirm(b, () => {
+      if (Steward.setSteward(b.dataset.steward)){ this.hint('执事已指定'); this.openDisciplesPanel(); } }));
+    document.querySelectorAll('[data-unsteward]').forEach(b => this._armConfirm(b, () => {
+      Steward.clearSteward(); this.hint('执事已卸任'); this.openDisciplesPanel(); }));
+    document.querySelectorAll('[data-hoston]').forEach(b => b.onclick = () => {
+      if (Disciples.setHosting(b.dataset.hoston, true)){ this.hint('托管已开：归队自动交接并续派'); this.openDisciplesPanel(); } });
+    document.querySelectorAll('[data-hostoff]').forEach(b => b.onclick = () => {
+      Disciples.setHosting(b.dataset.hostoff, false); this.hint('托管已关：当前这趟跑完回山门交接'); this.openDisciplesPanel(); });
+    this._bindCollectAll(() => this.openDisciplesPanel());
+  },
+  /* 一键收按钮绑定（名册页/出货台页共用）：全收后按汇总播报并刷新当前页 */
+  _bindCollectAll(reopen){
+    document.querySelectorAll('[data-collectall]').forEach(b => b.onclick = () => {
+      const r = Steward.collectAll();
+      if (r.plots || r.jobs){
+        const got = Object.keys(r.gained).map(k => CONFIG.items[k].name + ' +' + r.gained[k]).join('、');
+        this.hint('一键收完成：熟田 ' + r.plots + ' 块、工单 ' + r.jobs + ' 张' + (got ? '（' + got + '）' : ''));
+      } else this.hint('眼下没有熟田或完工工单可收');
+      reopen(); });
   },
   openDispatchPanel(discipleId){
     const d = Disciples.getDisciple(discipleId); if (!d) return;
-    const rows = CONFIG.dispatch.dests.map(dest =>
-      '<div class="row"><span>' + dest.name + '<br><span class="mini">22 小时后带回 ' +
+    if (this._hostPickFor !== discipleId){ this._hostPickFor = discipleId; this._hostPick = !!d.autoDispatch; }
+    const hostRow = '<div class="row"><span><b>历练托管</b><br><span class="mini">开启后归队自动交接、同目的地续派，' +
+      '每趟 ' + Math.round(Farming.tierDuration(5) / 3600000 * CONFIG.dispatch.hosting.cycleFactor) + ' 小时（比手动慢，胜在不断档）；' +
+      '托管名额 ' + Disciples.hostedCount(discipleId) + ' / ' + CONFIG.dispatch.hosting.maxTeams + ' 已用</span></span>' +
+      '<button class="act2' + (this._hostPick ? '' : ' ghost2') + '" data-hostpick="1">托管：' + (this._hostPick ? '开' : '关') + '</button></div>';
+    const rows = hostRow + CONFIG.dispatch.dests.map(dest =>
+      '<div class="row"><span>' + dest.name + '<br><span class="mini">' +
+      (this._hostPick ? '托管派出：每趟 ' + Math.round(Farming.tierDuration(5) / 3600000 * CONFIG.dispatch.hosting.cycleFactor) + ' 小时'
+                      : '22 小时后带回 ') + ' ' +
       CONFIG.items[dest.item].name + '×' + dest.qty + '（不可出售）</span></span>' +
       '<button class="act2" data-dest="' + dest.id + '">派出</button></div>').join('');
-    this.openPanel(this.icn('dispatch', true) + '派遣 · ' + d.name, '派遣期间弟子离场；到期后回山门等候交接', rows, '');
+    this.openPanel(this.icn('dispatch', true) + '派遣 · ' + d.name, '派遣期间弟子离场；到期后回山门等候交接（托管则自动交接续派）', rows, '');
+    document.querySelectorAll('[data-hostpick]').forEach(b => b.onclick = () => {
+      this._hostPick = !this._hostPick; this.openDispatchPanel(discipleId); });
     document.querySelectorAll('[data-dest]').forEach(b => b.onclick = () => {
-      if (Disciples.startDispatch(discipleId, b.dataset.dest)){ this.closePanel(); this.hint(d.name + ' 已下山历练，22 小时后回山门交接'); } });
+      if (Disciples.startDispatch(discipleId, b.dataset.dest, this._hostPick)){
+        this.closePanel();
+        this.hint(d.name + ' 已下山历练' + (this._hostPick ? '（托管续派中）' : '，22 小时后回山门交接')); } });
   },
   /* ---- 双榜面板：规模榜（建设度）/效率榜（日均经营入账）；失败只改文案不挡游玩 ---- */
   _lbKind: 'scale',
@@ -3444,7 +3611,7 @@ Game.boot();
 
 /* 测试钩子（冒烟脚本用） */
 window.__game = { CONFIG, Ledger, Save, Farming, Npc, Offline, Day, Actor, Scene, Disciples, Interaction, Fx, Render,
-  Production, Orders, Events, Ads, Sect, Codex, UI, Leaderboard, Art,
+  Production, Orders, Events, Ads, Sect, Codex, UI, Leaderboard, Art, Steward,
   get state(){ return S; } };
 </script>
 </body>
