@@ -54,23 +54,31 @@
   #panelWrap { position:fixed; inset:0; z-index:30; display:none; align-items:flex-end; justify-content:center;
     background:rgba(8,10,9,.45); }
   #panelWrap.open { display:flex; }
-  .sheet { width:100%; max-width:520px; max-height:62vh; overflow:auto; background:#f5eeda; color:#26302a;
+  .sheet { width:100%; max-width:520px; max-height:62vh; overflow:auto; overscroll-behavior:contain; background:#f5eeda; color:#26302a;
     border-radius:18px 18px 0 0; padding:18px 18px 26px; }
   .sheet h3 { font-size:17px; margin-bottom:4px; }
   .sheet .sub { font-size:12px; color:#7a7263; margin-bottom:10px; }
   .sheet .row { display:flex; justify-content:space-between; align-items:center; padding:9px 2px; border-bottom:1px solid #e2d7bd; font-size:14px; }
+  /* 沉淀打磨批⑦：长文案说明行——.row 是左右对分的 flex，长 .mini 挤在右半列会把行首标签挤成逐字竖排（水车页压字根因）；说明行改整行：标题一行、正文一行、行距 1.65 */
+  .sheet .note { padding:10px 2px; border-bottom:1px solid #e2d7bd; font-size:14px; }
+  .sheet .note .nt { display:block; font-weight:700; margin-bottom:3px; }
+  .sheet .note .mini { display:block; line-height:1.65; }
   .sheet .tag { font-size:11px; background:#38694c; color:#fff; border-radius:6px; padding:2px 7px; }
   .sheet .tag.grey { background:#8a8578; }
   .pbtn { display:block; width:100%; margin-top:14px; padding:12px; border:none; border-radius:12px;
     background:#38694c; color:#fff; font-size:15px; font-weight:700; }
   .pbtn.ghost { background:#e8dfc8; color:#4a4436; }
   #fade { position:absolute; inset:0; background:#0a0f0c; opacity:0; pointer-events:none; transition:opacity .8s; z-index:8; }
-  /* 建筑全屏功能页（修复批③）：整页容器，与底部面板共用 .sheet 内部样式 */
-  #pageWrap { position:fixed; inset:0; z-index:31; background:#efe6cd; opacity:0; pointer-events:none; transition:opacity .28s; }
+  /* 建筑全屏功能页（修复批③）：与底部面板共用 .sheet 内部样式。
+     沉淀打磨批③⑥：改底部抽屉——高度随内容（max-height 上限＋内部滚动），短页不再全高留白（旧版 #pageWrap
+     全屏实色底＋#page 全高，订单/水车页下半截全空）；同时去掉 wrap 的 opacity 过渡与 #page 的 transform 过渡：
+     滚动元素自带 transform＋祖先 opacity 合成层是真机滚动重绘残影（文字行重叠/背景透字）的根因
+     （主人 13:39 录屏 47–56 秒宗门/存档页），底部 .sheet 面板无此结构、同机不重影，反证成立。 */
+  #pageWrap { position:fixed; inset:0; z-index:31; display:flex; align-items:flex-end; justify-content:center;
+    background:rgba(8,10,9,.45); opacity:0; pointer-events:none; }
   #pageWrap.open { opacity:1; pointer-events:auto; }
-  #page { height:100%; overflow:auto; max-width:640px; margin:0 auto; padding:20px 18px 44px; color:#26302a;
-    transform:translateY(16px); transition:transform .28s; }
-  #pageWrap.open #page { transform:none; }
+  #page { height:auto; max-height:94vh; width:100%; overflow:auto; overscroll-behavior:contain;
+    max-width:640px; margin:0 auto; padding:20px 18px 26px; color:#26302a; }
   #page h3 { font-size:19px; margin-bottom:4px; }
   .sheet .plaqueTitle { display:inline-block; background:#3a2c1c; color:#f7efdb; border:1px solid #c9a86a;
     border-radius:8px; padding:3px 12px; text-shadow:0 1px 2px rgba(0,0,0,.6); }
@@ -276,7 +284,7 @@ const CONFIG = {
   camera: { dampMs: 130, lookBackMs: 240, lookMax: 300, snapDist: 420 },  // 修复批②：阻尼跟随＋拖动巡视回正
   flight: { height: 15, riseMs: 360, landDelayMs: 1000, trailMs: 70,   // trailMs 为旧环件拖尾口径（已弃用，保留键防外部引用失效）
     trailSampleMs: 34, trailLifeMs: 400, trailWidth: 9,               // 高清真机反馈批②：程序剑光带拖尾（采样间隔/寿命/头宽 px）
-    swordLenFB: 1.35, swordSqMs: 100 },                               // 高清真机反馈批③：单体飞剑竖向长度倍率与转向时标（90°/swordSqMs）
+    swordLenFB: 0.85, swordSqMs: 100 },                               // 沉淀打磨批①：竖向剑长＝横向长×0.85（透视缩短，旧 1.35 竖向放大已被主人否决）；转向时标 90°/swordSqMs
   gait: { cyclePx: 48 },                                                   // 修复批①：步帧相位＝位移/步幅周期，帧与脚步同步
   save: { key: 'kaizongmen_save', lastGoodKey: 'kaizongmen_save_lastgood', version: 2, autosaveMs: 5000,
     slots: 5, slotPrefix: 'kaizongmen_slot_' },   // 修复批⑥：自动档（主 key）＋5 手动槽
@@ -928,7 +936,7 @@ const Fx = {
     const resize = () => { this.canvas.width = innerWidth * this.dpr; this.canvas.height = innerHeight * this.dpr; };
     addEventListener('resize', resize); resize();
     for (let i = 0; i < CONFIG.fx.poolSize; i++)
-      this.pool.push({ on: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 3, rot: 0, grav: 0,
+      this.pool.push({ on: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 3, rot: 0, grav: 0, amb: 0,
         drag: 1, spr: 'mote', space: 'world', sx: 0, sy: 0, cx: 0, cy: 0, tx: 0, ty: 0, t: 0, dur: 1, onArrive: null, sway: 0, seed: 0 });
     this.sprites = {
       coin: this._sprite(8, (g) => { g.fillStyle = '#ffcf5e'; g.fillRect(1, 1, 6, 6); g.fillStyle = '#ffe9a8'; g.fillRect(2, 2, 3, 3); }),
@@ -941,6 +949,10 @@ const Fx = {
     for (let i = 0; i < 12; i++){ const d = document.createElement('div'); d.className = 'floatTxt';
       d.style.display = 'none'; document.body.appendChild(d); this.floats.push({ el: d, age: 0, life: 0, y: 0 }); }
   },
+  /* 沉淀打磨批⑤：任一功能页/底部面板打开时氛围粒子让行——fxCanvas（z 40）在面板（z 30/31）之上，
+     落瓣/落叶不挡会直接飘进面板（主人截图实证）。口径：开面板即停发、存量氛围粒子不绘制，关面板自动恢复。 */
+  uiOpen(){ const pw = $('panelWrap'), gw = $('pageWrap');
+    return !!((pw && pw.classList.contains('open')) || (gw && gw.classList.contains('open'))); },
   _sprite(size, draw){ const c = document.createElement('canvas'); c.width = c.height = size;
     draw(c.getContext('2d')); return c; },
   _alloc(){ if (this.active >= CONFIG.fx.hardCap) return null;
@@ -959,7 +971,7 @@ const Fx = {
     const sprs = opts.sprites || ['mote'], spd = opts.speed || 2.2, life = opts.life || 800;
     for (let i = 0; i < n; i++){ const p = this._alloc(); if (!p) break;
       const a = Math.random() * Math.PI * 2, s = (0.3 + Math.random() * 0.7) * spd;
-      Object.assign(p, { x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.7, grav: 0.0038, drag: 1,
+      Object.assign(p, { x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.7, grav: 0.0038, drag: 1, amb: 0,
         life: 0, maxLife: life * (0.6 + Math.random() * 0.7), size: (opts.size || 2.5) + Math.random() * 3,
         spr: sprs[i % sprs.length], space: 'world', rot: Math.random() * 7, sway: 0 }); }
   },
@@ -978,7 +990,7 @@ const Fx = {
     const st = Scene.worldToScreen({ x: wx, y: wy });
     for (let i = 0; i < n; i++){ const p = this._alloc(); if (!p) break;
       const sx = st.x + (Math.random() * 26 - 13), sy = st.y + (Math.random() * 16 - 8);
-      Object.assign(p, { space: 'screen', x: sx, y: sy, sx, sy, tx: screenTx, ty: screenTy,
+      Object.assign(p, { space: 'screen', x: sx, y: sy, sx, sy, tx: screenTx, ty: screenTy, amb: 0,
         cx: (sx + screenTx) / 2, cy: Math.min(sy, screenTy) - 90 - Math.random() * 40,
         t: 0, dur: 620 + i * 55 + Math.random() * 120, life: 0, maxLife: 9999, size: 5,
         spr: opts.sprite || 'coin', grav: 0, onArrive: opts.onArrive || null, sway: 0 }); }
@@ -1077,17 +1089,18 @@ const Fx = {
     else this.perf.overFrames = Math.max(0, this.perf.overFrames - 2);
     // stream 发射
     if (this.perf.level < 2) for (const em of this.emitters){ if (!em.on) continue;
+      if (em.drift && this.uiOpen()){ em.acc = 0; continue; }   // 沉淀打磨批⑤：面板打开时氛围发射器停发
       em.acc += em.rate * dtMs / 1000;
       while (em.acc >= 1){ em.acc--; const p = this._alloc(); if (!p) break;
         if (em.drift){ Object.assign(p, { x: em.x + (Math.random() * 2 - 1) * em.spread,
           y: em.y + (Math.random() * 2 - 1) * (em.spreadY || 8),
           vx: (em.vx || 0.15) * (0.6 + Math.random() * 0.8), vy: (em.vy || 0.15) * (0.7 + Math.random() * 0.6),
-          grav: 0, drag: 1, life: 0, maxLife: em.life * (0.75 + Math.random() * 0.5),
+          grav: 0, drag: 1, life: 0, maxLife: em.life * (0.75 + Math.random() * 0.5), amb: 1,
           size: em.size * (0.7 + Math.random() * 0.7),
           spr: em.sprites[Math.floor(Math.random() * em.sprites.length)], space: 'world',
           rot: Math.random() * 7, sway: 1, seed: Math.random() * 7 }); continue; }
         Object.assign(p, { x: em.x + (Math.random() * em.spread * 2 - em.spread), y: em.y + (Math.random() * 8 - 4),
-          vx: (Math.random() * 0.24 - 0.12), vy: em.vy * (0.8 + Math.random() * 0.5), grav: -0.0004, drag: 1,
+          vx: (Math.random() * 0.24 - 0.12), vy: em.vy * (0.8 + Math.random() * 0.5), grav: -0.0004, drag: 1, amb: 0,
           life: 0, maxLife: em.life * (0.7 + Math.random() * 0.6), size: em.size * (0.7 + Math.random() * 0.7),
           spr: em.sprites[0], space: 'world', rot: 0, sway: 0 }); } }
     this.emitters = this.emitters.filter(e => e.on);
@@ -1123,7 +1136,9 @@ const Fx = {
       g.strokeStyle = 'rgba(255,238,176,' + (a * 0.95) + ')'; g.lineWidth = 3; g.beginPath();
       for (const s of b.segs){ const p1 = Scene.worldToScreen({ x: s[0], y: s[1] }), p2 = Scene.worldToScreen({ x: s[2], y: s[3] });
         g.moveTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); } g.stroke(); }
+    const blocked = this.uiOpen();   // 沉淀打磨批⑤：面板打开时存量氛围粒子不绘制（关面板即恢复，粒子本身继续推进/自然消亡）
     for (const p of this.pool){ if (!p.on) continue;
+      if (blocked && p.amb) continue;
       const sp = p.space === 'screen' ? { x: p.x, y: p.y } : Scene.worldToScreen(p);
       const k = p.space === 'screen' ? 1 : 1 - p.life / p.maxLife;
       g.globalAlpha = clamp(k * 1.7, 0, 1);
@@ -2267,8 +2282,8 @@ const UI = {
   openWaterwheelPage(){
     const rows =
       '<div class="row"><span>' + this.icn('stamina', true) + '当前体力</span><b>' + Math.floor(S.day.stamina) + ' / ' + CONFIG.stamina.max + '</b></div>' +
-      '<div class="row"><span>水车汲水</span><span class="mini">溪水昼夜不息地灌满宗门水缸——弟子浇水、搬运都不耗你的体力，只有你亲手锄/播/浇/收才耗。</span></div>' +
-      '<div class="row"><span>体力恢复</span><span class="mini">回大殿睡觉过天回满；离线期间按时辰自动恢复（8 小时回满）。</span></div>';
+      '<div class="note"><span class="nt">水车汲水</span><span class="mini">溪水昼夜不息地灌满宗门水缸——弟子浇水、搬运都不耗你的体力，只有你亲手锄/播/浇/收才耗。</span></div>' +
+      '<div class="note"><span class="nt">体力恢复</span><span class="mini">回大殿睡觉过天回满；离线期间按时辰自动恢复（8 小时回满）。</span></div>';
     this.openPanel(this.icn('stamina', true) + '水车', '宗门水脉所在；体力告罄时可在此看广告补充（与日常页同一通道、同一上限）', rows,
       '<button class="pbtn ghost" id="btnWheelStam">' + this.icn('stamina') + '看广告补体力（+' + CONFIG.ads.staminaRefill + '）</button>');
     $('btnWheelStam').onclick = async (ev) => {
@@ -2968,8 +2983,8 @@ const Render = {
     /* 高清真机反馈批③＋主人 13:00 追加令：全向御剑改「去剑身体层＋单体飞剑」。
        烘焙剑与行进方向的关系逐向像素实测全错：正/背姿是横剑（上下飞剑不跟向）；侧姿柄在行进侧、剑尖背向行进方向。
        故剑身统一由单体件 frm2_sword（尖端朝 +x）按行进方向角绘制：右 0／下 +90°／左 180°／上 −90°，剑尖恒随向；
-       st.swordAng 以 90°/swordSqMs 走最短弧转向（转向/起落过渡无跳变）；竖向时剑长放大 swordLenFB 并沿轴前移
-       （柄贴脚底、尖端探出体外），身体层随后盖住剑身中段。分层/单体件缺失自动回退整幅烘焙姿。 */
+       st.swordAng 以 90°/swordSqMs 走最短弧转向（转向/起落过渡无跳变）；竖向长度与锚定见 _drawFlySword（沉淀打磨批①透视缩短口径）。
+       分层/单体件缺失自动回退整幅烘焙姿。 */
     let flyBody = null;
     if (isPlayer && usedFlyPose){
       if (st.dir === 'front' || st.dir === 'back'){
@@ -3062,19 +3077,50 @@ const Render = {
       const psz = dhP / DH;
       Art.draw(g, 'fx_petal_1_v1.png', dx + pcx + poff, dy + ptop - 2, 15 * psz, 11 * psz);
     }
+    /* 沉淀打磨批②：弟子头顶名牌——在 drawPerson 内随人物同趟 Y 排序绘制（遮挡口径与人物本体一致），主角不加。
+       锚点取绘制框内容中心/头顶行，与发饰层同口径；名牌悬于头顶行上方 3px。 */
+    if (!isPlayer && disciple && disciple.name){
+      const ncx = dx + (B3 ? (B3[2] / fW) * dwP : dwP / 2);
+      const ntop = dy + (B3 ? (B3[3] / fH) * dhP : 0);
+      this._drawNameplate(disciple.name, ncx, ntop);
+    }
   },
-  /* 高清真机反馈批③：单体飞剑绘制——frm2_sword（尖端朝 +x）绕脚底锚点按行进角旋转，尖端恒随向。
-     剑长随 |sin(ang)| 在整幅长↔swordLenFB 间过渡；竖向时沿轴前移（柄贴脚底、尖端探出体外），
-     身体层随后盖住剑身中段，只露行进侧的尖端与脚侧的柄端。锚点 (ax, ay) 为刃线中心（画布行 134/144 处）。 */
+  /* 沉淀打磨批②：头顶小名牌（小字＋半透明深底＋金边，样式与建筑铭牌同系、尺寸更小） */
+  _drawNameplate(name, cx, topY){
+    const g = this.ctx;
+    if (cx < -50 || cx > innerWidth + 50 || topY < -24 || topY > innerHeight + 24) return;
+    g.font = '600 10px sans-serif';
+    const w = Math.ceil(g.measureText(name).width) + 12, h = 16;
+    const x = Math.round(cx - w / 2), y = Math.round(topY - h - 3);
+    g.fillStyle = 'rgba(46,36,26,.78)';
+    g.beginPath();
+    if (g.roundRect) g.roundRect(x, y, w, h, 4); else g.rect(x, y, w, h);
+    g.fill();
+    g.strokeStyle = 'rgba(233,196,106,.45)'; g.lineWidth = 1; g.stroke();
+    g.fillStyle = '#f2ead8'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(name, cx, y + h / 2 + 0.5);
+    g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+  },
+  /* 单体飞剑绘制——frm2_sword（尖端朝 +x）绕脚底锚点按行进角旋转，尖端恒随向。
+     沉淀打磨批①：竖向长度改透视缩短（总长＝横向长 × swordLenFB 0.85），锚定按「行进侧探出量」：
+     下飞柄端 tuck 在脚后、刃下探 L−0.11·dhP；上飞尖端越头顶约 16px（剑身藏体后只露尖，与真机截图读感一致）；
+     横向 shift 恒 0（居中），转向途中按 |sin| 平滑混合、无跳变。锚点 (ax, ay) 为刃线中心（画布行 134/144 处）。
+     旧口径（高清真机反馈批③）：竖向放大 1.35 并沿轴前移——下飞刃下探约 140 逻辑 px，主人 13:39 录屏判「像根杆子戳到地」，已废止。 */
   _drawFlySword(g, ang, ax, ay, dwP, dhP){
     if (ang === null || ang === undefined) return;
     const cv = this._swordCv || (this._swordCv = Art.cropCanvas('frm2_sword_v1.png'));
     if (!cv) return;
-    const L = dwP * (1 + (CONFIG.flight.swordLenFB - 1) * Math.abs(Math.sin(ang)));
+    const sn = Math.sin(ang), s = Math.abs(sn);
+    const L = dwP * (1 + (CONFIG.flight.swordLenFB - 1) * s);
     const T = L * cv.height / cv.width;
-    const ux = Math.cos(ang), uy = Math.sin(ang);
-    const shift = (L / 2 - dhP * 0.11) * Math.abs(Math.sin(ang));
-    g.save(); g.translate(ax + ux * shift, ay + uy * shift); g.rotate(ang);
+    let shift = 0;
+    if (s > 0.001){
+      const reachDown = L - dhP * 0.11;          // 下飞：尖端自锚点下探量（柄端留在脚后体下）
+      const reachUp = dhP * 0.89 + 16;           // 上飞：尖端自锚点上探量（越头顶约 16px）
+      const reach = reachDown + Math.max(0, -sn) * (reachUp - reachDown);
+      shift = (reach - L / 2) * s;
+    }
+    g.save(); g.translate(ax + Math.cos(ang) * shift, ay + sn * shift); g.rotate(ang);
     g.drawImage(cv, -L / 2, -T / 2, L, T); g.restore();
   },
   /* 修复批①遗留：程序像素飞剑——美术批二起降为 art2 未就绪兜底（正常路径由 GPT 御剑姿态整图承担，见 drawPerson）。
@@ -3097,6 +3143,13 @@ const Render = {
     g.fillStyle = '#6e5638'; g.fillRect(-12, -1.5, 7, 3);                 // 剑柄
     g.fillStyle = '#c9a86a'; g.fillRect(-14, -2, 2, 4);                   // 剑首
     g.restore();
+  },
+  /* 沉淀打磨批④(a)：建筑接地阴影——斜俯视场景里建筑原本零落地阴影、像贴纸浮在地面（透视违和的可缓解部分）；
+     在建筑 ent 内、图之前画扁椭圆软影，与建筑同趟 Y 排序（口径与人物一致）。影色/扁率全场统一，逐栋只给中心/接地线/宽。 */
+  _groundShadow(cx, baseY, w){
+    const g = this.ctx, cam = Scene.camera;
+    g.fillStyle = 'rgba(32,28,18,.20)';
+    g.beginPath(); g.ellipse(cx - cam.x, baseY - cam.y, w / 2, Math.max(5, w * 0.055), 0, 0, Math.PI * 2); g.fill();
   },
   /* 修复批③：建筑铭牌——头顶悬浮小牌（图标＋建筑名），靠近门前时金边高亮。
      Art 未就绪时退化为纯文字牌（与旧 drawBuilding 牌同口径）。 */
@@ -3219,18 +3272,18 @@ const Render = {
     const ents = [];
     if (Art.ready){ // M3：建筑单体图（位置对位现有 solids/anchors，碰撞盒不随图变）
       /* 追加批3：Y 排序键逐栋复核＝建筑接地线（solid 底边），旧键最大偏 16px（居舍 330 vs 接地 314）致人物在屋前被屋身盖住 */
-      ents.push({ y: 246, f: () => Art.draw(g, 'bld_hall_v1.png', 640 - cam.x, 17 - cam.y, 320, 235) });
-      ents.push({ y: 528, f: () => Art.draw(g, 'bld_forge_v1.png', 1109 - cam.x, 303 - cam.y, 250, 231) });
-      ents.push({ y: 816, f: () => Art.draw(g, 'bld_stall_v1.png', 1020 - cam.x, 667 - cam.y, 210, 155) });
+      ents.push({ y: 246, f: () => { this._groundShadow(800, 248, 290); Art.draw(g, 'bld_hall_v1.png', 640 - cam.x, 17 - cam.y, 320, 235); } });
+      ents.push({ y: 528, f: () => { this._groundShadow(1234, 530, 225); Art.draw(g, 'bld_forge_v1.png', 1109 - cam.x, 303 - cam.y, 250, 231); } });
+      ents.push({ y: 816, f: () => { this._groundShadow(1125, 818, 190); Art.draw(g, 'bld_stall_v1.png', 1020 - cam.x, 667 - cam.y, 210, 155); } });
       ents.push({ y: 820, f: () => Art.draw(g, 'prop_scale_v1.png', 1150 - cam.x, 726 - cam.y, 58, 67) }); // M3.5：出货台吊秤识别件
-      ents.push({ y: 1142, f: () => Art.draw(g, 'bld_gate_v1.png', 650 - cam.x, 954 - cam.y, 300, 202) });
-      ents.push({ y: 594, f: () => { Art.draw(g, 'bld_waterwheel_v1.png', 16 - cam.x, 430 - cam.y, 180, 170);
+      ents.push({ y: 1142, f: () => { this._groundShadow(800, 1148, 270); Art.draw(g, 'bld_gate_v1.png', 650 - cam.x, 954 - cam.y, 300, 202); } });
+      ents.push({ y: 594, f: () => { this._groundShadow(106, 596, 160); Art.draw(g, 'bld_waterwheel_v1.png', 16 - cam.x, 430 - cam.y, 180, 170);
         this._drawWheelOverlay(g, cam); } });
       const qb = (S.buildings || []).find(b => b.id === 'quarters');
       if (qb && qb.level >= 1)
-        ents.push({ y: 314, f: () => Art.draw(g, 'bld_quarters_v1.png', 400 - cam.x, 137 - cam.y, 240, 193) });
+        ents.push({ y: 314, f: () => { this._groundShadow(520, 322, 215); Art.draw(g, 'bld_quarters_v1.png', 400 - cam.x, 137 - cam.y, 240, 193); } });
       if (Art.ready2){ // 美术批二：矿洞口＋场景装饰（纯装饰、不进碰撞盒，y-sort＝底边；布点见集成报告）
-        ents.push({ y: 200, f: () => Art.draw(g, 'prop_minegate_v1.png', 1295 - cam.x, 51 - cam.y, 210, 149) });
+        ents.push({ y: 200, f: () => { this._groundShadow(1400, 199, 185); Art.draw(g, 'prop_minegate_v1.png', 1295 - cam.x, 51 - cam.y, 210, 149); } });
         ents.push({ y: 296, f: () => Art.draw(g, 'prop_crystal_v1.png', 1258 - cam.x, 230 - cam.y, 84, 66) });
         ents.push({ y: 296, f: () => Art.draw(g, 'prop_cart_v1.png', 1466 - cam.x, 222 - cam.y, 104, 74) });
         ents.push({ y: 326, f: () => Art.draw(g, 'prop_bush_v1.png', 652 - cam.x, 268 - cam.y, 76, 58) });
