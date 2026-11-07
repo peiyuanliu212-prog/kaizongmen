@@ -2673,7 +2673,11 @@ const UI = {
     this._mode = 'page';
     /* 美术批二：四建筑全屏页顶部内景横幅（页内 118px 高、object-fit cover，不挤功能区）；水车/矿口无内景图 */
     const BANNERS = { hall: 'int_hall_v1.png', forge: 'int_forge_v1.png', stall: 'int_stall_v1.png', quarters: 'int_quarters_v1.png' };
-    this._bannerFor = (typeof Art !== 'undefined' && Art.ready2 && BANNERS[kind]) ? Art.dataUrl(BANNERS[kind]) : null;
+    /* 像素全量·程二：内景横幅换 S8 像素版（pxf_int_*），像素关/未就绪回退 HD 内景 */
+    const PXBANNERS = { hall: 'pxf_int_hall.png', forge: 'pxf_int_forge.png', stall: 'pxf_int_stall.png', quarters: 'pxf_int_quarters.png' };
+    this._bannerFor = (typeof Art !== 'undefined' && CONFIG.art.pixelSample && Art.readyPxb && PXBANNERS[kind] && Art.F[PXBANNERS[kind]])
+      ? Art.dataUrl(PXBANNERS[kind])
+      : (typeof Art !== 'undefined' && Art.ready2 && BANNERS[kind]) ? Art.dataUrl(BANNERS[kind]) : null;
     if (kind === 'hall'){
       this.openSectPanel();
       const bp = $('btnGoPromote');   // 页内晋阶直达仪式，不再绕回门前
@@ -3224,8 +3228,16 @@ const Art = {
     im.src = 'assets/atlas_pxf_chars.png';
     this._loadPxfScene();
   },
-  /* 场景图集（程二填充：建筑/道具/作物/内景/三视） */
+  /* 场景图集（程二：S4/S5 建筑道具＋S6 作物＋S8 内景＋S3 三视；图集组 pxb） */
   _loadPxfScene(){
+    if (this.readyPxb) return;
+    if (!this.RECTS.pxb) this.RECTS.pxb = {"pxf_prop_minegate.png": [0, 0, 240, 360], "pxf_bld_stall.png": [242, 0, 240, 318], "pxf_bld_waterwheel.png": [484, 0, 232, 318], "pxf_bld_hall.png": [718, 0, 360, 288], "pxf_int_hall.png": [1080, 0, 288, 288], "pxf_int_forge.png": [1370, 0, 288, 288], "pxf_int_quarters.png": [0, 362, 288, 288], "pxf_int_stall.png": [290, 362, 288, 288], "pxf_bld_gate.png": [580, 362, 336, 287], "pxf_bld_forge.png": [918, 362, 288, 242], "pxf_bld_quarters.png": [1208, 362, 272, 207], "pxf_prop_cart.png": [1482, 362, 160, 159], "pxf_prop_scale.png": [0, 652, 112, 157], "pxf_prop_lantern.png": [114, 652, 96, 154], "pxf_crop_xuanyu_s5.png": [212, 652, 136, 144], "pxf_prop_fence.png": [350, 652, 160, 142], "pxf_crop_ninglu_s5.png": [512, 652, 136, 141], "pxf_prop_crystal.png": [650, 652, 128, 140], "pxf_prop_flower.png": [780, 652, 144, 137], "pxf_crop_xuanyu_s4.png": [926, 652, 136, 137], "pxf_crop_lingzhi_s5.png": [1064, 652, 136, 135], "pxf_prop_bush.png": [1202, 652, 160, 131], "pxf_crop_xuanyu_s3.png": [1364, 652, 136, 128], "pxf_crop_ninglu_s4.png": [1502, 652, 136, 125], "pxf_crop_lingzhi_s4.png": [0, 811, 136, 123], "pxf_crop_ninglu_s3.png": [138, 811, 136, 118], "pxf_crop_xuanyu_s2.png": [276, 811, 136, 115], "pxf_crop_xuanyu_s1.png": [414, 811, 136, 109], "pxf_crop_ninglu_s2.png": [552, 811, 136, 108], "pxf_crop_ninglu_s1.png": [690, 811, 136, 106], "pxf_tile_soil.png": [828, 811, 136, 102], "pxf_crop_lingzhi_s3.png": [966, 811, 136, 101], "pxf_crop_lingzhi_s1.png": [1104, 811, 136, 98], "pxf_crop_lingzhi_s2.png": [1242, 811, 136, 95], "pxf_tri_master_front.png": [1380, 811, 31, 64], "pxf_tri_master_back.png": [1413, 811, 28, 64], "pxf_tri_master_side.png": [1443, 811, 37, 64], "pxf_tri_master_side34.png": [1482, 811, 35, 64], "pxf_tri_male_front.png": [1519, 811, 30, 64], "pxf_tri_male_back.png": [1551, 811, 28, 64], "pxf_tri_male_side.png": [1581, 811, 32, 64], "pxf_tri_male_side34.png": [1615, 811, 30, 64], "pxf_tri_female_front.png": [0, 936, 39, 64], "pxf_tri_female_back.png": [41, 936, 35, 64], "pxf_tri_female_side.png": [78, 936, 34, 64], "pxf_tri_female_side34.png": [114, 936, 34, 64], "pxf_tri_female2_front.png": [150, 936, 29, 64], "pxf_tri_female2_back.png": [181, 936, 28, 64], "pxf_tri_female2_side.png": [211, 936, 32, 64], "pxf_tri_female2_side34.png": [245, 936, 32, 64]};
+    if (!this._grpImg) this._grpImg = {};
+    this._grpImg.pxb = 'pxb';
+    const im = new Image();
+    im.onload = () => { this.imgs.pxb = im; this._bindGroup('pxb'); this.readyPxb = true; };
+    im.onerror = () => { console.warn('[art] pixel scene load failed'); };
+    im.src = 'assets/atlas_pxf_scene.png';
   },
   _bindGroup(g){
     const img = this.imgs[this._grpImg[g]]; if (!img) return;
@@ -3353,7 +3365,8 @@ Object.assign(BODY3, { "px_master_front_v1.png": [1.0, 137, 48.0, 12], "px_maste
   "px_master_back_v1.png": [1.0, 137, 48.0, 14], "px_disciple_front_v1.png": [1.0, 137, 47.5, 12] });
 /* 像素试点：pxp 帧锚点（slice_work10 离线实测，帧自身像素单位：脚底行/头部质心x/头顶行；缩放走 drawPerson pxNative 原生宽高比几何） */
 /* 像素锚点（slice_work11 离线实测：转正 pxp 16 帧沿试点值＋pxf 新帧逐帧测；[旧缩放列停用, 脚底行, 头部质心x, 头顶行]） */
-Object.assign(BODY3, {"pxp_master_stand_b_v1.png": [1.0, 61, 16.5, 5], "pxp_master_stand_f_v1.png": [1.0, 61, 16.5, 5], "pxp_master_stand_sl_v1.png": [1.0, 61, 19.5, 5], "pxp_master_stand_sr_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_b1_v1.png": [1.0, 61, 16.0, 5], "pxp_master_walk_b2_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_b3_v1.png": [1.0, 61, 16.0, 5], "pxp_master_walk_f1_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_f2_v1.png": [1.0, 61, 17.0, 5], "pxp_master_walk_f3_v1.png": [1.0, 61, 17.0, 5], "pxp_master_walk_sl1_v1.png": [1.0, 61, 19.5, 5], "pxp_master_walk_sl2_v1.png": [1.0, 61, 20.0, 5], "pxp_master_walk_sl3_v1.png": [1.0, 61, 19.5, 5], "pxp_master_walk_sr1_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_sr2_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_sr3_v1.png": [1.0, 61, 18.5, 5], "pxf_master_cast_1.png": [1.0, 60, 20.4, 4], "pxf_master_cast_2.png": [1.0, 60, 21.5, 4], "pxf_master_cast_3.png": [1.0, 60, 20.3, 4], "pxf_master_cast_4.png": [1.0, 60, 21.5, 4], "pxf_master_fly_b_1.png": [1.0, 56, 29.4, 3], "pxf_master_fly_b_2.png": [1.0, 54, 36.9, 3], "pxf_master_fly_f_1.png": [1.0, 60, 29.2, 3], "pxf_master_fly_f_2.png": [1.0, 60, 29.3, 3], "pxf_master_fly_sl_1.png": [1.0, 55, 36.1, 3], "pxf_master_fly_sl_2.png": [1.0, 55, 36.9, 3], "pxf_master_fly_sr_1.png": [1.0, 55, 27.9, 3], "pxf_master_fly_sr_2.png": [1.0, 55, 30.1, 3], "pxf_master_harvest_1.png": [1.0, 60, 24.9, 4], "pxf_master_harvest_2.png": [1.0, 60, 20.5, 4], "pxf_master_harvest_3.png": [1.0, 60, 20.7, 4], "pxf_master_hoe_1.png": [1.0, 60, 20.5, 4], "pxf_master_hoe_2.png": [1.0, 60, 26.0, 4], "pxf_master_hoe_3.png": [1.0, 60, 21.3, 4], "pxf_master_sow_1.png": [1.0, 60, 20.4, 4], "pxf_master_sow_2.png": [1.0, 60, 20.4, 4], "pxf_master_sow_3.png": [1.0, 60, 20.5, 4], "pxf_master_water_1.png": [1.0, 60, 22.0, 4], "pxf_master_water_2.png": [1.0, 60, 22.1, 4], "pxf_master_water_3.png": [1.0, 60, 21.5, 4], "pxf_male_carry_1.png": [1.0, 60, 15.3, 4], "pxf_male_carry_2.png": [1.0, 60, 17.3, 4], "pxf_male_carry_3.png": [1.0, 60, 16.6, 4], "pxf_male_carry_4.png": [1.0, 60, 16.8, 4], "pxf_male_harvest_1.png": [1.0, 60, 24.6, 4], "pxf_male_stand_b.png": [1.0, 60, 16.5, 4], "pxf_male_stand_f.png": [1.0, 60, 16.2, 4], "pxf_male_stand_sl.png": [1.0, 60, 15.2, 4], "pxf_male_stand_sr.png": [1.0, 60, 15.1, 4], "pxf_male_walk_b1.png": [1.0, 60, 16.0, 4], "pxf_male_walk_b2.png": [1.0, 60, 16.5, 4], "pxf_male_walk_b3.png": [1.0, 60, 16.0, 4], "pxf_male_walk_f1.png": [1.0, 60, 15.9, 4], "pxf_male_walk_f2.png": [1.0, 60, 16.0, 4], "pxf_male_walk_f3.png": [1.0, 60, 16.0, 4], "pxf_male_walk_sl1.png": [1.0, 60, 14.6, 4], "pxf_male_walk_sl2.png": [1.0, 60, 14.6, 4], "pxf_male_walk_sl3.png": [1.0, 60, 14.7, 4], "pxf_male_walk_sr1.png": [1.0, 60, 15.1, 4], "pxf_male_walk_sr2.png": [1.0, 60, 14.7, 4], "pxf_male_walk_sr3.png": [1.0, 60, 14.7, 4], "pxf_male_water_0.png": [1.0, 60, 16.1, 4], "pxf_male_water_1.png": [1.0, 60, 20.7, 4], "pxf_male_water_2.png": [1.0, 60, 44.0, 4], "pxf_male_water_3.png": [1.0, 60, 21.7, 4], "pxf_female_carry_1.png": [1.0, 60, 17.0, 4], "pxf_female_carry_2.png": [1.0, 60, 16.6, 4], "pxf_female_carry_3.png": [1.0, 60, 16.4, 4], "pxf_female_carry_4.png": [1.0, 60, 16.8, 4], "pxf_female_harvest_1.png": [1.0, 60, 14.6, 4], "pxf_female_harvest_2.png": [1.0, 60, 16.9, 4], "pxf_female_harvest_3.png": [1.0, 60, 17.1, 4], "pxf_female_stand_b.png": [1.0, 60, 19.9, 4], "pxf_female_stand_f.png": [1.0, 60, 20.4, 4], "pxf_female_stand_sl.png": [1.0, 60, 17.7, 4], "pxf_female_stand_sr.png": [1.0, 60, 17.3, 4], "pxf_female_walk_b1.png": [1.0, 60, 20.4, 4], "pxf_female_walk_b2.png": [1.0, 60, 20.5, 4], "pxf_female_walk_f1.png": [1.0, 60, 20.3, 4], "pxf_female_walk_f2.png": [1.0, 60, 20.0, 4], "pxf_female_walk_f3.png": [1.0, 60, 20.4, 4], "pxf_female_walk_sl1.png": [1.0, 60, 18.4, 4], "pxf_female_walk_sl2.png": [1.0, 60, 18.3, 4], "pxf_female_walk_sl3.png": [1.0, 60, 18.3, 4], "pxf_female_walk_sr1.png": [1.0, 60, 17.3, 4], "pxf_female_walk_sr2.png": [1.0, 60, 18.5, 4], "pxf_female_walk_sr3.png": [1.0, 60, 17.1, 4], "pxf_female_water_1.png": [1.0, 60, 38.4, 4], "pxf_female_water_2.png": [1.0, 60, 40.2, 4]});
+Object.assign(BODY3, {"pxp_master_stand_b_v1.png": [1.0, 61, 16.5, 5], "pxp_master_stand_f_v1.png": [1.0, 61, 16.5, 5], "pxp_master_stand_sl_v1.png": [1.0, 61, 19.5, 5], "pxp_master_stand_sr_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_b1_v1.png": [1.0, 61, 16.0, 5], "pxp_master_walk_b2_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_b3_v1.png": [1.0, 61, 16.0, 5], "pxp_master_walk_f1_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_f2_v1.png": [1.0, 61, 17.0, 5], "pxp_master_walk_f3_v1.png": [1.0, 61, 17.0, 5], "pxp_master_walk_sl1_v1.png": [1.0, 61, 19.5, 5], "pxp_master_walk_sl2_v1.png": [1.0, 61, 20.0, 5], "pxp_master_walk_sl3_v1.png": [1.0, 61, 19.5, 5], "pxp_master_walk_sr1_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_sr2_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_sr3_v1.png": [1.0, 61, 18.5, 5], "pxf_master_cast_1.png": [1.0, 60, 20.4, 4], "pxf_master_cast_2.png": [1.0, 60, 21.5, 4], "pxf_master_cast_3.png": [1.0, 60, 20.3, 4], "pxf_master_cast_4.png": [1.0, 60, 21.5, 4], "pxf_master_fly_b_1.png": [1.0, 56, 29.4, 3], "pxf_master_fly_b_2.png": [1.0, 54, 36.9, 3], "pxf_master_fly_f_1.png": [1.0, 60, 29.2, 3], "pxf_master_fly_f_2.png": [1.0, 60, 29.3, 3], "pxf_master_fly_sl_1.png": [1.0, 55, 36.1, 3], "pxf_master_fly_sl_2.png": [1.0, 55, 36.9, 3], "pxf_master_fly_sr_1.png": [1.0, 55, 27.9, 3], "pxf_master_fly_sr_2.png": [1.0, 55, 30.1, 3], "pxf_master_harvest_1.png": [1.0, 60, 24.9, 4], "pxf_master_harvest_2.png": [1.0, 60, 20.5, 4], "pxf_master_harvest_3.png": [1.0, 60, 20.7, 4], "pxf_master_hoe_1.png": [1.0, 60, 20.5, 4], "pxf_master_hoe_2.png": [1.0, 60, 26.0, 4], "pxf_master_hoe_3.png": [1.0, 60, 21.3, 4], "pxf_master_sow_1.png": [1.0, 60, 20.4, 4], "pxf_master_sow_2.png": [1.0, 60, 20.4, 4], "pxf_master_sow_3.png": [1.0, 60, 20.5, 4], "pxf_master_water_1.png": [1.0, 60, 22.0, 4], "pxf_master_water_2.png": [1.0, 60, 22.1, 4], "pxf_master_water_3.png": [1.0, 60, 21.5, 4], "pxf_male_carry_1.png": [1.0, 60, 15.3, 4], "pxf_male_carry_2.png": [1.0, 60, 17.3, 4], "pxf_male_carry_3.png": [1.0, 60, 16.6, 4], "pxf_male_carry_4.png": [1.0, 60, 16.8, 4], "pxf_male_harvest_1.png": [1.0, 60, 24.6, 4], "pxf_male_stand_b.png": [1.0, 60, 16.5, 4], "pxf_male_stand_f.png": [1.0, 60, 16.2, 4], "pxf_male_stand_sl.png": [1.0, 60, 15.2, 4], "pxf_male_stand_sr.png": [1.0, 60, 15.1, 4], "pxf_male_walk_b1.png": [1.0, 60, 16.0, 4], "pxf_male_walk_b2.png": [1.0, 60, 16.5, 4], "pxf_male_walk_b3.png": [1.0, 60, 16.0, 4], "pxf_male_walk_f1.png": [1.0, 60, 15.9, 4], "pxf_male_walk_f2.png": [1.0, 60, 16.0, 4], "pxf_male_walk_f3.png": [1.0, 60, 16.0, 4], "pxf_male_walk_sl1.png": [1.0, 60, 14.6, 4], "pxf_male_walk_sl2.png": [1.0, 60, 14.6, 4], "pxf_male_walk_sl3.png": [1.0, 60, 14.7, 4], "pxf_male_walk_sr1.png": [1.0, 60, 15.1, 4], "pxf_male_walk_sr2.png": [1.0, 60, 14.7, 4], "pxf_male_walk_sr3.png": [1.0, 60, 14.7, 4], "pxf_male_water_0.png": [1.0, 60, 16.1, 4], "pxf_male_water_1.png": [1.0, 60, 20.7, 4], "pxf_male_water_2.png": [1.0, 60, 44.0, 4], "pxf_male_water_3.png": [1.0, 60, 21.7, 4], "pxf_female_carry_1.png": [1.0, 60, 17.0, 4], "pxf_female_carry_2.png": [1.0, 60, 16.6, 4], "pxf_female_carry_3.png": [1.0, 60, 16.4, 4], "pxf_female_carry_4.png": [1.0, 60, 16.8, 4], "pxf_female_harvest_1.png": [1.0, 60, 14.6, 4], "pxf_female_harvest_2.png": [1.0, 60, 16.9, 4], "pxf_female_harvest_3.png": [1.0, 60, 17.1, 4], "pxf_female_stand_b.png": [1.0, 60, 19.9, 4], "pxf_female_stand_f.png": [1.0, 60, 20.4, 4], "pxf_female_stand_sl.png": [1.0, 60, 17.7, 4], "pxf_female_stand_sr.png": [1.0, 60, 17.3, 4], "pxf_female_walk_b1.png": [1.0, 60, 20.4, 4], "pxf_female_walk_b2.png": [1.0, 60, 20.5, 4], "pxf_female_walk_f1.png": [1.0, 60, 20.3, 4], "pxf_female_walk_f2.png": [1.0, 60, 20.0, 4], "pxf_female_walk_f3.png": [1.0, 60, 20.4, 4], "pxf_female_walk_sl1.png": [1.0, 60, 18.4, 4], "pxf_female_walk_sl2.png": [1.0, 60, 18.3, 4], "pxf_female_walk_sl3.png": [1.0, 60, 18.3, 4], "pxf_female_walk_sr1.png": [1.0, 60, 17.3, 4], "pxf_female_walk_sr2.png": [1.0, 60, 18.5, 4], "pxf_female_walk_sr3.png": [1.0, 60, 17.1, 4], "pxf_female_water_1.png": [1.0, 60, 38.4, 4], "pxf_female_water_2.png": [1.0, 60, 40.2, 4]})
+Object.assign(BODY3, {"pxf_tri_master_front.png": [1.0, 60, 15.0, 4], "pxf_tri_master_back.png": [1.0, 60, 13.5, 4], "pxf_tri_master_side.png": [1.0, 60, 18.5, 4], "pxf_tri_master_side34.png": [1.0, 60, 18.0, 4], "pxf_tri_male_front.png": [1.0, 60, 14.5, 3], "pxf_tri_male_back.png": [1.0, 60, 13.5, 3], "pxf_tri_male_side.png": [1.0, 60, 15.5, 4], "pxf_tri_male_side34.png": [1.0, 60, 14.5, 5], "pxf_tri_female_front.png": [1.0, 60, 19.0, 3], "pxf_tri_female_back.png": [1.0, 60, 17.0, 4], "pxf_tri_female_side.png": [1.0, 60, 16.5, 4], "pxf_tri_female_side34.png": [1.0, 60, 16.5, 5], "pxf_tri_female2_front.png": [1.0, 60, 14.0, 5], "pxf_tri_female2_back.png": [1.0, 60, 13.5, 3], "pxf_tri_female2_side.png": [1.0, 60, 15.5, 4], "pxf_tri_female2_side34.png": [1.0, 60, 15.5, 3]});   /* 像素全量批·程二：S3 三视锚点（slice_work11 离线实测） */;
 const Render = {
   cv: null, ctx: null, sprites: {},
   PERSON_ROWS: [
@@ -3547,6 +3560,10 @@ const Render = {
         else pn = cycP(['pxf_' + set + '_stand_sl.png', 'pxf_' + set + '_walk_sl1.png', 'pxf_' + set + '_walk_sl2.png', 'pxf_' + set + '_walk_sl3.png']);
       } else pn = isPlayer ? 'pxp_master_stand_' + dk + '_v1.png' : 'pxf_' + set + '_stand_' + dk + '.png';
       if (pn && Art.F[pn]){ name = pn; flip = pflip; tint = null; pxSample = true; pxNative = true; }
+      else if (Art.readyPxb && !act && !flying){ /* 像素全量·程二：主帧缺失时的三视回退（S3，防御层，正常路径不触发） */
+        const tn = 'pxf_tri_' + (isPlayer ? 'master' : set) + '_' + (dk === 'f' ? 'front' : dk === 'b' ? 'back' : 'side') + '.png';
+        if (Art.F[tn]){ name = tn; flip = (dk === 'sl'); tint = null; pxSample = true; pxNative = true; }
+      }
     }
     if (!pxNative && CONFIG.art.pixelSample && Art.readyPx && !act && !e.moving && !flying && name){
       if (isPlayer && st.dir === 'back' && Art.F['px_master_back_v1.png']){ name = 'px_master_back_v1.png'; pxSample = true; }
@@ -3730,6 +3747,14 @@ const Render = {
   },
   /* 沉淀打磨批④(a)：建筑接地阴影——斜俯视场景里建筑原本零落地阴影、像贴纸浮在地面（透视违和的可缓解部分）；
      在建筑 ent 内、图之前画扁椭圆软影，与建筑同趟 Y 排序（口径与人物一致）。影色/扁率全场统一，逐栋只给中心/接地线/宽。 */
+  /* 像素全量批·程二：pxf 场景帧入位——等比缩放、底边（接地线）锚定，口径与试点大殿一致；
+     帧不在册返回 false 由调用点回退现行 HD 帧。x/bottom 为世界坐标，内部扣镜头。 */
+  _pxb(g, name, x, bottom, w, cam){
+    const f = Art.F[name]; if (!f) return false;
+    const dh = w * f.h / f.w;
+    Art.draw(g, name, x - cam.x, bottom - dh - cam.y, w, dh);
+    return true;
+  },
   _groundShadow(cx, baseY, w){
     const g = this.ctx, cam = Scene.camera;
     g.fillStyle = 'rgba(32,28,18,.20)';
@@ -3832,7 +3857,20 @@ const Render = {
           if (Art.F[fixName]) imgName = fixName; }
         /* 像素试点：田块垫底换 px 田纹——按地块菱形裁切原生田贴图（全状态垫底，与静态层田基同纹）；
            空/垦地到此为止（垦地加一层压暗区分状态），作物本体仍走现行帧（试点四类之外，报告登记）。 */
-        const pxField = CONFIG.art.pixelSample && Art.readyPxp && Art.F['pxp_gnd_field_v1.png'];
+        /* 像素全量·程二：S6 整格帧（自带土菱形）覆盖全状态——空田/垦田＝pxf_tile_soil（垦田压暗区分），
+           播种起按 HD 同阶映射 pxf_crop_<作物>_s<阶>（阶公式与上方 sIdx 一致；cropfix 名先还原）；pxb 未就绪回退试点 pxField 口径。 */
+        const pxCrop = CONFIG.art.pixelSample && Art.readyPxb && Art.F['pxf_tile_soil.png'];
+        if (pxCrop){
+          const base = imgName.replace('cropfix_', 'crop_').replace('_v1.png', '.png');
+          const pn2 = (p.state === 'empty' || p.state === 'tilled') ? 'pxf_tile_soil.png' : 'pxf_' + base;
+          const pf2 = Art.F[pn2];
+          if (pf2){ const dw = 96, dh = dw * pf2.h / pf2.w;
+            g.drawImage(pf2.img, pf2.x, pf2.y, pf2.w, pf2.h, c.x - dw / 2, c.y + 28 - dh, dw, dh);
+            if (p.state === 'tilled'){ g.save(); g.beginPath();
+              g.moveTo(c.x, c.y - 22); g.lineTo(c.x + 46, c.y + 2); g.lineTo(c.x, c.y + 26); g.lineTo(c.x - 46, c.y + 2);
+              g.closePath(); g.clip(); g.fillStyle = 'rgba(74,50,22,.22)'; g.fillRect(c.x - 46, c.y - 22, 92, 48); g.restore(); } }
+        }
+        const pxField = !pxCrop && CONFIG.art.pixelSample && Art.readyPxp && Art.F['pxp_gnd_field_v1.png'];
         if (pxField){ const pf = Art.F['pxp_gnd_field_v1.png'];
           g.save(); g.beginPath();
           g.moveTo(c.x, c.y - 22); g.lineTo(c.x + 46, c.y + 2); g.lineTo(c.x, c.y + 26); g.lineTo(c.x - 46, c.y + 2);
@@ -3841,7 +3879,7 @@ const Render = {
           if (p.state === 'tilled'){ g.fillStyle = 'rgba(74,50,22,.22)'; g.fillRect(c.x - 46, c.y - 22, 92, 48); }
           g.restore(); }
         const f = Art.F[imgName];
-        if (f && !(pxField && imgName === 'tile_soil_v1.png')){ const dw = 96, dh = dw * f.h / f.w;
+        if (!pxCrop && f && !(pxField && imgName === 'tile_soil_v1.png')){ const dw = 96, dh = dw * f.h / f.w;
           g.drawImage(f.img, f.x, f.y, f.w, f.h, c.x - dw / 2, c.y + 28 - dh, dw, dh); }
         if (p.reservedBy || p.state === 'mature'){
           g.strokeStyle = p.reservedBy ? 'rgba(255,207,94,.9)'
@@ -3876,38 +3914,54 @@ const Render = {
     if (Art.ready){ // M3：建筑单体图（位置对位现有 solids/anchors，碰撞盒不随图变）
       /* 追加批3：Y 排序键逐栋复核＝建筑接地线（solid 底边），旧键最大偏 16px（居舍 330 vs 接地 314）致人物在屋前被屋身盖住 */
       ents.push({ y: 246, f: () => { this._groundShadow(800, 248, 290);
-        if (CONFIG.art.pixelSample && Art.readyPxp && Art.F['pxp_bld_hall_v1.png']){ const pf = Art.F['pxp_bld_hall_v1.png'];
+        if (CONFIG.art.pixelSample && Art.readyPxb && this._pxb(g, 'pxf_bld_hall.png', 640, 252, 320, cam)) {}   // 像素全量·程二：S4 大殿（接地线 252、宽 320 同现行）
+        else if (CONFIG.art.pixelSample && Art.readyPxp && Art.F['pxp_bld_hall_v1.png']){ const pf = Art.F['pxp_bld_hall_v1.png'];
           const dh = 320 * pf.h / pf.w; Art.draw(g, 'pxp_bld_hall_v1.png', 640 - cam.x, 252 - dh - cam.y, 320, dh); }   // 像素试点：等比入位、底边（接地线 252）锚定，宽度同现行 320
         else Art.draw(g, 'bld_hall_v1.png', 640 - cam.x, 17 - cam.y, 320, 235); } });
-      ents.push({ y: 528, f: () => { this._groundShadow(1234, 530, 225); Art.draw(g, 'bld_forge_v1.png', 1109 - cam.x, 303 - cam.y, 250, 231); } });
-      ents.push({ y: 816, f: () => { this._groundShadow(1125, 818, 190); Art.draw(g, 'bld_stall_v1.png', 1020 - cam.x, 667 - cam.y, 210, 155); } });
-      ents.push({ y: 820, f: () => Art.draw(g, 'prop_scale_v1.png', 1150 - cam.x, 726 - cam.y, 58, 67) }); // M3.5：出货台吊秤识别件
-      ents.push({ y: 1142, f: () => { this._groundShadow(800, 1148, 270); Art.draw(g, 'bld_gate_v1.png', 650 - cam.x, 954 - cam.y, 300, 202); } });
+      ents.push({ y: 528, f: () => { this._groundShadow(1234, 530, 225);
+        if (!(CONFIG.art.pixelSample && Art.readyPxb && this._pxb(g, 'pxf_bld_forge.png', 1109, 534, 250, cam)))
+          Art.draw(g, 'bld_forge_v1.png', 1109 - cam.x, 303 - cam.y, 250, 231); } });
+      ents.push({ y: 816, f: () => { this._groundShadow(1125, 818, 190);
+        if (!(CONFIG.art.pixelSample && Art.readyPxb && this._pxb(g, 'pxf_bld_stall.png', 1020, 822, 210, cam)))
+          Art.draw(g, 'bld_stall_v1.png', 1020 - cam.x, 667 - cam.y, 210, 155); } });
+      ents.push({ y: 820, f: () => { // M3.5：出货台吊秤识别件
+        if (!(CONFIG.art.pixelSample && Art.readyPxb && this._pxb(g, 'pxf_prop_scale.png', 1150, 793, 58, cam)))
+          Art.draw(g, 'prop_scale_v1.png', 1150 - cam.x, 726 - cam.y, 58, 67); } });
+      ents.push({ y: 1142, f: () => { this._groundShadow(800, 1148, 270);
+        if (!(CONFIG.art.pixelSample && Art.readyPxb && this._pxb(g, 'pxf_bld_gate.png', 650, 1156, 300, cam)))
+          Art.draw(g, 'bld_gate_v1.png', 650 - cam.x, 954 - cam.y, 300, 202); } });
       ents.push({ y: 594, f: () => { this._groundShadow(106, 596, 160);
-        if (CONFIG.art.pixelSample && Art.readyPxp && Art.F['pxp_bld_waterwheel_v1.png']){ const pf = Art.F['pxp_bld_waterwheel_v1.png'];
+        if (CONFIG.art.pixelSample && Art.readyPxb && this._pxb(g, 'pxf_bld_waterwheel.png', 16, 600, 190, cam)) {}   // 像素全量·程二：S5 竖椭圆轮水车——静帧不旋转（任务书口径），活气由池塘/渠边水花 fx 承担
+        else if (CONFIG.art.pixelSample && Art.readyPxp && Art.F['pxp_bld_waterwheel_v1.png']){ const pf = Art.F['pxp_bld_waterwheel_v1.png'];
           const dh = 180 * pf.h / pf.w; Art.draw(g, 'pxp_bld_waterwheel_v1.png', 16 - cam.x, 600 - dh - cam.y, 180, dh); }   // 像素试点：等比入位、底边（600）锚定；轮为烘焙静帧，不叠 HD 旋转轮层（试点已知项，报告登记）
         else { Art.draw(g, 'bld_waterwheel_v1.png', 16 - cam.x, 430 - cam.y, 180, 170);
           this._drawWheelOverlay(g, cam); } } });
       const qb = (S.buildings || []).find(b => b.id === 'quarters');
       if (qb && qb.level >= 1)
-        ents.push({ y: 314, f: () => { this._groundShadow(520, 322, 215); Art.draw(g, 'bld_quarters_v1.png', 400 - cam.x, 137 - cam.y, 240, 193); } });
+        ents.push({ y: 314, f: () => { this._groundShadow(520, 322, 215);
+          if (!(CONFIG.art.pixelSample && Art.readyPxb && this._pxb(g, 'pxf_bld_quarters.png', 400, 330, 240, cam)))
+            Art.draw(g, 'bld_quarters_v1.png', 400 - cam.x, 137 - cam.y, 240, 193); } });
       if (Art.ready2){ // 美术批二：矿洞口＋场景装饰（纯装饰、不进碰撞盒，y-sort＝底边；布点见集成报告）
-        ents.push({ y: 200, f: () => { this._groundShadow(1400, 199, 185); Art.draw(g, 'prop_minegate_v1.png', 1295 - cam.x, 51 - cam.y, 210, 149); } });
-        ents.push({ y: 296, f: () => Art.draw(g, 'prop_crystal_v1.png', 1258 - cam.x, 230 - cam.y, 84, 66) });
-        ents.push({ y: 296, f: () => Art.draw(g, 'prop_cart_v1.png', 1466 - cam.x, 222 - cam.y, 104, 74) });
-        ents.push({ y: 326, f: () => Art.draw(g, 'prop_bush_v1.png', 652 - cam.x, 268 - cam.y, 76, 58) });
-        ents.push({ y: 648, f: () => Art.draw(g, 'prop_bush_v1.png', 990 - cam.x, 590 - cam.y, 76, 58) });
-        ents.push({ y: 296, f: () => Art.draw(g, 'prop_flower_v1.png', 958 - cam.x, 240 - cam.y, 72, 56) });
-        ents.push({ y: 946, f: () => Art.draw(g, 'prop_fence_v1.png', 300 - cam.x, 884 - cam.y, 120, 62) });
-        ents.push({ y: 946, f: () => Art.draw(g, 'prop_fence_v1.png', 1180 - cam.x, 884 - cam.y, 120, 62) });
-        ents.push({ y: 1062, f: () => Art.draw(g, 'prop_lantern_v1.png', 618 - cam.x, 1006 - cam.y, 40, 56) });
-        ents.push({ y: 1062, f: () => Art.draw(g, 'prop_lantern_v1.png', 950 - cam.x, 1006 - cam.y, 40, 56) });
-        ents.push({ y: 1058, f: () => Art.draw(g, 'prop_flower_v1.png', 980 - cam.x, 1002 - cam.y, 72, 56) });
+        /* 像素全量·程二：装饰整批走 _pxb（pxf 帧名 pxf_prop_*），像素关/未就绪逐件回退 HD 原帧 */
+        const PXD = (nm, x, b, w, hd, hx, hy, hw, hh) => {
+          if (!(CONFIG.art.pixelSample && Art.readyPxb && this._pxb(g, nm, x, b, w, cam)))
+            Art.draw(g, hd, hx - cam.x, hy - cam.y, hw, hh); };
+        ents.push({ y: 200, f: () => { this._groundShadow(1400, 199, 185); PXD('pxf_prop_minegate.png', 1295, 200, 210, 'prop_minegate_v1.png', 1295, 51, 210, 149); } });
+        ents.push({ y: 296, f: () => PXD('pxf_prop_crystal.png', 1258, 296, 84, 'prop_crystal_v1.png', 1258, 230, 84, 66) });
+        ents.push({ y: 296, f: () => PXD('pxf_prop_cart.png', 1466, 296, 104, 'prop_cart_v1.png', 1466, 222, 104, 74) });
+        ents.push({ y: 326, f: () => PXD('pxf_prop_bush.png', 652, 326, 76, 'prop_bush_v1.png', 652, 268, 76, 58) });
+        ents.push({ y: 648, f: () => PXD('pxf_prop_bush.png', 990, 648, 76, 'prop_bush_v1.png', 990, 590, 76, 58) });
+        ents.push({ y: 296, f: () => PXD('pxf_prop_flower.png', 958, 296, 72, 'prop_flower_v1.png', 958, 240, 72, 56) });
+        ents.push({ y: 946, f: () => PXD('pxf_prop_fence.png', 300, 946, 120, 'prop_fence_v1.png', 300, 884, 120, 62) });
+        ents.push({ y: 946, f: () => PXD('pxf_prop_fence.png', 1180, 946, 120, 'prop_fence_v1.png', 1180, 884, 120, 62) });
+        ents.push({ y: 1062, f: () => PXD('pxf_prop_lantern.png', 618, 1062, 40, 'prop_lantern_v1.png', 618, 1006, 40, 56) });
+        ents.push({ y: 1062, f: () => PXD('pxf_prop_lantern.png', 950, 1062, 40, 'prop_lantern_v1.png', 950, 1006, 40, 56) });
+        ents.push({ y: 1058, f: () => PXD('pxf_prop_flower.png', 980, 1058, 72, 'prop_flower_v1.png', 980, 1002, 72, 56) });
         /* 追加批3：M1 程序占位树（方块树冠）全部拔除，原树位以灌木/花丛替代（原树干碰撞保留） */
-        ents.push({ y: 154, f: () => Art.draw(g, 'prop_bush_v1.png', 48 - cam.x, 68 - cam.y, 116, 86) });
-        ents.push({ y: 774, f: () => Art.draw(g, 'prop_bush_v1.png', 1318 - cam.x, 690 - cam.y, 116, 84) });
-        ents.push({ y: 1030, f: () => Art.draw(g, 'prop_flower_v1.png', 112 - cam.x, 954 - cam.y, 104, 76) });
-        ents.push({ y: 1054, f: () => Art.draw(g, 'prop_bush_v1.png', 1438 - cam.x, 968 - cam.y, 116, 86) });
+        ents.push({ y: 154, f: () => PXD('pxf_prop_bush.png', 48, 154, 116, 'prop_bush_v1.png', 48, 68, 116, 86) });
+        ents.push({ y: 774, f: () => PXD('pxf_prop_bush.png', 1318, 774, 116, 'prop_bush_v1.png', 1318, 690, 116, 84) });
+        ents.push({ y: 1030, f: () => PXD('pxf_prop_flower.png', 112, 1030, 104, 'prop_flower_v1.png', 112, 954, 104, 76) });
+        ents.push({ y: 1054, f: () => PXD('pxf_prop_bush.png', 1438, 1054, 116, 'prop_bush_v1.png', 1438, 968, 116, 86) });
       }
     } else {
 
