@@ -2184,6 +2184,7 @@ const Interaction = {
   },
   performAction(){
     if (nowMs() < Actor.player.actionUntil) return;   // 追加批5：动作锁定期间不接受新动作（目标与按钮一并锁定）
+    UI.armClickGuard();   // 急修：本次点按若打开页/面，护盾吞掉同一手势穿透进新页的 click（见 UI.armClickGuard）
     const t = this._resolveRaw(Actor.getPlayerPos()); if (!t) return;   // 执行走即时解析：滞回只管按钮显示，误触旧目标比按钮慢 150ms 更糟
     this.target = t;
     if (t.kind === 'plot'){ const p = Farming.plotById(t.id);
@@ -2192,7 +2193,8 @@ const Interaction = {
       Farming.applyPlotAction(t.id, { type: 'player', id: 'player' }); }
     else if (t.kind === 'settlement') UI.openSettlementPanel();
     else if (t.kind === 'promote') UI.openPromotePanel();
-    else if (t.kind === 'sleep') Day.sleep();
+    /* 急修：删除原 `t.kind === 'sleep'` 直达 Day.sleep 的死分支——_resolveRaw 从不产出 sleep 目标，
+       留着它等于在「进入」分发链里埋了一条一点即睡的雷；睡觉只许从大殿页内按钮两段确认触发。 */
     else if (t.kind === 'enterHall') UI.openBuildingPage('hall');
     else if (t.kind === 'forge') UI.openBuildingPage('forge');
     else if (t.kind === 'orders') UI.openBuildingPage('stall');
@@ -2242,6 +2244,13 @@ const UI = {
   /* 修复批③：双容器——底部面板（HUD 入口）与建筑全屏页（门前进入）。各 open* 函数与
      容器无关：_mode 决定 openPanel 落哪个容器，页内刷新（开工/交付等重开自身）保持同模式。 */
   _mode: 'panel', _bannerFor: null,
+  /* 急修（2026-11-07）：开页点击护盾——互动键以 pointerdown 同步开页重建 DOM，同一手势随后派发的
+     click 会按开页后的新布局重新命中、穿透进刚打开的页（真机高屏几何下恰压中大殿页「睡觉」按钮，
+     一次点按直达次日，主人 14:51 录屏实证；复现见 tests/fix8.py 修前记录）。performAction 执行前
+     armClickGuard：开页后 600ms 内、落在页/面容器里的第一下 click 在捕获阶段吞掉（只吞一次），
+     玩家随后在页内的正常点按不受影响。吞噬端监听注册在 Game.init 的绑定区。 */
+  _guardUntil: 0,
+  armClickGuard(){ this._guardUntil = nowMs() + 600; },
   openPanel(title, sub, rowsHtml, buttons){
     const pageMode = this._mode === 'page';
     const p = pageMode ? $('page') : $('panel');
@@ -2269,7 +2278,9 @@ const UI = {
       if (close){ const b = document.createElement('button');
         b.className = 'pbtn'; b.id = 'btnPageSleep';
         b.innerHTML = this.icn('sleep') + '睡觉过天（回满体力）';
-        b.onclick = () => { this.closePanel(); Day.sleep(); };
+        /* 急修：睡觉改两段确认（与存档保存/读取/删除共用 _armConfirm 口径）——此前它是全页唯一
+           无确认的高后果按钮，穿透 click 一次命中即关页睡觉；今首击只变「确认？」，再击才执行。 */
+        this._armConfirm(b, () => { this.closePanel(); Day.sleep(); });
         close.parentNode.insertBefore(b, close); }
     }
     else if (kind === 'forge') this.openStationPanel('forge');
@@ -3394,6 +3405,11 @@ const Game = {
           ? '（需 ' + UI.needsText(CONFIG.crops[S.farmMode].inputs) + '）' : ''));
       Save.save('farm_mode'); };
     $('panelWrap').addEventListener('pointerdown', e => { if (e.target === $('panelWrap')) UI.closePanel(); });
+    document.addEventListener('click', e => {   // 急修：开页护盾吞噬端（捕获阶段，先于页内任何 onclick 触发）
+      if (nowMs() < UI._guardUntil && e.target && e.target.closest &&
+          (e.target.closest('#pageWrap') || e.target.closest('#panelWrap'))){
+        e.stopPropagation(); e.preventDefault(); UI._guardUntil = 0; }
+    }, true);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden){ Save.save('hidden'); this.running = false; }
       else if (!this.running){ this.last = 0; this.running = true; requestAnimationFrame(this.loop.bind(this)); } });
