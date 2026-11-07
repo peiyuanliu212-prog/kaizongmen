@@ -1124,6 +1124,23 @@ const Fx = {
       spread: 780, spreadY: 300, sprites: petals, vx: 0.14, vy: 0.13, life: 9500, size: 8.5 });
     if (gleaves.length) this.emitters.push({ x: 800, y: 760, rate: 1.0, acc: 0, on: true, drift: true,
       spread: 780, spreadY: 330, sprites: gleaves, vx: 0.11, vy: 0.16, life: 9000, size: 9 });
+    this.refreshAmbientArt();
+  },
+  /* 像素全量批：环境飘落精灵随画风换源——emitters 只存精灵名，换 this.sprites 的画布即全场生效。
+     像素侧花瓣 6 枚（S7），第 7 槽复用第 6 枚保住发射器名单不变；关回像素则重裁 HD 源。 */
+  refreshAmbientArt(){
+    if (!this._ambientOn || !this.sprites || typeof Art === 'undefined') return;
+    const px = typeof CONFIG !== 'undefined' && CONFIG.art.pixelSample && Art.readyPxp && Art.F['pxf_fx_leaf_1.png'];
+    for (let i = 1; i <= 7; i++){
+      const c = px ? Art.cropCanvas('pxf_fx_petal_' + Math.min(i, 6) + '.png', true)
+                   : Art.cropCanvas('fx_petal_' + i + '_v1.png', true);
+      if (c) this.sprites['petal' + i] = c;
+    }
+    for (let i = 1; i <= 8; i++){
+      const c = px ? Art.cropCanvas('pxf_fx_leaf_' + i + '.png', true)
+                   : Art.cropCanvas('fx_leaf_' + i + '_v1.png', true);
+      if (c) this.sprites['gleaf' + i] = c;
+    }
   },
   /* 美术批二：剑光拖影贴图注册（fx2_trail_1..4 → sprites trail1..4）。
      高清真机反馈批②起环件不再用于飞行拖尾（拖尾改 _drawSwordTrail 程序光带），注册保留供他用/测试契约。 */
@@ -1492,9 +1509,10 @@ const Scene = {
     if (typeof Art !== 'undefined' && Art.readyPxp){ this._buildPixelLayerNative(); if (this.pixelLayer) return; }
     this.pixelLayer = this._pixelBaseCanvas();
   },
-  /* 像素试点：原生像素地面层——布局与 _paintGroundTextured 逐项同构，只换贴图源为 pxp 原生四类：
-     草地打底 → 土路动线 → 药圃田基 → 池塘水面；石板前坪×5/矿区岩面（含围栏/锁标）/大殿石阶无试点贴图，
-     从样板基底按原矩形裁回（试点范围如实，见集成报告）。构建在 ÷3 层上（世界坐标经 scale 映射），最近邻出图。 */
+  /* 像素地面层（全量批 v2）：布局与 _paintGroundTextured 逐项同构，贴图源全换原生像素——
+     草地 pxp 草 A＋pxf 草 B（S7 带花）双贴图马赛克 → 土路动线 → 药圃田基 → 池塘水面＋S7 岸线三向
+     → 矿区岩面（S7）→ 石板前坪×5 与大殿石阶（S7 台阶格，石板/台阶共用此格——生图侧清单本就同格）。
+     pxf 地面帧未就绪才回退试点口径（石板/矿区/石阶从样板基底裁回）。构建在 ÷3 层上，最近邻出图。 */
   _buildPixelLayerNative(){
     const base = this._pixelBaseCanvas(); if (!base){ this.pixelLayer = null; return; }
     if (!Art.F['pxp_gnd_grass_v1.png'] || !Art.F['pxp_gnd_dirt_v1.png'] || !Art.F['pxp_gnd_field_v1.png'] || !Art.F['pxp_gnd_water_v1.png']){ this.pixelLayer = null; return; }
@@ -1503,7 +1521,9 @@ const Scene = {
     const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
     g.drawImage(base, 0, 0);
     g.save(); g.scale(1 / F, 1 / F);
-    this._mosaic(g, ['pxp_gnd_grass_v1.png'], -40, -40, W + 80, H + 80, 168, 116, 7);
+    const full = !!Art.F['pxf_gnd_rock.png'];
+    const grassSet = full ? ['pxp_gnd_grass_v1.png', 'pxf_gnd_grassb.png'] : ['pxp_gnd_grass_v1.png'];
+    this._mosaic(g, grassSet, -40, -40, W + 80, H + 80, 168, 116, 7);
     const dirt = ['pxp_gnd_dirt_v1.png'];
     this._mosaic(g, dirt, 756, 240, 88, 920, 132, 94, 21);
     this._mosaic(g, dirt, 120, 812, 1330, 64, 132, 94, 22);
@@ -1516,11 +1536,33 @@ const Scene = {
     g.save(); g.beginPath(); g.rect(-10, 492, 160, 180); g.clip();
     this._mosaic(g, ['pxp_gnd_water_v1.png'], -10, 492, 160, 180, 140, 100, 41);
     g.restore();
+    const dr = (n, x, y, w, h) => { const fr = Art.F[n]; if (fr) g.drawImage(fr.img, fr.x, fr.y, fr.w, fr.h, x, y, w, h); };
+    if (full){
+      /* 岸线三向（矩形口径同 HD _shore：n/s 为横带、e 为竖带；S7 岸格上→下＝草/土/水，
+         n 原样、s 上下翻、e 顺时针 90°，三变体已离线产出入册） */
+      dr('pxf_gnd_shore.png', 6, 466, 210, 42);
+      dr('pxf_gnd_shore_s.png', 6, 648, 210, 42);
+      dr('pxf_gnd_shore_e.png', 202, 494, 40, 176);
+      /* 矿区岩面 */
+      g.save(); g.beginPath(); g.rect(1240, 40, 328, 292); g.clip();
+      this._mosaic(g, ['pxf_gnd_rock.png'], 1240, 40, 328, 292, 168, 116, 61);
+      g.restore();
+      /* 石板前坪 ×5（裁切内马赛克）＋大殿石阶（整格拉伸） */
+      const plazas = [[596, 96, 408, 252], [364, 116, 312, 240], [1052, 286, 356, 282], [984, 624, 316, 244], [528, 924, 544, 276]];
+      plazas.forEach(([x, y, kw, kh], i) => {
+        g.save(); g.beginPath(); g.rect(x, y, kw, kh); g.clip();
+        this._mosaic(g, ['pxf_gnd_steps.png'], x, y, kw, kh, 168, 116, 71 + i);
+        g.restore();
+      });
+      dr('pxf_gnd_steps.png', 742, 230, 116, 106);
+    }
     g.restore();
-    const keep = [[596, 96, 408, 252], [364, 116, 312, 240], [1052, 286, 356, 282], [984, 624, 316, 244],
-                  [528, 924, 544, 276], [1240, 40, 328, 292], [742, 230, 116, 106]];
-    for (const [x, y, kw, kh] of keep)
-      g.drawImage(base, x / F, y / F, kw / F, kh / F, x / F, y / F, kw / F, kh / F);
+    if (!full){
+      const keep = [[596, 96, 408, 252], [364, 116, 312, 240], [1052, 286, 356, 282], [984, 624, 316, 244],
+                    [528, 924, 544, 276], [1240, 40, 328, 292], [742, 230, 116, 106]];
+      for (const [x, y, kw, kh] of keep)
+        g.drawImage(base, x / F, y / F, kw / F, kh / F, x / F, y / F, kw / F, kh / F);
+    }
     this.pixelLayer = c;
   },
 };
@@ -3016,8 +3058,8 @@ const UI = {
       '<button class="act2" data-pixelsample="1">' + (CONFIG.art.pixelSample ? '已开 · 点此关闭' : '开启') + '</button></div>');
     document.querySelectorAll('[data-pixelsample]').forEach(b => b.onclick = () => {
       if (!CONFIG.art.pixelSample){ Art.loadPixelSample(ok => { if (!ok){ this.hint('像素图集加载失败，仍为现行画风'); return; }
-        CONFIG.art.pixelSample = true; Scene._prerenderStatic(); this.hint('像素试点已开'); this.openSectPanel(); }); }
-      else { CONFIG.art.pixelSample = false; Scene._prerenderStatic(); this.hint('像素试点已关，回到现行画风'); this.openSectPanel(); }
+        CONFIG.art.pixelSample = true; Scene._prerenderStatic(); Fx.refreshAmbientArt(); this.hint('像素试点已开'); this.openSectPanel(); }); }
+      else { CONFIG.art.pixelSample = false; Scene._prerenderStatic(); Fx.refreshAmbientArt(); this.hint('像素试点已关，回到现行画风'); this.openSectPanel(); }
     });
     document.querySelectorAll('[data-up]').forEach(b => b.onclick = () => {
       if (Sect.upgrade(b.dataset.up)) this.openSectPanel(); });
@@ -3162,21 +3204,28 @@ const Art = {
     im.onload = () => { this.imgs.pxs = im; this._bindGroup('pxs'); this.readyPx = true; if (cb) cb(true); };
     im.onerror = () => { console.warn('[art] pixel sample load failed'); if (cb) cb(false); };
     im.src = 'assets/atlas_pixel_sample_v1.png';
-    this.loadPixelPilot();
+    this.loadPixelFull();
   },
-  /* 像素试点：原生像素图集（slice_work10 离线管线产出：主角 25 帧＋弟子 22 帧＋大殿/水车＋地面四贴图）。
-     与样板图集并行装载：试点就绪走全覆盖换帧（drawPerson pxNative），失败只降级回样板口径、不开天窗。 */
-  loadPixelPilot(cb){
+  /* 像素全量批（2026-11-07）：原生像素图集组 pxf——人物/地面/fx 图集 atlas_pxf_chars
+     （slice_work11 管线产出：px1 转正站/走 16 帧＋大殿/水车过渡 2 帧＋S1 主角补帧 25＋飞剑
+     ＋S2 弟子整表＋S7 地面 7＋fx 19；帧映射总表见 game/像素全量集成-报告-20261107.md）。
+     就绪走 pxNative 全覆盖换帧；失败只降级回样板口径、不开天窗。场景图集（建筑/生产）续载 _loadPxfScene。 */
+  loadPixelFull(cb){
     if (this.readyPxp){ if (cb) cb(true); return; }
-    if (!this.RECTS.pxp) this.RECTS.pxp = {"pxp_bld_hall_v1.png": [2, 2, 247, 200], "pxp_bld_waterwheel_v1.png": [251, 2, 237, 176], "pxp_gnd_grass_v1.png": [490, 2, 144, 144], "pxp_gnd_dirt_v1.png": [636, 2, 144, 144], "pxp_gnd_field_v1.png": [782, 2, 144, 144], "pxp_gnd_water_v1.png": [2, 204, 144, 144], "pxp_master_stand_f_v1.png": [148, 204, 35, 64], "pxp_master_walk_f1_v1.png": [185, 204, 35, 64], "pxp_master_walk_f2_v1.png": [222, 204, 36, 64], "pxp_master_walk_f3_v1.png": [260, 204, 36, 64], "pxp_master_stand_b_v1.png": [298, 204, 34, 64], "pxp_master_walk_b1_v1.png": [334, 204, 34, 64], "pxp_master_walk_b2_v1.png": [370, 204, 34, 64], "pxp_master_walk_b3_v1.png": [406, 204, 34, 64], "pxp_master_stand_sr_v1.png": [442, 204, 40, 64], "pxp_master_walk_sr1_v1.png": [484, 204, 40, 64], "pxp_master_walk_sr2_v1.png": [526, 204, 40, 64], "pxp_master_walk_sr3_v1.png": [568, 204, 39, 64], "pxp_master_stand_sl_v1.png": [609, 204, 41, 64], "pxp_master_walk_sl1_v1.png": [652, 204, 41, 64], "pxp_master_walk_sl2_v1.png": [695, 204, 41, 64], "pxp_master_walk_sl3_v1.png": [738, 204, 41, 64], "pxp_master_labor_water_v1.png": [781, 204, 52, 64], "pxp_master_labor_hoe_v1.png": [835, 204, 47, 64], "pxp_master_labor_sow_v1.png": [884, 204, 46, 64], "pxp_master_labor_harvest_v1.png": [932, 204, 53, 64], "pxp_master_labor_cast_v1.png": [2, 350, 54, 64], "pxp_master_fly_f_v1.png": [58, 350, 46, 64], "pxp_master_fly_b_v1.png": [106, 350, 48, 64], "pxp_master_fly_sr_v1.png": [156, 350, 49, 64], "pxp_master_fly_sl_v1.png": [207, 350, 49, 64], "pxp_male_stand_f_v1.png": [258, 350, 31, 64], "pxp_male_walk_f_v1.png": [291, 350, 31, 64], "pxp_male_stand_b_v1.png": [324, 350, 31, 64], "pxp_male_walk_b_v1.png": [357, 350, 32, 64], "pxp_male_stand_sl_v1.png": [391, 350, 36, 64], "pxp_male_walk_sl_v1.png": [429, 350, 37, 64], "pxp_male_stand_sr_v1.png": [468, 350, 35, 64], "pxp_male_walk_sr_v1.png": [505, 350, 35, 64], "pxp_male_labor_water_v1.png": [542, 350, 51, 64], "pxp_male_labor_hoe_v1.png": [595, 350, 52, 64], "pxp_male_labor_sow_v1.png": [649, 350, 45, 64], "pxp_male_labor_carry_v1.png": [696, 350, 43, 64], "pxp_female_stand_f_v1.png": [741, 350, 44, 64], "pxp_female_walk_f_v1.png": [787, 350, 44, 64], "pxp_female_stand_b_v1.png": [833, 350, 43, 64], "pxp_female_walk_b_v1.png": [878, 350, 42, 64], "pxp_female_stand_sl_v1.png": [922, 350, 34, 64], "pxp_female_walk_sr1_v1.png": [958, 350, 35, 64], "pxp_female_stand_sr_v1.png": [2, 416, 36, 64], "pxp_female_walk_sr2_v1.png": [40, 416, 36, 64], "pxp_female_labor_carry_v1.png": [78, 416, 38, 64], "pxp_female_labor_water_v1.png": [118, 416, 56, 64], "pxp_female_labor_sow_v1.png": [176, 416, 50, 64]};
+    if (!this.RECTS.pxf) this.RECTS.pxf = {"pxp_master_stand_b_v1.png": [2, 2, 34, 64], "pxp_master_stand_f_v1.png": [38, 2, 35, 64], "pxp_master_stand_sl_v1.png": [75, 2, 41, 64], "pxp_master_stand_sr_v1.png": [118, 2, 40, 64], "pxp_master_walk_b1_v1.png": [160, 2, 34, 64], "pxp_master_walk_b2_v1.png": [196, 2, 34, 64], "pxp_master_walk_b3_v1.png": [232, 2, 34, 64], "pxp_master_walk_f1_v1.png": [268, 2, 35, 64], "pxp_master_walk_f2_v1.png": [305, 2, 36, 64], "pxp_master_walk_f3_v1.png": [343, 2, 36, 64], "pxp_master_walk_sl1_v1.png": [381, 2, 41, 64], "pxp_master_walk_sl2_v1.png": [424, 2, 41, 64], "pxp_master_walk_sl3_v1.png": [467, 2, 41, 64], "pxp_master_walk_sr1_v1.png": [510, 2, 40, 64], "pxp_master_walk_sr2_v1.png": [552, 2, 40, 64], "pxp_master_walk_sr3_v1.png": [594, 2, 39, 64], "pxf_master_cast_1.png": [635, 2, 49, 64], "pxf_master_cast_2.png": [686, 2, 54, 64], "pxf_master_cast_3.png": [742, 2, 50, 64], "pxf_master_cast_4.png": [794, 2, 54, 64], "pxf_master_fly_b_1.png": [850, 2, 65, 64], "pxf_master_fly_b_2.png": [917, 2, 67, 64], "pxf_master_fly_f_1.png": [2, 68, 71, 64], "pxf_master_fly_f_2.png": [75, 68, 69, 64], "pxf_master_fly_sl_1.png": [146, 68, 65, 64], "pxf_master_fly_sl_2.png": [213, 68, 68, 64], "pxf_master_fly_sr_1.png": [283, 68, 65, 64], "pxf_master_fly_sr_2.png": [350, 68, 68, 64], "pxf_master_harvest_1.png": [420, 68, 65, 64], "pxf_master_harvest_2.png": [487, 68, 44, 64], "pxf_master_harvest_3.png": [533, 68, 44, 64], "pxf_master_hoe_1.png": [579, 68, 59, 64], "pxf_master_hoe_2.png": [640, 68, 63, 64], "pxf_master_hoe_3.png": [705, 68, 61, 64], "pxf_master_sow_1.png": [768, 68, 59, 64], "pxf_master_sow_2.png": [829, 68, 59, 64], "pxf_master_sow_3.png": [890, 68, 60, 64], "pxf_master_sword.png": [2, 134, 120, 43], "pxf_master_water_1.png": [124, 134, 53, 64], "pxf_master_water_2.png": [179, 134, 64, 64], "pxf_master_water_3.png": [245, 134, 69, 64], "pxf_male_carry_1.png": [316, 134, 36, 64], "pxf_male_carry_2.png": [354, 134, 39, 64], "pxf_male_carry_3.png": [395, 134, 38, 64], "pxf_male_carry_4.png": [435, 134, 46, 64], "pxf_male_harvest_1.png": [483, 134, 46, 64], "pxf_male_stand_b.png": [531, 134, 34, 64], "pxf_male_stand_f.png": [567, 134, 33, 64], "pxf_male_stand_sl.png": [602, 134, 33, 64], "pxf_male_stand_sr.png": [637, 134, 33, 64], "pxf_male_walk_b1.png": [672, 134, 33, 64], "pxf_male_walk_b2.png": [707, 134, 34, 64], "pxf_male_walk_b3.png": [743, 134, 33, 64], "pxf_male_walk_f1.png": [778, 134, 33, 64], "pxf_male_walk_f2.png": [813, 134, 33, 64], "pxf_male_walk_f3.png": [848, 134, 33, 64], "pxf_male_walk_sl1.png": [883, 134, 32, 64], "pxf_male_walk_sl2.png": [917, 134, 32, 64], "pxf_male_walk_sl3.png": [951, 134, 32, 64], "pxf_male_walk_sr1.png": [985, 134, 33, 64], "pxf_male_walk_sr2.png": [2, 200, 32, 64], "pxf_male_walk_sr3.png": [36, 200, 32, 64], "pxf_male_water_0.png": [70, 200, 46, 64], "pxf_male_water_1.png": [118, 200, 44, 64], "pxf_male_water_2.png": [164, 200, 65, 64], "pxf_male_water_3.png": [231, 200, 44, 64], "pxf_female_carry_1.png": [277, 200, 40, 64], "pxf_female_carry_2.png": [319, 200, 40, 64], "pxf_female_carry_3.png": [361, 200, 39, 64], "pxf_female_carry_4.png": [402, 200, 43, 64], "pxf_female_harvest_1.png": [447, 200, 43, 64], "pxf_female_harvest_2.png": [492, 200, 46, 64], "pxf_female_harvest_3.png": [540, 200, 42, 64], "pxf_female_stand_b.png": [584, 200, 41, 64], "pxf_female_stand_f.png": [627, 200, 42, 64], "pxf_female_stand_sl.png": [671, 200, 36, 64], "pxf_female_stand_sr.png": [709, 200, 36, 64], "pxf_female_walk_b1.png": [747, 200, 42, 64], "pxf_female_walk_b2.png": [791, 200, 42, 64], "pxf_female_walk_f1.png": [835, 200, 42, 64], "pxf_female_walk_f2.png": [879, 200, 41, 64], "pxf_female_walk_f3.png": [922, 200, 42, 64], "pxf_female_walk_sl1.png": [966, 200, 37, 64], "pxf_female_walk_sl2.png": [2, 266, 37, 64], "pxf_female_walk_sl3.png": [41, 266, 37, 64], "pxf_female_walk_sr1.png": [80, 266, 36, 64], "pxf_female_walk_sr2.png": [118, 266, 37, 64], "pxf_female_walk_sr3.png": [157, 266, 36, 64], "pxf_female_water_1.png": [195, 266, 66, 64], "pxf_female_water_2.png": [263, 266, 66, 64], "pxf_gnd_grassb.png": [331, 266, 144, 144], "pxf_gnd_roadedge.png": [477, 266, 144, 144], "pxf_gnd_rock.png": [623, 266, 144, 144], "pxf_gnd_shore.png": [769, 266, 144, 144], "pxf_gnd_shore_e.png": [2, 412, 144, 144], "pxf_gnd_shore_s.png": [148, 412, 144, 144], "pxf_gnd_steps.png": [294, 412, 144, 144], "pxp_gnd_dirt_v1.png": [440, 412, 144, 144], "pxp_gnd_field_v1.png": [586, 412, 144, 144], "pxp_gnd_grass_v1.png": [732, 412, 144, 144], "pxp_gnd_water_v1.png": [878, 412, 144, 144], "pxf_fx_leaf_1.png": [2, 558, 56, 72], "pxf_fx_leaf_2.png": [60, 558, 64, 72], "pxf_fx_leaf_3.png": [126, 558, 72, 67], "pxf_fx_leaf_4.png": [200, 558, 72, 58], "pxf_fx_leaf_5.png": [274, 558, 72, 70], "pxf_fx_leaf_6.png": [348, 558, 70, 72], "pxf_fx_leaf_7.png": [420, 558, 61, 72], "pxf_fx_leaf_8.png": [483, 558, 62, 72], "pxf_fx_petal_1.png": [547, 558, 67, 72], "pxf_fx_petal_2.png": [616, 558, 72, 67], "pxf_fx_petal_3.png": [690, 558, 72, 61], "pxf_fx_petal_4.png": [764, 558, 72, 62], "pxf_fx_petal_5.png": [838, 558, 72, 70], "pxf_fx_petal_6.png": [912, 558, 72, 65], "pxf_fx_splash_1.png": [2, 632, 110, 105], "pxf_fx_splash_2.png": [114, 632, 110, 85], "pxf_fx_splash_3.png": [226, 632, 110, 100], "pxf_fx_splash_4.png": [338, 632, 110, 107], "pxf_fx_wheel.png": [450, 632, 108, 110], "pxp_bld_hall_v1.png": [560, 632, 247, 200], "pxp_bld_waterwheel_v1.png": [2, 834, 237, 176]};
     if (!this._grpImg) this._grpImg = {};
-    this._grpImg.pxp = 'pxp';
+    this._grpImg.pxf = 'pxf';
     const im = new Image();
-    im.onload = () => { this.imgs.pxp = im; this._bindGroup('pxp'); this.readyPxp = true;
+    im.onload = () => { this.imgs.pxf = im; this._bindGroup('pxf'); this.readyPxp = true;
       if (typeof Scene !== 'undefined' && typeof CONFIG !== 'undefined' && CONFIG.art.pixelSample) Scene._prerenderStatic();
+      if (typeof Fx !== 'undefined' && Fx.refreshAmbientArt) Fx.refreshAmbientArt();
       if (cb) cb(true); };
-    im.onerror = () => { console.warn('[art] pixel pilot load failed'); if (cb) cb(false); };
-    im.src = 'assets/atlas_pixelpilot_v1.png';
+    im.onerror = () => { console.warn('[art] pixel full chars load failed'); if (cb) cb(false); };
+    im.src = 'assets/atlas_pxf_chars.png';
+    this._loadPxfScene();
+  },
+  /* 场景图集（程二填充：建筑/道具/作物/内景/三视） */
+  _loadPxfScene(){
   },
   _bindGroup(g){
     const img = this.imgs[this._grpImg[g]]; if (!img) return;
@@ -3303,7 +3352,8 @@ const SCALE4 = { master: 1.0, disciple: 1.0, flyK: 1.0 };
 Object.assign(BODY3, { "px_master_front_v1.png": [1.0, 137, 48.0, 12], "px_master_side_v1.png": [1.0, 137, 48.0, 13],
   "px_master_back_v1.png": [1.0, 137, 48.0, 14], "px_disciple_front_v1.png": [1.0, 137, 47.5, 12] });
 /* 像素试点：pxp 帧锚点（slice_work10 离线实测，帧自身像素单位：脚底行/头部质心x/头顶行；缩放走 drawPerson pxNative 原生宽高比几何） */
-Object.assign(BODY3, {"pxp_master_stand_f_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_f1_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_f2_v1.png": [1.0, 61, 17.0, 5], "pxp_master_walk_f3_v1.png": [1.0, 61, 17.0, 5], "pxp_master_stand_b_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_b1_v1.png": [1.0, 61, 16.0, 5], "pxp_master_walk_b2_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_b3_v1.png": [1.0, 61, 16.0, 5], "pxp_master_stand_sr_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_sr1_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_sr2_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_sr3_v1.png": [1.0, 61, 18.5, 5], "pxp_master_stand_sl_v1.png": [1.0, 61, 19.5, 5], "pxp_master_walk_sl1_v1.png": [1.0, 61, 19.5, 5], "pxp_master_walk_sl2_v1.png": [1.0, 61, 20.0, 5], "pxp_master_walk_sl3_v1.png": [1.0, 61, 19.5, 5], "pxp_master_labor_water_v1.png": [1.0, 61, 19.0, 5], "pxp_master_labor_hoe_v1.png": [1.0, 61, 18.5, 5], "pxp_master_labor_sow_v1.png": [1.0, 61, 19.0, 5], "pxp_master_labor_harvest_v1.png": [1.0, 60, 18.5, 5], "pxp_master_labor_cast_v1.png": [1.0, 61, 20.0, 5], "pxp_master_fly_f_v1.png": [1.0, 55, 21.0, 4], "pxp_master_fly_b_v1.png": [1.0, 55, 23.0, 4], "pxp_master_fly_sr_v1.png": [1.0, 55, 21.5, 4], "pxp_master_fly_sl_v1.png": [1.0, 55, 22.0, 4], "pxp_male_stand_f_v1.png": [1.0, 61, 15.0, 5], "pxp_male_walk_f_v1.png": [1.0, 61, 15.0, 5], "pxp_male_stand_b_v1.png": [1.0, 61, 15.0, 5], "pxp_male_walk_b_v1.png": [1.0, 61, 15.5, 5], "pxp_male_stand_sl_v1.png": [1.0, 61, 18.0, 5], "pxp_male_walk_sl_v1.png": [1.0, 61, 18.0, 5], "pxp_male_stand_sr_v1.png": [1.0, 61, 17.0, 5], "pxp_male_walk_sr_v1.png": [1.0, 61, 17.0, 5], "pxp_male_labor_water_v1.png": [1.0, 61, 20.5, 5], "pxp_male_labor_hoe_v1.png": [1.0, 61, 24.5, 5], "pxp_male_labor_sow_v1.png": [1.0, 61, 25.0, 5], "pxp_male_labor_carry_v1.png": [1.0, 61, 18.0, 5], "pxp_female_stand_f_v1.png": [1.0, 61, 21.5, 5], "pxp_female_walk_f_v1.png": [1.0, 61, 21.5, 5], "pxp_female_stand_b_v1.png": [1.0, 61, 21.0, 5], "pxp_female_walk_b_v1.png": [1.0, 61, 20.5, 5], "pxp_female_stand_sl_v1.png": [1.0, 61, 16.0, 5], "pxp_female_walk_sr1_v1.png": [1.0, 61, 17.0, 5], "pxp_female_stand_sr_v1.png": [1.0, 61, 17.0, 5], "pxp_female_walk_sr2_v1.png": [1.0, 61, 17.0, 5], "pxp_female_labor_carry_v1.png": [1.0, 61, 16.5, 5], "pxp_female_labor_water_v1.png": [1.0, 61, 18.0, 5], "pxp_female_labor_sow_v1.png": [1.0, 61, 16.5, 5] });
+/* 像素锚点（slice_work11 离线实测：转正 pxp 16 帧沿试点值＋pxf 新帧逐帧测；[旧缩放列停用, 脚底行, 头部质心x, 头顶行]） */
+Object.assign(BODY3, {"pxp_master_stand_b_v1.png": [1.0, 61, 16.5, 5], "pxp_master_stand_f_v1.png": [1.0, 61, 16.5, 5], "pxp_master_stand_sl_v1.png": [1.0, 61, 19.5, 5], "pxp_master_stand_sr_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_b1_v1.png": [1.0, 61, 16.0, 5], "pxp_master_walk_b2_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_b3_v1.png": [1.0, 61, 16.0, 5], "pxp_master_walk_f1_v1.png": [1.0, 61, 16.5, 5], "pxp_master_walk_f2_v1.png": [1.0, 61, 17.0, 5], "pxp_master_walk_f3_v1.png": [1.0, 61, 17.0, 5], "pxp_master_walk_sl1_v1.png": [1.0, 61, 19.5, 5], "pxp_master_walk_sl2_v1.png": [1.0, 61, 20.0, 5], "pxp_master_walk_sl3_v1.png": [1.0, 61, 19.5, 5], "pxp_master_walk_sr1_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_sr2_v1.png": [1.0, 61, 19.0, 5], "pxp_master_walk_sr3_v1.png": [1.0, 61, 18.5, 5], "pxf_master_cast_1.png": [1.0, 60, 20.4, 4], "pxf_master_cast_2.png": [1.0, 60, 21.5, 4], "pxf_master_cast_3.png": [1.0, 60, 20.3, 4], "pxf_master_cast_4.png": [1.0, 60, 21.5, 4], "pxf_master_fly_b_1.png": [1.0, 56, 29.4, 3], "pxf_master_fly_b_2.png": [1.0, 54, 36.9, 3], "pxf_master_fly_f_1.png": [1.0, 60, 29.2, 3], "pxf_master_fly_f_2.png": [1.0, 60, 29.3, 3], "pxf_master_fly_sl_1.png": [1.0, 55, 36.1, 3], "pxf_master_fly_sl_2.png": [1.0, 55, 36.9, 3], "pxf_master_fly_sr_1.png": [1.0, 55, 27.9, 3], "pxf_master_fly_sr_2.png": [1.0, 55, 30.1, 3], "pxf_master_harvest_1.png": [1.0, 60, 24.9, 4], "pxf_master_harvest_2.png": [1.0, 60, 20.5, 4], "pxf_master_harvest_3.png": [1.0, 60, 20.7, 4], "pxf_master_hoe_1.png": [1.0, 60, 20.5, 4], "pxf_master_hoe_2.png": [1.0, 60, 26.0, 4], "pxf_master_hoe_3.png": [1.0, 60, 21.3, 4], "pxf_master_sow_1.png": [1.0, 60, 20.4, 4], "pxf_master_sow_2.png": [1.0, 60, 20.4, 4], "pxf_master_sow_3.png": [1.0, 60, 20.5, 4], "pxf_master_water_1.png": [1.0, 60, 22.0, 4], "pxf_master_water_2.png": [1.0, 60, 22.1, 4], "pxf_master_water_3.png": [1.0, 60, 21.5, 4], "pxf_male_carry_1.png": [1.0, 60, 15.3, 4], "pxf_male_carry_2.png": [1.0, 60, 17.3, 4], "pxf_male_carry_3.png": [1.0, 60, 16.6, 4], "pxf_male_carry_4.png": [1.0, 60, 16.8, 4], "pxf_male_harvest_1.png": [1.0, 60, 24.6, 4], "pxf_male_stand_b.png": [1.0, 60, 16.5, 4], "pxf_male_stand_f.png": [1.0, 60, 16.2, 4], "pxf_male_stand_sl.png": [1.0, 60, 15.2, 4], "pxf_male_stand_sr.png": [1.0, 60, 15.1, 4], "pxf_male_walk_b1.png": [1.0, 60, 16.0, 4], "pxf_male_walk_b2.png": [1.0, 60, 16.5, 4], "pxf_male_walk_b3.png": [1.0, 60, 16.0, 4], "pxf_male_walk_f1.png": [1.0, 60, 15.9, 4], "pxf_male_walk_f2.png": [1.0, 60, 16.0, 4], "pxf_male_walk_f3.png": [1.0, 60, 16.0, 4], "pxf_male_walk_sl1.png": [1.0, 60, 14.6, 4], "pxf_male_walk_sl2.png": [1.0, 60, 14.6, 4], "pxf_male_walk_sl3.png": [1.0, 60, 14.7, 4], "pxf_male_walk_sr1.png": [1.0, 60, 15.1, 4], "pxf_male_walk_sr2.png": [1.0, 60, 14.7, 4], "pxf_male_walk_sr3.png": [1.0, 60, 14.7, 4], "pxf_male_water_0.png": [1.0, 60, 16.1, 4], "pxf_male_water_1.png": [1.0, 60, 20.7, 4], "pxf_male_water_2.png": [1.0, 60, 44.0, 4], "pxf_male_water_3.png": [1.0, 60, 21.7, 4], "pxf_female_carry_1.png": [1.0, 60, 17.0, 4], "pxf_female_carry_2.png": [1.0, 60, 16.6, 4], "pxf_female_carry_3.png": [1.0, 60, 16.4, 4], "pxf_female_carry_4.png": [1.0, 60, 16.8, 4], "pxf_female_harvest_1.png": [1.0, 60, 14.6, 4], "pxf_female_harvest_2.png": [1.0, 60, 16.9, 4], "pxf_female_harvest_3.png": [1.0, 60, 17.1, 4], "pxf_female_stand_b.png": [1.0, 60, 19.9, 4], "pxf_female_stand_f.png": [1.0, 60, 20.4, 4], "pxf_female_stand_sl.png": [1.0, 60, 17.7, 4], "pxf_female_stand_sr.png": [1.0, 60, 17.3, 4], "pxf_female_walk_b1.png": [1.0, 60, 20.4, 4], "pxf_female_walk_b2.png": [1.0, 60, 20.5, 4], "pxf_female_walk_f1.png": [1.0, 60, 20.3, 4], "pxf_female_walk_f2.png": [1.0, 60, 20.0, 4], "pxf_female_walk_f3.png": [1.0, 60, 20.4, 4], "pxf_female_walk_sl1.png": [1.0, 60, 18.4, 4], "pxf_female_walk_sl2.png": [1.0, 60, 18.3, 4], "pxf_female_walk_sl3.png": [1.0, 60, 18.3, 4], "pxf_female_walk_sr1.png": [1.0, 60, 17.3, 4], "pxf_female_walk_sr2.png": [1.0, 60, 18.5, 4], "pxf_female_walk_sr3.png": [1.0, 60, 17.1, 4], "pxf_female_water_1.png": [1.0, 60, 38.4, 4], "pxf_female_water_2.png": [1.0, 60, 40.2, 4]});
 const Render = {
   cv: null, ctx: null, sprites: {},
   PERSON_ROWS: [
@@ -3458,35 +3508,44 @@ const Render = {
         else if (Art.ready2){ name = 'frm2_male_walkf_01_v1.png'; tint = robe; }
         else { name = 'chr_male_front_v1.png'; tint = robe; } }
     }
-    /* 像素试点换帧（原生像素图集 pxp，帧映射逐格登记见集成报告）：开关开＋试点图集就绪时全覆盖——
-       主角四向站/走（三帧相位循环）/劳作五帧/御剑四向（烘焙剑整图，不再走 HD 分层剑）；弟子按性别两套
-       （男：四向站/走＋劳作四帧；女：四向站/走＋劳作三帧，左行走原生缺帧走右帧镜像）。试点帧自带袍色，
-       运行时染色（appearanceSeed）不叠加；弟子与主角等高入位（内容高同归一 57，头身比差异由原画呈现）。
-       试点图集未就绪才回退真机三问题批③样板口径（仅待机站立换 px_ 帧＋96×144 几何冒充）。 */
+    /* 像素全量换帧（原生像素图集组 pxf，帧映射总表见 game/像素全量集成-报告-20261107.md）：
+       开关开＋人物图集就绪时全覆盖——主角站/走走 px1 转正帧（pxp 名保留）、劳作每动作 3 帧循环、
+       施展 4 帧、御剑 4 向×2 帧（S1 踏剑坐姿整图，左向为离线镜像帧＋锚点修正，不走 HD 分层剑）；
+       弟子 S2 整表：四向站/走（站＋3 步相位循环，女背向 2 步往返序）、浇水（男 3 帧/女 2 帧）、
+       搬运 4 帧。像素帧自带袍色，运行时染色（appearanceSeed）不叠加；主角弟子内容高同归一 57。
+       图集未就绪才回退真机三问题批③样板口径（仅待机站立换 px_ 帧＋96×144 几何冒充）。 */
     let pxSample = false, pxNative = false;
     if (CONFIG.art.pixelSample && name && Art.readyPxp){
       const set = isPlayer ? 'master' : (this._discipleVariant(disciple) === 'f' ? 'female' : 'male');
       const dk = st.dir === 'front' ? 'f' : st.dir === 'back' ? 'b' : (st.face > 0 ? 'sr' : 'sl');
       let pn = null, pflip = false;
-      if (flying && isPlayer) pn = 'pxp_master_fly_' + dk + '_v1.png';
+      if (flying && isPlayer) pn = cyc(['pxf_master_fly_' + dk + '_1.png', 'pxf_master_fly_' + dk + '_2.png'], 380);
       else if (act){
-        if (isPlayer) pn = { hoe: 'pxp_master_labor_hoe_v1.png', water: 'pxp_master_labor_water_v1.png',
-          seed: 'pxp_master_labor_sow_v1.png', harvest: 'pxp_master_labor_harvest_v1.png',
-          cast: 'pxp_master_labor_cast_v1.png' }[act] || 'pxp_master_labor_cast_v1.png';
-        else if (act === 'water') pn = 'pxp_' + set + '_labor_water_v1.png';
-        else if (act === 'carry') pn = 'pxp_' + set + '_labor_carry_v1.png';
+        /* 劳作帧走墙钟循环（与 HD 口径一致：cyc 150/160ms——相位在劳作时冻结，用 cycP 会冻帧） */
+        if (isPlayer) pn = cyc({ hoe: ['pxf_master_hoe_1.png', 'pxf_master_hoe_2.png', 'pxf_master_hoe_3.png'],
+          water: ['pxf_master_water_1.png', 'pxf_master_water_2.png', 'pxf_master_water_3.png'],
+          seed: ['pxf_master_sow_1.png', 'pxf_master_sow_2.png', 'pxf_master_sow_3.png'],
+          harvest: ['pxf_master_harvest_1.png', 'pxf_master_harvest_2.png', 'pxf_master_harvest_3.png'],
+          cast: ['pxf_master_cast_1.png', 'pxf_master_cast_2.png', 'pxf_master_cast_3.png', 'pxf_master_cast_4.png'] }[act]
+          || ['pxf_master_cast_1.png', 'pxf_master_cast_2.png', 'pxf_master_cast_3.png', 'pxf_master_cast_4.png'], 150);
+        else if (act === 'water') pn = set === 'female'
+          ? cyc(['pxf_female_water_1.png', 'pxf_female_water_2.png'], 160)
+          : cyc(['pxf_male_water_1.png', 'pxf_male_water_2.png', 'pxf_male_water_3.png'], 160);
+        else if (act === 'carry') pn = cyc(['pxf_' + set + '_carry_1.png', 'pxf_' + set + '_carry_2.png',
+          'pxf_' + set + '_carry_3.png', 'pxf_' + set + '_carry_4.png'], 150);
       } else if (e.moving){
         if (isPlayer){
           if (st.dir === 'front') pn = cycP(['pxp_master_walk_f1_v1.png', 'pxp_master_walk_f2_v1.png', 'pxp_master_walk_f3_v1.png']);
           else if (st.dir === 'back') pn = cycP(['pxp_master_walk_b1_v1.png', 'pxp_master_walk_b2_v1.png', 'pxp_master_walk_b3_v1.png']);
           else if (st.face > 0) pn = cycP(['pxp_master_walk_sr1_v1.png', 'pxp_master_walk_sr2_v1.png', 'pxp_master_walk_sr3_v1.png']);
           else pn = cycP(['pxp_master_walk_sl1_v1.png', 'pxp_master_walk_sl2_v1.png', 'pxp_master_walk_sl3_v1.png']);
-        } else if (st.dir === 'front') pn = cycP(['pxp_' + set + '_stand_f_v1.png', 'pxp_' + set + '_walk_f_v1.png']);
-        else if (st.dir === 'back') pn = cycP(['pxp_' + set + '_stand_b_v1.png', 'pxp_' + set + '_walk_b_v1.png']);
-        else if (set === 'male') pn = cycP(st.face > 0 ? ['pxp_male_stand_sr_v1.png', 'pxp_male_walk_sr_v1.png'] : ['pxp_male_stand_sl_v1.png', 'pxp_male_walk_sl_v1.png']);
-        else if (st.face > 0) pn = cycP(['pxp_female_walk_sr1_v1.png', 'pxp_female_stand_sr_v1.png', 'pxp_female_walk_sr2_v1.png']);
-        else { pn = cycP(['pxp_female_walk_sr1_v1.png', 'pxp_female_stand_sr_v1.png', 'pxp_female_walk_sr2_v1.png']); pflip = true; }
-      } else pn = 'pxp_' + set + '_stand_' + dk + '_v1.png';
+        } else if (st.dir === 'front') pn = cycP(['pxf_' + set + '_stand_f.png', 'pxf_' + set + '_walk_f1.png', 'pxf_' + set + '_walk_f2.png', 'pxf_' + set + '_walk_f3.png']);
+        else if (st.dir === 'back') pn = set === 'female'
+          ? cycP(['pxf_female_stand_b.png', 'pxf_female_walk_b1.png', 'pxf_female_walk_b2.png', 'pxf_female_walk_b1.png'])
+          : cycP(['pxf_male_stand_b.png', 'pxf_male_walk_b1.png', 'pxf_male_walk_b2.png', 'pxf_male_walk_b3.png']);
+        else if (st.face > 0) pn = cycP(['pxf_' + set + '_stand_sr.png', 'pxf_' + set + '_walk_sr1.png', 'pxf_' + set + '_walk_sr2.png', 'pxf_' + set + '_walk_sr3.png']);
+        else pn = cycP(['pxf_' + set + '_stand_sl.png', 'pxf_' + set + '_walk_sl1.png', 'pxf_' + set + '_walk_sl2.png', 'pxf_' + set + '_walk_sl3.png']);
+      } else pn = isPlayer ? 'pxp_master_stand_' + dk + '_v1.png' : 'pxf_' + set + '_stand_' + dk + '.png';
       if (pn && Art.F[pn]){ name = pn; flip = pflip; tint = null; pxSample = true; pxNative = true; }
     }
     if (!pxNative && CONFIG.art.pixelSample && Art.readyPx && !act && !e.moving && !flying && name){
@@ -3750,10 +3809,12 @@ const Render = {
     const _sl = (CONFIG.art.pixelSample && Scene.pixelLayer) ? Scene.pixelLayer : Scene.staticLayer;   // 像素样板：地面层换锁定 18 色的降采样版（Scene._buildPixelLayer）
     if (_sl) g.drawImage(_sl, Math.round(-cam.x), Math.round(-cam.y), CONFIG.world.w, CONFIG.world.h);
     g.save(); g.translate(-cam.x, -cam.y);
-    if (Art.ready && Art.F['fx_splash_1_v1.png']){ // M3.5：池塘水花（两处错相循环）
+    if (Art.ready && Art.F['fx_splash_1_v1.png']){ // M3.5：池塘水花（两处错相循环）；像素模式换 S7 水花 4 帧
       const seq = [1, 2, 3, 4, 3, 2], ph = Math.floor(performance.now() / 170);
-      Art.draw(g, 'fx_splash_' + seq[ph % seq.length] + '_v1.png', 30, 596, 66, 40);
-      Art.draw(g, 'fx_splash_' + seq[(ph + 3) % seq.length] + '_v1.png', 118, 622, 58, 35);
+      const pxSp = CONFIG.art.pixelSample && Art.readyPxp && Art.F['pxf_fx_splash_1.png'];
+      const spN = i => pxSp ? 'pxf_fx_splash_' + i + '.png' : 'fx_splash_' + i + '_v1.png';
+      Art.draw(g, spN(seq[ph % seq.length]), 30, 596, 66, 40);
+      Art.draw(g, spN(seq[(ph + 3) % seq.length]), 118, 622, 58, 35);
     }
     // 地块（动态状态层）
     for (const p of S.plots){
