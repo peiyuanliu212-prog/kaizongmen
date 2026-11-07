@@ -2768,8 +2768,13 @@ const Art = {
 /* ================================================================
  * 渲染（像素占位精灵：精灵图离屏预渲染，按像素网格绘制、关平滑）
  * ================================================================ */
-/* 修复三批③：身体高归一表（离线实测 slice_work3/body_table.json）[缩放, 脚底行, 内容中心x, 头顶行]；基准＝主角站立身体高 126 */
+/* 锚点表（离线实测 slice_work3/body_table.json）[旧缩放列（四批起停用）, 脚底行, 内容中心x, 头顶行]；本表自修复四批起只作锚点用，缩放一律走 SCALE4 固定倍率 */
 const BODY3 = {'chr_female2_back_v1.png':[1.0,137,47.0,12],'chr_female2_front_v1.png':[1.0,137,47.5,12],'chr_female2_side34_v1.png':[1.0,137,47.5,12],'chr_female2_side_v1.png':[1.0,137,47.5,12],'chr_female_back_v1.png':[1.0,137,47.0,12],'chr_female_front_v1.png':[1.0,137,47.5,12],'chr_female_side34_v1.png':[1.0,137,47.5,12],'chr_female_side_v1.png':[1.0,137,47.0,12],'chr_male_back2_v1.png':[1.0,137,47.0,12],'chr_male_back_v1.png':[1.0,137,47.0,12],'chr_male_front_v1.png':[1.0,137,47.0,12],'chr_male_side_v1.png':[1.0,137,47.5,12],'chr_master_back_v1.png':[1.0,137,47.0,12],'chr_master_front_v1.png':[1.0,137,47.5,12],'chr_master_side34_v1.png':[1.0,137,47.0,12],'chr_master_side_v1.png':[1.0,137,47.5,12],'frm2_male_walkb_01_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_02_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_03_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_04_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_05_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_06_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_07_v1.png':[1.0,136,47.5,11],'frm2_male_walkb_08_v1.png':[1.0,136,47.0,11],'frm2_male_walkb_09_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_01_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_02_v1.png':[1.0,136,47.0,11],'frm2_male_walkf_03_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_04_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_05_v1.png':[1.0,136,47.0,11],'frm2_male_walkf_06_v1.png':[1.0,136,47.5,11],'frm2_male_walkf_07_v1.png':[1.0,136,47.0,11],'frm2_male_walkf_08_v1.png':[1.0,136,47.0,11],'frm2_male_walkf_09_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_01_v1.png':[1.0,136,47.0,11],'frm2_male_walkl_02_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_03_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_04_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_05_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_06_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_07_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_08_v1.png':[1.0,136,47.5,11],'frm2_male_walkl_09_v1.png':[1.0,136,47.5,11],'frm2_male_walkr_01_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_02_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_03_v1.png':[1.0,136,47.5,11],'frm2_male_walkr_04_v1.png':[1.0,136,47.5,11],'frm2_male_walkr_05_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_06_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_07_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_08_v1.png':[1.0,136,47.0,11],'frm2_male_walkr_09_v1.png':[1.0,136,47.5,11],'frm2_master_fly_back_v1.png':[1.0,136,57.5,11],'frm2_master_fly_front_v1.png':[1.1667,118,62.5,11],'frm2_master_fly_side_l2_v1.png':[1.0,136,63.5,11],'frm2_master_fly_side_l_v1.png':[1.1667,118,65.0,11],'frm2_master_fly_side_r_v1.png':[1.125,122,62.0,11],'frm3_frm_male_carry_01_v1.png':[1.06,137,47.5,31],'frm3_frm_male_carry_02_v1.png':[1.06,137,47.5,31],'frm3_frm_male_carry_03_v1.png':[1.06,137,47.5,32],'frm3_frm_male_harvest_01_v1.png':[1.0,137,47.0,12],'frm3_frm_male_harvest_02_v1.png':[1.0,137,47.0,12],'frm3_frm_male_harvest_03_v1.png':[1.0,137,47.0,12],'frm3_frm_male_water_01_v1.png':[1.0,137,47.5,32],'frm3_frm_male_water_02_v1.png':[1.0,137,47.5,23],'frm3_frm_male_water_03_v1.png':[1.0,137,47.5,12],'frm_female_basket_01_v1.png':[1.0,137,47.5,12],'frm_female_basket_02_v1.png':[1.0,137,47.5,12],'frm_female_basket_03_v1.png':[1.0,137,47.0,12],'frm_male_carry_01_v1.png':[1.06,137,47.5,31],'frm_male_carry_02_v1.png':[1.06,137,47.5,31],'frm_male_carry_03_v1.png':[1.06,137,47.5,32],'frm_male_harvest_01_v1.png':[1.0,137,47.0,12],'frm_male_harvest_02_v1.png':[1.0,137,47.0,12],'frm_male_harvest_03_v1.png':[1.0,137,47.0,12],'frm_male_walk_01_v1.png':[1.0,137,47.0,12],'frm_male_walk_02_v1.png':[1.0,137,47.0,12],'frm_male_walk_03_v1.png':[1.0,137,47.0,12],'frm_male_walk_04_v1.png':[1.0,137,47.0,12],'frm_male_walk_05_v1.png':[1.0,137,47.0,12],'frm_male_water_01_v1.png':[1.0,137,47.5,32],'frm_male_water_02_v1.png':[1.0,137,47.5,23],'frm_male_water_03_v1.png':[1.0,137,47.5,12],'frm_master_backwalk_01_v1.png':[1.0,137,47.0,12],'frm_master_backwalk_02_v1.png':[1.0,137,47.5,12],'frm_master_backwalk_03_v1.png':[1.0,137,47.0,12],'frm_master_backwalk_04_v1.png':[1.0,137,47.0,12],'frm_master_backwalk_05_v1.png':[1.0,137,47.0,12],'frm_master_hoe_01_v1.png':[1.06,137,47.5,29],'frm_master_hoe_02_v1.png':[1.06,137,47.5,30],'frm_master_hoe_03_v1.png':[1.06,137,47.5,46],'frm_master_walk_01_v1.png':[1.0,137,47.0,12],'frm_master_walk_02_v1.png':[1.0,137,47.5,12],'frm_master_walk_03_v1.png':[1.0,137,47.5,12],'frm_master_walk_04_v1.png':[1.0,137,47.0,12],'frm_master_walk_05_v1.png':[1.0,137,47.0,12],'frm_master_water_01_v1.png':[1.0,137,47.5,12],'frm_master_water_02_v1.png':[1.0,137,47.0,12],'frm_master_water_03_v1.png':[1.0,137,47.5,12]};
+/* 修复四批①：角色固定倍率——站立帧一次性标定、全状态（站/走/飞/劳作）共用，运行时不许再按单帧身体高/包围盒算缩放。
+   master 由 chr_master_front 标定、disciple 由 frm2_male_walkf_01 标定（两者旧口径均为 1.0，故取 1.000，地面观感零回归）；
+   flyK＝御剑族一次性标定吸收常量：三姿与站立帧同为 144 高画布、头部原生尺寸同尺，无成体系原生比例差，取 1.000；
+   盘坐/下蹲/弯腰的纵向压缩属姿态本身，不补偿（标定表见 game/真机反馈修复四批-报告-20261107.md）。 */
+const SCALE4 = { master: 1.0, disciple: 1.0, flyK: 1.0 };
 const Render = {
   cv: null, ctx: null, sprites: {},
   PERSON_ROWS: [
@@ -2936,18 +2941,20 @@ const Render = {
     }
     /* 正/背面行走的横向摆幅（补无行走帧朝向的步点感），同样锁相位 */
     const sway = (e.moving && !flying && st.dir !== 'side') ? Math.sin(st.phase) * 1.4 : 0;
-    /* 修复三批③：按身体高归一（BODY3 离线实测表）——旧版按画布高统一 83×125，御剑帧身体占比小、
-       弟子帧身体占满，同画布高下实际身体大小不一。现按帧实测身体高缩放、脚底行锚定、内容中心对齐；
-       无表项的帧回退旧口径。 */
+    /* 修复四批①：固定倍率制（废止三批③逐帧身体高归一——弯腰/盘坐帧身体高天然更小，逐帧归一等于逐帧换倍率：
+       锄地/搬运 ×1.06、御剑正/侧 ×1.1667 而背向 ×1.0，姿态一切换尺寸就跳，主人 2026-11-07 10:53 录屏实证）。
+       现行：倍率只由角色决定（SCALE4，站立帧一次性标定），御剑族乘一次性标定常量 flyK；
+       锚点仍按帧取 BODY3 的脚底行/中心列（那是位置对齐、不是缩放）。无表项帧回退同倍率口径。 */
+    const K4 = (isPlayer ? SCALE4.master : SCALE4.disciple) * (usedFlyPose ? SCALE4.flyK : 1);
     const B3 = (typeof BODY3 !== 'undefined' && name) ? BODY3[name] : null;
     const fW = Art.F[name] ? Art.F[name].w : 96, fH = Art.F[name] ? Art.F[name].h : 144;
     let dwP, dhP, dx, dy;
     if (B3){
-      dhP = DH * B3[0]; dwP = DW * (fW / 96) * B3[0];
+      dhP = DH * K4; dwP = DW * (fW / 96) * K4;
       dx = e.x - cam.x - (B3[2] / fW) * dwP + sway;
       dy = e.y - cam.y - (B3[1] / fH) * dhP - bob - lift;
     } else {
-      dwP = usedFlyPose ? Math.round(DW * fW / 96) : DW; dhP = DH;
+      dwP = (usedFlyPose ? Math.round(DW * fW / 96) : DW) * K4; dhP = DH * K4;
       dx = e.x - cam.x - dwP / 2 + sway; dy = e.y - cam.y - FEET - bob - lift;
     }
     /* 修复三批④：帧族切换 120ms 下沉回弹过渡（切换后先下沉 2px 再回弹，压平硬切感；同族换帧不触发） */
@@ -2978,7 +2985,7 @@ const Render = {
     /* 紧急修复批②：女弟子发饰层——与男弟子共用帧表，靠发间花瓣钗区分（视觉规范既定路线）；
        位置随朝向：正/背在头侧，侧面在朝向侧上方。 */
     if (!isPlayer && disciple && this._discipleVariant(disciple) === 'f' && Art.F['fx_petal_1_v1.png']){
-      /* 修复三批③联动：发饰位置改按归一后实际绘制框与内容中心/头顶行计算（旧版按 DW 分数，归一后会错位） */
+      /* 发饰位置按实际绘制框与内容中心/头顶行计算（锚点表口径，四批固定倍率下数值不变） */
       const pcx = B3 ? (B3[2] / fW) * dwP : dwP / 2, ptop = B3 ? (B3[3] / fH) * dhP : 0;
       const poff = st.dir === 'side' ? (st.face > 0 ? dwP * 0.13 : -dwP * 0.30) : dwP * 0.13;
       const psz = dhP / DH;
