@@ -101,7 +101,7 @@
     text-shadow:0 1px 3px rgba(0,0,0,.6); }
   #splash .sp-sub { margin-top:8px; font-size:11px; color:#cdbf9f; letter-spacing:2px; }
   .chip svg { vertical-align:-2px; margin-right:3px; }
-.icn{display:inline-block;width:16px;height:16px;background-image:url('assets/atlas_ui_v2.png');background-repeat:no-repeat;background-size:163.0px 82.5px;vertical-align:-4px}
+.icn{display:inline-block;width:16px;height:16px;background-image:url('assets/atlas_ui_v3.png');background-repeat:no-repeat;background-size:163.0px 82.5px;vertical-align:-4px}
 .icn-coin{background-position:-63.0px -45.5px}
 .icn-lingzhi{background-position:-114.3px -66.5px}
 .icn-ninglu{background-position:-130.7px -66.5px}
@@ -118,15 +118,15 @@
 .icn-promote{background-position:-49.0px -66.5px}
 .icn-sleep{background-position:0.0px -66.5px}
 .icn-bag{background-position:-112.0px -45.5px}
-.icnL{display:inline-block;width:24px;height:24px;background-image:url('assets/atlas_ui_v2.png');background-repeat:no-repeat;background-size:244.5px 123.8px;vertical-align:-4px}
-  /* 功能页横幅 / 弟子头像 / 牌匾图版（atlas_ui_v2 精灵，加载失败自动回退程序版） */
+.icnL{display:inline-block;width:24px;height:24px;background-image:url('assets/atlas_ui_v3.png');background-repeat:no-repeat;background-size:244.5px 123.8px;vertical-align:-4px}
+  /* 功能页横幅 / 弟子头像 / 牌匾图版（atlas_ui 精灵，加载失败自动回退程序版） */
   .pageBanner{margin:2px 0 10px;border-radius:12px;overflow:hidden;line-height:0}
   .pageBanner img{width:100%;height:118px;object-fit:cover;display:block}
   .ava{display:inline-block;width:38px;height:38px;border-radius:50%;background-color:#e8dfc8;border:1px solid #c9b98f;background-repeat:no-repeat;vertical-align:-13px;margin-right:7px}
-  .sp-plaque-img{display:none;width:min(88vw,560px);aspect-ratio:600/271;margin:0 auto;background-image:url('assets/atlas_ui_v2.png');background-size:163.0% 182.7%;background-position:0.0% 0.0%;background-repeat:no-repeat}
+  .sp-plaque-img{display:none;width:min(88vw,560px);aspect-ratio:600/271;margin:0 auto;background-image:url('assets/atlas_ui_v3.png');background-size:163.0% 182.7%;background-position:0.0% 0.0%;background-repeat:no-repeat}
   body.art2-on .sp-plaque-img{display:block}
   body.art2-on .sp-plaque{display:none}
-  .plaqueBanner{display:block;width:min(76vw,420px);aspect-ratio:600/271;margin:0 auto;background-image:url('assets/atlas_ui_v2.png');background-size:163.0% 182.7%;background-position:0.0% 0.0%;background-repeat:no-repeat}
+  .plaqueBanner{display:block;width:min(76vw,420px);aspect-ratio:600/271;margin:0 auto;background-image:url('assets/atlas_ui_v3.png');background-size:163.0% 182.7%;background-position:0.0% 0.0%;background-repeat:no-repeat}
   .plaqueSub{display:block;text-align:center;font-size:15px;letter-spacing:.5em;color:#8c2f22;margin-top:2px}
 .icnL-coin{background-position:-94.5px -68.2px}
 .icnL-lingzhi{background-position:-171.5px -99.8px}
@@ -2692,7 +2692,7 @@ const Art = {
        帧键沿用 *_v1.png 后缀作不透明标识（全代码引用据此寻址），图集文件为 _v2。
        任一主图集失败 → ready 恒 false 全量程序回退；ui 失败只降级头像/图标/牌匾。 */
     this._grpImg = { chars: 'chars', fix3: 'chars', scene: 'scene', ground: 'ground', ui: 'ui' };
-    const jobs = [['chars', 'assets/atlas_characters_v2.png'], ['scene', 'assets/atlas_scene_v2.png'], ['ground', 'assets/atlas_ground_v2.png']];
+    const jobs = [['chars', 'assets/atlas_characters_v2.png'], ['scene', 'assets/atlas_scene_v3.png'], ['ground', 'assets/atlas_ground_v3.png']];
     let ok = 0;
     for (const [k, src] of jobs){ const im = new Image();
       im.onload = () => { this.imgs[k] = im; if (++ok === jobs.length) this._build(); };
@@ -2701,7 +2701,7 @@ const Art = {
     const imu = new Image();
     imu.onload = () => { this.imgs.ui = imu; this._build2(); };
     imu.onerror = () => { this.failed2 = true; console.warn('[art] atlas_ui load failed'); };
-    imu.src = 'assets/atlas_ui_v2.png';
+    imu.src = 'assets/atlas_ui_v3.png';
   },
   _bindGroup(g){
     const img = this.imgs[this._grpImg[g]]; if (!img) return;
@@ -2743,7 +2743,7 @@ const Art = {
   avaStyle(idx){
     const r = (this.RECTS.ui || {})['ava_' + idx + '_v1.png']; if (!r) return '';
     const s = 38 / 124;
-    return 'background-image:url(\'assets/atlas_ui_v2.png\');background-size:' +
+    return 'background-image:url(\'assets/atlas_ui_v3.png\');background-size:' +
       (978 * s).toFixed(1) + 'px ' + (495 * s).toFixed(1) + 'px;background-position:' +
       (-r[0] * s).toFixed(1) + 'px ' + (-r[1] * s).toFixed(1) + 'px';
   },
@@ -3200,14 +3200,16 @@ const Render = {
     if (isPlayer){ g.fillStyle = '#c9a86a'; g.fillRect(Math.round(e.x - cam.x - 17), Math.round(e.y - cam.y - 52 - bob), 34, 5);
       g.fillRect(Math.round(e.x - cam.x - 4), Math.round(e.y - cam.y - 58 - bob), 8, 6); }
   },
-  /* M3.5：水车轮体旋转叠加层。烤制图轮心/轮辋按 bld_waterwheel 单体目检对位：
-     轮心 (77,118)/208×196、轮辋半径约 59 → 映射到绘制框 (16,430,180,170) 得轮心 (82.6,532.3)、R≈51。
-     新轮为正视圆轮，纵向压 0.977 近似原图透视；转速 10 秒/圈（慢转）。 */
+  /* 返工批①：水车轮体旋转叠加层。轮心/轮辋按新水车图（图集盒 302×225 坐标）网格实测重标：
+     W7={cx,cy,rx,ry} → 换算到绘制框 (16,430,180,170)；轮盘件为源图轮面圆化切图，
+     渲染时按实测屏幕椭圆半径 (Rsx,Rsy) 压回，转速 10 秒/圈不变。 */
   _drawWheelOverlay(g, cam){
     const m = Art.spriteMeta('fx_wheel_v1.png'); if (!m) return;
-    const cx = 16 + 77 * (180 / 208) - cam.x, cy = 430 + 118 * (170 / 196) - cam.y, R = 51;
+    const W7 = { cx: 146, cy: 136, rx: 54, ry: 44 };
+    const cx = 16 + W7.cx * (180 / 302) - cam.x, cy = 430 + W7.cy * (170 / 225) - cam.y;
+    const Rsx = W7.rx * (180 / 302), Rsy = W7.ry * (170 / 225), R = Math.max(Rsx, Rsy);
     const dw = R / m.rw, dh = R / m.rh;
-    g.save(); g.translate(cx, cy); g.scale(1, 0.977);
+    g.save(); g.translate(cx, cy); g.scale(Rsx / R, Rsy / R);
     g.rotate(performance.now() / 10000 * Math.PI * 2);
     g.drawImage(m.canvas, -m.cx * dw, -m.cy * dh, dw, dh);
     g.restore();
