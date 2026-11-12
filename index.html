@@ -1016,6 +1016,7 @@ function render(){
 
 /* ---- 开宗起名＋开始页选档（ver3） ---- */
 let newGameSlot = null;   // 在空槽点「在此开新宗」后暂存目标槽，startSect 落槽后清掉
+let guideArmFresh = false;   // 删档重开后置真：引导状态已清，下一次开宗时以全新访客身份重新触发引导
 function slotCardHtml(i){
   const key = CONFIG.save.slotPrefix + i, sm = Save.slotSummary(key), isActive = S.meta.activeSlot === i;
   let h = '<div class="card"><h3>档位 ' + i + (isActive ? ' <span class="tag">当前</span>' : '') + '</h3>';
@@ -1032,7 +1033,7 @@ function slotCardHtml(i){
 }
 function viewSetup(){
   let h = '<div style="padding-top:14px"><img class="cover" src="assets/e-cover-v2.png" alt="宗门封面">';
-  if (S.sect.started || slotSaveExists()){
+  if (S.sect.started || slotSaveExists() || atGate){
     h += '<div style="margin-top:10px">';
     if (S.sect.started){
       const sm = { name: S.sect.name, day: S.day.index, rank: CONFIG.ranks[S.sect.rank].name, degree: S.sect.buildDegree,
@@ -1098,6 +1099,8 @@ function startSect(){
   Ledger.transact({ coin: CONFIG.startGiftCoin, reason: 'opening_gift' });
   genOrders(true); ensureDaily(); genRush(); markDirty(); Save.save();
   toast('开宗！礼金 ' + CONFIG.startGiftCoin + ' 灵石已入账'); beep(); passGate(); go('home');
+  if (guideArmFresh){ guideArmFresh = false;         // 删档后的第一个新宗：以全新访客身份起引导（前两步 setup 步会被 skipIf 自动跳过）
+    Guide.st = { step: 1, phase: 0, done: false }; Guide.saveSt(); Guide.start(); }
 }
 
 /* ---- 总览：只留 可领取区 ＋ 事件 ＋ 手记 ＋ 过天 ---- */
@@ -1388,7 +1391,11 @@ function importLongCode(){ const domV = ($('longCode') && $('longCode').value) |
 function wipeAll(){ if (!armed('wipe')){ toast('再点一次确认删档重开'); return; }
   try { localStorage.removeItem(CONFIG.save.autoKey); localStorage.removeItem(CONFIG.save.lastGoodKey);
     localStorage.removeItem(CONFIG.save.restoreKey);
-    for (let i = 1; i <= CONFIG.save.slots; i++) localStorage.removeItem(CONFIG.save.slotPrefix + i); } catch (e) {}
+    for (let i = 1; i <= CONFIG.save.slots; i++) localStorage.removeItem(CONFIG.save.slotPrefix + i);
+    localStorage.removeItem(Guide.KEY);              // 引导状态一并清：删档后即全新访客（Guide 在下方定义、点击时已就绪）
+    sessionStorage.removeItem('kaizongmen_gate'); } catch (e) {}
+  if (Guide.active) Guide.stop(); Guide.st = null; guideArmFresh = true;
+  atGate = true;                                     // 回开始页选档（viewSetup 在 atGate 时恒显示档位卡）
   S = freshState(); toast('已删档，重新开宗'); render(); }
 function vaultPut(){ Vault.put($('vaultOut')); }
 function vaultGet(){ Vault.get($('vaultCode'), $('vaultMsg')); }
@@ -1396,9 +1403,27 @@ function vaultGet(){ Vault.get($('vaultCode'), $('vaultMsg')); }
 /* ---------------- 云端短码（vault 客户端；协议：双 POST ＋ 信封 {code:0,data:{…}}，失败展示后端 message） ---------------- */
 const Vault = {
   base(){ return (CONFIG.vault.apiBase || '').replace(/\/+$/, ''); },
-  enabled(){ return !!this.base(); },
-  /* 统一请求：AbortController 8 秒超时；HTTP 错误时优先解析后端 {code,message} 把 message 交回调用方展示 */
+  /* 壳内通道：Shaper 平台请求 SDK（部署口径：业务请求走 ColorboxAI.cloud.request，path /api/kzvault/put|get）；
+     试玩站/浏览器无此对象时回落 fetch 网关（apiBase）。enabled 以任一通道可用为准。 */
+  shell(){ return (typeof window !== 'undefined' && window.ColorboxAI && window.ColorboxAI.cloud &&
+    typeof window.ColorboxAI.cloud.request === 'function') ? window.ColorboxAI.cloud : null; },
+  enabled(){ return !!this.shell() || !!this.base(); },
+  /* 统一请求：8 秒超时；失败优先解析后端 {code,message} 把 message 交回调用方展示 */
   async call(path, bodyObj){
+    const sh = this.shell();
+    if (sh){
+      try {
+        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000));
+        const r = await Promise.race([sh.request({ path: path, method: 'POST', data: bodyObj || {} }), timeout]);
+        if (r && typeof r.code === 'number'){                     // SDK 透传信封形态
+          if (r.code !== 0) return { ok: false, message: r.message || '云端返回异常' };
+          return { ok: true, data: r.data || {} };
+        }
+        const d = (r && r.data) || null;                          // SDK 已解信封形态：r.data 即业务数据
+        if (!d) return { ok: false, message: (r && r.message) || '云端返回异常' };
+        return { ok: true, data: d };
+      } catch (e) { return { ok: false, message: e && e.message === 'timeout' ? '云端请求超时，请改用长码' : ((e && e.message) || '云端请求失败，请改用长码') }; }
+    }
     const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 8000);
     try { const res = await fetch(this.base() + path, { method: 'POST', signal: ctl.signal,
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyObj || {}) });
