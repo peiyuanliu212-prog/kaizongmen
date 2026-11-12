@@ -96,6 +96,8 @@
  * 新增只有：开宗礼金 100、一页纸批准的聚灵诀一线、云端短码客户端（vault）。
  * ver2 厚度批（2026-11-12 一页纸）：掌门日课/宗门宝库/集市宝匣/弟子历练/引气诀/事件链/聚灵阵/藏书阁/限时急单/七日签到大奖；
  * 存档新增字段全走 normalize 默认补齐，老档不炸（见 freshState ver2 注释）。
+ * ver3 优化批（2026-11-12 一页纸）：存档升「档位槽为主档」——meta.activeSlot＋自动保存双写活动槽、
+ * 开始页选档（当前进度卡＋5 槽卡）、每槽独立长码；迁移在 boot 的 Save.ensureActiveSlot（见存档层注释）。
  * 全局纪律：单一状态根 S；一切资源变动只走 Ledger.transact；数值只进 CONFIG。
  * ================================================================ */
 const CONFIG = {
@@ -331,7 +333,10 @@ document.addEventListener('click', e => { if (e.target && e.target.closest && e.
 /* ---------------- 状态 ---------------- */
 function freshState(){
   return {
-    ver: 2, createdAt: nowMs(),
+    ver: 3, createdAt: nowMs(),
+    /* ver3（优化批）新增：meta.activeSlot＝当前进度归入的档位槽（1–5，未归槽=null）；
+       主档 kaizongmen_text_v1 仍是工作副本，Save.save 每次同步把快照双写到活动槽 */
+    meta: { activeSlot: null },
     sect: { started: false, name: '青云宗', masterName: '', rank: 0, buildDegree: 0 },
     balances: { coin: 0 }, inventory: {},
     plots: Array.from({ length: CONFIG.plotCount }, () => ({ cropId: null, plantedAt: 0, readyAt: 0 })),
@@ -415,6 +420,10 @@ function normalizeState(raw){ // 任意来源（本地档/长码/短码）的存
   if (!raw || typeof raw !== 'object') return null;
   if (!raw.sect || typeof raw.sect !== 'object' || !raw.balances || typeof raw.balances !== 'object') return null;
   const F = freshState(); const s = Object.assign(F, raw);
+  /* ver3 迁移（字段层）：meta.activeSlot 只接受 1–5 整数，其余一律 null；槽位归属的实际迁移
+     （把现行档快照写入空槽）在 boot 时由 Save.ensureActiveSlot 执行，本函数不碰 localStorage */
+  s.meta = Object.assign(F.meta, raw.meta || {});
+  if (!(Number.isInteger(s.meta.activeSlot) && s.meta.activeSlot >= 1 && s.meta.activeSlot <= CONFIG.save.slots)) s.meta.activeSlot = null;
   s.sect = Object.assign(F.sect, raw.sect || {});
   s.balances = Object.assign(F.balances, raw.balances || {});
   s.inventory = Object.assign({}, raw.inventory || {});
@@ -439,7 +448,7 @@ function normalizeState(raw){ // 任意来源（本地档/长码/短码）的存
   s.chain.bandit = Object.assign(F.chain.bandit, (raw.chain || {}).bandit || {});
   s.chain.bandit.flags = ((raw.chain || {}).bandit || {}).flags || {};
   s.rush = (raw.rush && typeof raw.rush === 'object') ? raw.rush : null;
-  s.ver = 2;
+  s.ver = 3;
   for (const d of s.disciples){ if (typeof d.avatarIdx !== 'number') d.avatarIdx = hashStr(d.id || d.name) % 6;
     if (typeof d.exp !== 'number') d.exp = 0;                       // 历练（ver2 新增，老弟子从 0 起）
     if (typeof d.stage !== 'number') d.stage = 0; }
@@ -464,11 +473,28 @@ const Save = {
   save(){ try { const prev = localStorage.getItem(CONFIG.save.autoKey);
       if (prev) localStorage.setItem(CONFIG.save.lastGoodKey, prev);   // 上一份落盘作 lastGood
       S.day.lastSeenAt = nowMs();
-      localStorage.setItem(CONFIG.save.autoKey, JSON.stringify(S)); dirty = false;
+      const str = JSON.stringify(S);
+      localStorage.setItem(CONFIG.save.autoKey, str);
+      /* ver3 双写：活动槽同步保存同一份快照——槽位写入只走这一处（Save 层单一事实源），
+         业务代码不许散写 kaizongmen_tslot_*；activeSlot 为 null 时不写任何槽 */
+      const as = S.meta && S.meta.activeSlot;
+      if (Number.isInteger(as) && as >= 1 && as <= CONFIG.save.slots)
+        try { localStorage.setItem(CONFIG.save.slotPrefix + as, str); } catch (e) {}
+      dirty = false;
     } catch (e) { console.warn('[save] failed', e); } },
+  /* ver3 迁移：老档没有 activeSlot 时，给现行主档找归属槽——
+     tslot_1 为空落 1 号槽，已占则找第一个空槽，全满则保持 null（开始页提供「归入此槽」手动选槽覆盖，
+     两段确认在 UI 层）；任何情况不许静默覆盖已有槽。找到槽后靠 Save.save 的双写把快照落槽 */
+  ensureActiveSlot(){ const cur = S.meta && S.meta.activeSlot;
+    if (Number.isInteger(cur) && cur >= 1 && cur <= CONFIG.save.slots) return cur;
+    for (let i = 1; i <= CONFIG.save.slots; i++)
+      if (!localStorage.getItem(CONFIG.save.slotPrefix + i)){ S.meta.activeSlot = i;
+        S.migrationLog.push('ver3-activeSlot-' + i + '@' + new Date().toISOString());
+        markDirty(); Save.save(); return i; }
+    return null; },
   loadRaw(key){ try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : null; } catch (e) { return null; } },
   slotSummary(key){ const s = this.loadRaw(key); if (!s || !s.sect || !s.sect.started) return null;
-    return { day: (s.day || {}).index || 1, rank: CONFIG.ranks[s.sect.rank || 0].name, degree: s.sect.buildDegree || 0,
+    return { name: s.sect.name || '青云宗', day: (s.day || {}).index || 1, rank: CONFIG.ranks[s.sect.rank || 0].name, degree: s.sect.buildDegree || 0,
              coin: (s.balances || {}).coin || 0, disciples: (s.disciples || []).length, savedAt: (s.day || {}).lastSeenAt || 0 }; },
   writeSlot(key){ try { localStorage.setItem(key, JSON.stringify(S)); return true; } catch (e) { return false; } },
   readSlot(key){ const s = normalizeState(this.loadRaw(key)); if (!s) return false;
@@ -943,11 +969,16 @@ document.querySelectorAll('#tabbar button').forEach(b => b.onclick = () => { go(
 function inv(id){ return S.inventory[id] || 0; }
 function readyTotal(){ return collectCount(collectSummary()); }
 
+function slotSaveExists(){ for (let i = 1; i <= CONFIG.save.slots; i++)
+  if (Save.slotSummary(CONFIG.save.slotPrefix + i)) return true; return false; }
 function render(){
   const started = S.sect.started;
-  $('hdr').style.display = started ? '' : 'none';
-  $('tabbar').style.display = started ? '' : 'none';
-  if (!started){ $('view').innerHTML = viewSetup(); return; }
+  /* 开始页：未开宗，或冷打开时有存档（含仅槽内有档）→ 先选档再进游戏 */
+  if (!started || (atGate && (started || slotSaveExists()))){
+    $('hdr').style.display = 'none'; $('tabbar').style.display = 'none';
+    $('view').innerHTML = viewSetup(); return; }
+  $('hdr').style.display = '';
+  $('tabbar').style.display = '';
   recomputeDegree();
   $('hSect').textContent = S.sect.name;
   $('hRank').textContent = CONFIG.ranks[S.sect.rank].name + ' · 第 ' + S.day.index + ' 天';
@@ -963,24 +994,89 @@ function render(){
                         tab === 'disc' ? viewDisc() : tab === 'sect' ? viewSect() : viewSet();
 }
 
-/* ---- 开宗起名 ---- */
+/* ---- 开宗起名＋开始页选档（ver3） ---- */
+let newGameSlot = null;   // 在空槽点「在此开新宗」后暂存目标槽，startSect 落槽后清掉
+function slotCardHtml(i){
+  const key = CONFIG.save.slotPrefix + i, sm = Save.slotSummary(key), isActive = S.meta.activeSlot === i;
+  let h = '<div class="card"><h3>档位 ' + i + (isActive ? ' <span class="tag">当前</span>' : '') + '</h3>';
+  if (sm){
+    h += '<p><b>' + esc(sm.name) + '</b> · 第 ' + sm.day + ' 天 · ' + sm.rank + '<br>' +
+      '<span class="small">建设度 ' + sm.degree + ' · 灵石 ' + sm.coin + ' · 弟子 ' + sm.disciples + ' 人 · 保存于 ' + fmtClock(sm.savedAt) + '</span></p><div class="btnrow">';
+    if (!isActive) h += '<button class="' + armBtn('slotIn' + i) + '" onclick="enterSlot(' + i + ')">' + armLabel('slotIn' + i, '进入') + '</button>';
+    if (S.sect.started && !S.meta.activeSlot) h += '<button class="' + armBtn('slotAsg' + i) + '" onclick="assignSlot(' + i + ')">' + armLabel('slotAsg' + i, '归入此槽') + '</button>';
+    h += '<button class="' + armBtn('slotDel' + i) + ' danger" onclick="delSlotGate(' + i + ')">' + armLabel('slotDel' + i, '删除') + '</button></div>';
+  } else {
+    h += '<p class="muted">空档位。</p><div class="btnrow"><button class="' + armBtn('slotNew' + i) + '" onclick="newGameAtSlot(' + i + ')">' + armLabel('slotNew' + i, '在此开新宗') + '</button></div>';
+  }
+  return h + '</div>';
+}
 function viewSetup(){
-  return '<div style="padding-top:14px"><img class="cover" src="assets/e-cover-v2.png" alt="宗门封面">' +
-  '<div class="card" style="margin-top:10px"><h3>开宗立派</h3>' +
+  let h = '<div style="padding-top:14px"><img class="cover" src="assets/e-cover-v2.png" alt="宗门封面">';
+  if (S.sect.started || slotSaveExists()){
+    h += '<div style="margin-top:10px">';
+    if (S.sect.started){
+      const sm = { name: S.sect.name, day: S.day.index, rank: CONFIG.ranks[S.sect.rank].name, degree: S.sect.buildDegree,
+                   coin: S.balances.coin || 0, disciples: S.disciples.length };
+      h += '<div class="card"><h3>当前进度' + (S.meta.activeSlot ? ' <span class="tag">档位 ' + S.meta.activeSlot + '</span>' : ' <span class="tag grey">未归槽</span>') + '</h3>' +
+        '<p><b>' + esc(sm.name) + '</b> · 第 ' + sm.day + ' 天 · ' + sm.rank + '<br>' +
+        '<span class="small">建设度 ' + sm.degree + ' · 灵石 ' + sm.coin + ' · 弟子 ' + sm.disciples + ' 人</span></p>' +
+        (S.meta.activeSlot ? '' : '<p class="small">档位槽已满或未归槽：在下方任一档位卡点「归入此槽」选槽（会覆盖该槽，点两次确认）。</p>') +
+        '<div class="btnrow"><button class="btn pri" onclick="passGate();go(\'home\')">继续游戏</button></div></div>';
+    }
+    for (let i = 1; i <= CONFIG.save.slots; i++) h += slotCardHtml(i);
+    h += '</div>';
+  }
+  h += '<div class="card" style="margin-top:10px"><h3>开宗立派' + (newGameSlot ? '（档位 ' + newGameSlot + '）' : '') + '</h3>' +
   '<p class="muted">荒山一座，茅屋两间。从今天起，你说了算。</p>' +
   '<label class="lb">宗门名</label><input type="text" id="inSect" maxlength="8" value="青云宗">' +
   '<label class="lb">掌门名</label><input type="text" id="inMaster" maxlength="6" placeholder="给自己起个名号">' +
   '<div class="btnrow"><button class="btn pri" onclick="startSect()">开宗立派（礼金 ' + CONFIG.startGiftCoin + ' 灵石）</button></div>' +
   '<p class="small" style="margin-top:8px">玩法就一件事：点按钮做经营决策。种田、收徒、扩建、晋阶，离线也在长。</p></div></div>';
+  return h;
+}
+/* 进入某档位：先把当前主档自动备份到恢复槽，两段确认后载入并把活动槽切换过去 */
+function enterSlot(i){
+  if (!armed('slotIn' + i)){ toast('再点一次确认进入档位 ' + i + '（当前进度会先自动备份到恢复槽）'); return; }
+  if (S.sect.started) Save.writeSlot(CONFIG.save.restoreKey);
+  const s = normalizeState(Save.loadRaw(CONFIG.save.slotPrefix + i));
+  if (!s || !s.sect.started){ toast('档位 ' + i + ' 没有有效存档'); return; }
+  s.meta.activeSlot = i; S = s; newGameSlot = null; markDirty(); Save.save();
+  toast('已进入档位 ' + i); passGate(); go('home');
+}
+/* 当前进度未归槽时手动选槽归入（覆盖该槽，两段确认；归入靠 Save.save 的双写完成，不另散写） */
+function assignSlot(i){
+  if (!armed('slotAsg' + i)){ toast('再点一次确认归入档位 ' + i + '（会覆盖该槽原存档）'); return; }
+  S.meta.activeSlot = i; markDirty(); Save.save();
+  toast('当前进度已归入档位 ' + i); render();
+}
+/* 在空槽开新宗：当前有进度先备份恢复槽（两段确认），清档后回起名区，新宗落到该槽 */
+function newGameAtSlot(i){
+  if (!armed('slotNew' + i)){ toast(S.sect.started ? '再点一次确认在此开新宗（当前进度会先备份到恢复槽）' : '再点一次确认在此开新宗'); return; }
+  if (S.sect.started) Save.writeSlot(CONFIG.save.restoreKey);
+  S = freshState(); newGameSlot = i; atGate = true;
+  toast('在档位 ' + i + ' 开新宗：起个名字吧'); render();
+}
+/* 删槽：只删该槽；删的是活动槽只把 activeSlot 置 null，主档工作副本一字不动 */
+function delSlotGate(i){
+  if (!armed('slotDel' + i)){ toast('再点一次确认删除档位 ' + i); return; }
+  try { localStorage.removeItem(CONFIG.save.slotPrefix + i); } catch (e) {}
+  if (S.meta.activeSlot === i){ S.meta.activeSlot = null; markDirty(); Save.save(); }
+  toast('已删除档位 ' + i); render();
 }
 function startSect(){
   const name = ($('inSect').value || '').trim() || '青云宗';
   const master = ($('inMaster').value || '').trim() || '掌门';
   S.sect.name = name.slice(0, 8); S.sect.masterName = master.slice(0, 6); S.sect.started = true;
+  /* 落槽：指定了新宗槽位用它，否则沿用当前归属；无归属时默认 1 号槽，
+     但 1 号槽已被别的进度占用就顺延找第一个空槽，全满则先不归槽（开始页可手动归入），绝不静默覆盖 */
+  if (newGameSlot){ S.meta.activeSlot = newGameSlot; newGameSlot = null; }
+  else if (!S.meta.activeSlot){ S.meta.activeSlot = null;
+    for (let i = 1; i <= CONFIG.save.slots; i++)
+      if (!localStorage.getItem(CONFIG.save.slotPrefix + i)){ S.meta.activeSlot = i; break; } }
   recomputeDegree();
   Ledger.transact({ coin: CONFIG.startGiftCoin, reason: 'opening_gift' });
   genOrders(true); ensureDaily(); genRush(); markDirty(); Save.save();
-  toast('开宗！礼金 ' + CONFIG.startGiftCoin + ' 灵石已入账'); beep(); go('home');
+  toast('开宗！礼金 ' + CONFIG.startGiftCoin + ' 灵石已入账'); beep(); passGate(); go('home');
 }
 
 /* ---- 总览：只留 可领取区 ＋ 事件 ＋ 手记 ＋ 过天 ---- */
@@ -996,7 +1092,8 @@ function offlineDoubleAd(){ if (!S.pendingSettlement || S.pendingSettlement.doub
   Ads.request('offline_double', { type: 'offlineDouble' }); }
 function viewHome(){
   const c = collectSummary(), n = collectCount(c); let h = '';
-  h += '<div class="card collect"><h3>可领取' + (n ? '（' + n + '）' : '') + '</h3>';
+  /* 今日清单（联赛口径）：今天能领能做的放最前——可领取＋掌门日课同组，日课不再埋在手记里 */
+  h += '<div class="card collect"><h3>今日清单</h3><h4>可领取' + (n ? '（' + n + '）' : '') + '</h4>';
   if (!n) h += '<p class="muted">暂无。种田、派工、派遣之后，回来这里收。</p>';
   if (c.offline) h += '<div class="row"><span>离线结算 <b>' + c.offline + ' 灵石</b>' +
     (S.pendingSettlement.earlyBonus ? '<span class="small">（含早归加成 ' + S.pendingSettlement.earlyBonus + '）</span>' : '') + '</span>' +
@@ -1008,6 +1105,12 @@ function viewHome(){
   if (c.dispatch) h += '<div class="row"><span>归来派遣 <b>' + c.dispatch + ' 人</b></span><button class="btn sm" onclick="claimAllDispatch()">交接</button></div>';
   if (c.signin) h += '<div class="row"><span>今日签到 <b>' + c.signin + ' 灵石</b></span><button class="btn sm" onclick="doSignIn()">领取</button></div>';
   if (n >= 1) h += '<div class="btnrow"><button class="btn pri" onclick="claimAll()">一键全收</button></div>';
+  if (S.daily){ h += '<hr class="sep"><h4>掌门日课（全完成奖 ' + CONFIG.dailyReward + ' 灵石）</h4><ul class="quest">' +
+      S.daily.taskIds.map(id => { const t = dailyDef(id), p = Math.min(S.daily.progress[id] || 0, t.target), done = p >= t.target;
+        return '<li class="' + (done ? 'done' : 'todo') + '">' + (done ? '✓ ' : '○ ') + esc(t.label) + '（' + p + '/' + t.target + '）</li>'; }).join('') + '</ul>' +
+      (S.daily.claimed ? '<p class="small">今日日课奖励已领。</p>'
+        : dailyAllDone() ? '<div class="btnrow"><button class="btn pri sm" onclick="claimDaily()">领取日课奖励（' + CONFIG.dailyReward + ' 灵石）</button></div>' : '') +
+      '<p class="small">明日预告：' + drawDailyTasks('d' + (S.day.index + 1)).map(id => esc(dailyDef(id).label)).join('、') + '</p>'; }
   h += '</div>';
   const ev = S.pendingEvent ? eventByAnyId(S.pendingEvent) : null;
   if (ev){ h += '<div class="card"><h3>山上有事 · ' + (ev.chain ? '连环第 ' + ev.step + ' 环 · ' : '') + esc(ev.title) + '</h3><p>' + esc(ev.text) + '</p>';
@@ -1020,12 +1123,6 @@ function viewHome(){
   h += '<div class="card"><h3>掌门手记</h3><p class="small">下一目标：' + (nextQ ? esc(nextQ.label) : '把建设度推到 ' +
     (nextRankDef() ? nextRankDef().need + '，晋阶「' + nextRankDef().name + '」' : '已是名门大派，继续攒家底')) + '</p><ul class="quest">' +
     qs.map(q => '<li class="' + (q.done ? 'done' : 'todo') + '">' + (q.done ? '✓ ' : '○ ') + esc(q.label) + '</li>').join('') + '</ul>';
-  if (S.daily){ h += '<hr class="sep"><h4>掌门日课（全完成奖 ' + CONFIG.dailyReward + ' 灵石）</h4><ul class="quest">' +
-      S.daily.taskIds.map(id => { const t = dailyDef(id), p = Math.min(S.daily.progress[id] || 0, t.target), done = p >= t.target;
-        return '<li class="' + (done ? 'done' : 'todo') + '">' + (done ? '✓ ' : '○ ') + esc(t.label) + '（' + p + '/' + t.target + '）</li>'; }).join('') + '</ul>' +
-      (S.daily.claimed ? '<p class="small">今日日课奖励已领。</p>'
-        : dailyAllDone() ? '<div class="btnrow"><button class="btn pri sm" onclick="claimDaily()">领取日课奖励（' + CONFIG.dailyReward + ' 灵石）</button></div>' : '') +
-      '<p class="small">明日预告：' + drawDailyTasks('d' + (S.day.index + 1)).map(id => esc(dailyDef(id).label)).join('、') + '</p>'; }
   h += '</div>';
   h += '<div class="card"><h3>第 ' + S.day.index + ' 天</h3>' +
     (S.lastReport ? '<p class="small">昨日简报：' + esc(S.lastReport) + '</p>' : '<p class="small">今日入账 ' + S.stats.todayEarned + ' 灵石。</p>') +
@@ -1175,13 +1272,13 @@ function viewSect(){ let h = '';
   return h; }
 
 /* ---- 设置 ---- */
-function slotRow(key, label){ const sm = Save.slotSummary(key);
+function slotRow(key, label, slotIdx){ const sm = Save.slotSummary(key);
   const acts = label === '恢复槽'
     ? (sm ? '<button class="' + armCls(key + 'L') + '" onclick="slotRestore()">' + armLabel(key + 'L', '恢复到当前档') + '</button>' : '')
     : '<button class="' + armCls(key + 'S') + '" onclick="slotSave(\'' + key + '\')">' + armLabel(key + 'S', '存入') + '</button>' +
       (sm ? ' <button class="' + armCls(key + 'L') + '" onclick="slotLoad(\'' + key + '\')">' + armLabel(key + 'L', '读取') + '</button>' +
             ' <button class="' + armCls(key + 'D') + ' danger" onclick="slotDel(\'' + key + '\')">' + armLabel(key + 'D', '删除') + '</button>' : '');
-  return '<div class="row"><span>' + label + '<br><span class="small">' +
+  return '<div class="row"><span>' + label + (slotIdx && S.meta.activeSlot === slotIdx ? ' <span class="tag">当前</span>' : '') + '<br><span class="small">' +
     (sm ? ('第 ' + sm.day + ' 天 · ' + sm.rank + ' · 建设度 ' + sm.degree + ' · 灵石 ' + sm.coin + ' · 弟子 ' + sm.disciples + ' 人 · ' + fmtClock(sm.savedAt)) : '空') +
     '</span></span><span>' + acts + '</span></div>'; }
 function viewSet(){ let h = '';
@@ -1191,11 +1288,14 @@ function viewSet(){ let h = '';
     '<label class="lb">输入短码取档（覆盖前自动存恢复槽）</label><input type="text" id="vaultCode" maxlength="14" placeholder="如 KZ-XXXXXXXX">' +
     '<div class="btnrow"><button class="btn" onclick="vaultGet()">取档并载入</button></div><div id="vaultMsg" style="margin-top:6px"></div>';
   h += '</div>';
-  h += '<div class="card"><h3>存档槽</h3><p class="small">自动档：每 5 秒及关键动作自动保存，刷新不丢。手动槽存/读/删均需点两次确认。</p>' +
+  h += '<div class="card"><h3>存档槽</h3><p class="small">自动档：每 5 秒及关键动作自动保存，刷新不丢；当前进度归入的档位槽（标「当前」）会同步双写，在开始页可切换档位。手动槽存/读/删均需点两次确认。</p>' +
     slotRow(CONFIG.save.restoreKey, '恢复槽') +
-    [1, 2, 3, 4, 5].map(i => slotRow(CONFIG.save.slotPrefix + i, '存档槽 ' + i)).join('') + '</div>';
-  h += '<div class="card"><h3>存档长码</h3><p class="small">长码是整档文本，请自己全选复制保存；取档时粘贴回来导入（导入前自动存恢复槽）。</p>' +
-    '<textarea id="longCode" placeholder="点下方生成，或把长码粘贴到这里"></textarea>' +
+    [1, 2, 3, 4, 5].map(i => slotRow(CONFIG.save.slotPrefix + i, '存档槽 ' + i, i)).join('') + '</div>';
+  h += '<div class="card"><h3>存档长码</h3><p class="small">长码是整档文本，请自己全选复制保存。先选档位：导出所选槽的存档；导入写入所选槽（导入前该槽旧内容自动进恢复槽）。导入到当前档位会同步刷新正在玩的进度。</p>' +
+    '<label class="lb">长码对应档位</label><select id="codeSlotSel" onchange="codeSlotChoice=this.value">' +
+    '<option value="cur"' + (codeSlotChoice === 'cur' ? ' selected' : '') + '>当前进度</option>' +
+    [1, 2, 3, 4, 5].map(i => '<option value="' + i + '"' + (codeSlotChoice === String(i) ? ' selected' : '') + '>档位 ' + i + (S.meta.activeSlot === i ? '（当前）' : '') + '</option>').join('') + '</select>' +
+    '<textarea id="longCode" oninput="codeDraft=this.value" placeholder="点下方生成，或把长码粘贴到这里">' + esc(codeDraft) + '</textarea>' +
     '<div class="btnrow"><button class="btn" onclick="genLongCode()">生成长码</button>' +
     '<button class="' + ( __armed['import'] ? 'btn arm' : 'btn') + '" onclick="importLongCode()">' + armLabel('import', '导入长码') + '</button></div>' +
     '<div id="longMsg" style="margin-top:6px"></div></div>';
@@ -1204,9 +1304,10 @@ function viewSet(){ let h = '';
     '招募概率：寻常 50% · 良好 32% · 上佳 14% · 绝佳 4%。<br>' +
     '订单墙为日常池轮换；限时急单每日 1 张（源自定时池，30 分钟内交付奖励 ×2，过期作废）。掌门日课按游戏日刷新，全完成奖 40 灵石。宝匣概率：整件 60% · 碎片 ×2 占 40%，10 匣保底未拥有整件，每日首匣半价。<br>' +
     '广告为本地模拟占位（口径与正式版一致：主动触发、序号衰减、未落定不发）。<br>' +
+    '存档版本 ver3：当前进度归入一个档位槽并同步双写，开始页可切换/新开/删除档位；长码可按档位分别导出导入。老版本存档载入时自动补齐并归槽，不会丢进度。<br>' +
     '素材：封面、弟子头像、图标、音乐音效均为本作旧版定版资产；无行走人物与场景图集。声音开关统管 BGM 与音效，默认开，选择会存档记住；BGM 在首次点击后开始低音量循环。</p>' +
     '<div class="row"><span>声音</span><button class="btn sm" onclick="toggleSound()">' + (S.settings.soundOn ? '已开（点关）' : '已关（点开）') + '</button></div></div>';
-  h += '<div class="card"><h3>重置</h3><p class="small">删档重开：清掉文本版本地全部存档（自动档/五槽/恢复槽），回到开宗起名。行走版旧档备份不会动。</p>' +
+  h += '<div class="card"><h3>重置</h3><p class="small">删档重开：清掉主档（自动档）与全部档位槽（含当前活动槽）、恢复槽，回到开宗起名。行走版旧档备份不会动。</p>' +
     '<div class="btnrow"><button class="' + (__armed['wipe'] ? 'btn arm' : 'btn danger') + '" onclick="wipeAll()">' + armLabel('wipe', '删档重开') + '</button></div></div>';
   return h; }
 function toggleSound(){ S.settings.soundOn = !S.settings.soundOn; markDirty(); Save.save();
@@ -1215,21 +1316,53 @@ function toggleSound(){ S.settings.soundOn = !S.settings.soundOn; markDirty(); S
 function slotSave(key){ if (!armed(key + 'S')){ toast('再点一次确认存入'); return; }
   if (Save.writeSlot(key)){ toast('已存入'); } else toast('存入失败（存储空间不足？）'); render(); }
 function slotLoad(key){ if (!armed(key + 'L')){ toast('再点一次确认读取（当前进度会被覆盖，自动档会先备份）'); return; }
-  if (Save.readSlot(key)){ toast('已读取'); go('home'); } else toast('读取失败：槽内无有效存档'); }
+  /* 读取编号槽＝切到该档位：载入内容成为当前进度，活动槽同步切换（与开始页「进入」同口径） */
+  const i = Number(key.slice(CONFIG.save.slotPrefix.length));
+  const s = normalizeState(Save.loadRaw(key));
+  if (!s){ toast('读取失败：槽内无有效存档'); return; }
+  if (i >= 1 && i <= CONFIG.save.slots) s.meta.activeSlot = i;
+  S = s; markDirty(); Save.save(); toast('已读取'); go('home'); }
 function slotDel(key){ if (!armed(key + 'D')){ toast('再点一次确认删除'); return; }
-  try { localStorage.removeItem(key); } catch (e) {} toast('已删除'); render(); }
+  try { localStorage.removeItem(key); } catch (e) {}
+  /* 删掉的正是活动槽时只解绑归属，主档工作副本不动（与开始页删槽同口径） */
+  const i = Number(key.slice(CONFIG.save.slotPrefix.length));
+  if (i >= 1 && i <= CONFIG.save.slots && S.meta.activeSlot === i){ S.meta.activeSlot = null; markDirty(); Save.save(); }
+  toast('已删除'); render(); }
 function slotRestore(){ if (!armed(CONFIG.save.restoreKey + 'L')){ toast('再点一次确认恢复'); return; }
-  if (Save.readSlot(CONFIG.save.restoreKey)){ toast('已恢复到覆盖前的进度'); go('home'); } else toast('恢复槽是空的'); }
-function genLongCode(){ Save.save();
-  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(S))));
-  $('longCode').value = b64; $('longMsg').textContent = '长码已生成（' + b64.length + ' 字符），请全选复制、自行保存。'; }
-function importLongCode(){ const v = ($('longCode').value || '').trim(); if (!v){ $('longMsg').textContent = '先把长码粘贴到框里。'; return; }
-  if (!armed('import')){ toast('再点一次确认导入（覆盖前自动存恢复槽）'); return; }
+  const s = normalizeState(Save.loadRaw(CONFIG.save.restoreKey));
+  if (!s){ toast('恢复槽是空的'); return; }
+  s.meta.activeSlot = S.meta.activeSlot;   // 恢复内容接回当前档位归属，不跟随备份里的旧归属
+  S = s; markDirty(); Save.save(); toast('已恢复到覆盖前的进度'); go('home'); }
+/* ---- 每槽独立长码（ver3）：导出序列化所选槽，导入写所选槽 ---- */
+let codeSlotChoice = 'cur';
+/* codeDraft 暂存长码框内容：armed() 两段确认会 render 重建 DOM，若只存 DOM 里，
+   第一次点导入（确认前渲染）就会把玩家粘贴的码清空——故内容以变量为准、渲染时回填 */
+let codeDraft = '';
+function genLongCode(){
+  let str = null, label = '当前进度';
+  if (codeSlotChoice === 'cur'){ Save.save(); str = JSON.stringify(S); }
+  else { const rawStr = localStorage.getItem(CONFIG.save.slotPrefix + codeSlotChoice);
+    if (!rawStr){ $('longMsg').textContent = '档位 ' + codeSlotChoice + ' 是空的，没有可导出的存档。'; return; }
+    str = rawStr; label = '档位 ' + codeSlotChoice; }
+  const b64 = btoa(unescape(encodeURIComponent(str)));
+  codeDraft = b64; $('longCode').value = b64; $('longMsg').textContent = label + '的长码已生成（' + b64.length + ' 字符），请全选复制、自行保存。'; }
+function importLongCode(){ const domV = ($('longCode') && $('longCode').value) || ''; if (domV) codeDraft = domV;   // 先同步暂存，防两段确认的 render 清空输入框
+  const v = (codeDraft || '').trim(); if (!v){ $('longMsg').textContent = '先把长码粘贴到框里。'; return; }
+  if (!armed('import')){ toast('再点一次确认导入（目标槽旧内容会先进恢复槽备份）'); return; }
   let parsed = null; try { parsed = JSON.parse(decodeURIComponent(escape(atob(v.replace(/\s+/g, ''))))); } catch (e) {}
   const s = parsed && normalizeState(parsed);
-  if (!s){ $('longMsg').textContent = '导入失败：长码校验不通过，未覆盖当前进度。'; return; }
-  Save.writeSlot(CONFIG.save.restoreKey); S = s; markDirty(); Save.save();
-  toast('长码导入成功'); go('home'); }
+  if (!s){ $('longMsg').textContent = '导入失败：长码校验不通过，未覆盖任何存档。'; return; }
+  if (codeSlotChoice === 'cur'){           // 导入当前进度：旧进度进恢复槽；归属沿用本机当前档位，不跟随码里的旧归属
+    Save.writeSlot(CONFIG.save.restoreKey);
+    s.meta.activeSlot = S.meta.activeSlot; S = s; markDirty(); Save.save();
+    toast('长码导入成功'); go('home'); return; }
+  const i = Number(codeSlotChoice), key = CONFIG.save.slotPrefix + i;
+  const oldRaw = localStorage.getItem(key);
+  if (oldRaw){ try { localStorage.setItem(CONFIG.save.restoreKey, oldRaw); } catch (e) {} }   // 该槽旧内容先进恢复槽
+  s.meta.activeSlot = i;
+  try { localStorage.setItem(key, JSON.stringify(s)); } catch (e) { $('longMsg').textContent = '导入失败：存储空间不足。'; return; }
+  if (S.meta.activeSlot === i){ S = s; markDirty(); Save.save(); toast('已导入档位 ' + i + '，当前进度已同步刷新'); go('home'); }
+  else { $('longMsg').textContent = '已导入到档位 ' + i + '（当前进度未动；到开始页或上方读取该槽即可游玩）。'; render(); } }
 function wipeAll(){ if (!armed('wipe')){ toast('再点一次确认删档重开'); return; }
   try { localStorage.removeItem(CONFIG.save.autoKey); localStorage.removeItem(CONFIG.save.lastGoodKey);
     localStorage.removeItem(CONFIG.save.restoreKey);
@@ -1280,6 +1413,7 @@ const Vault = {
     const s = parsed && normalizeState(parsed);
     if (!s){ outEl.textContent = '取档失败：云端存档校验不通过，已放弃覆盖（当前进度未动）。'; return; }
     Save.writeSlot(CONFIG.save.restoreKey);                    // 覆盖前自动把当前档存入恢复槽
+    s.meta.activeSlot = S.meta.activeSlot;                      // 归属沿用本机当前档位（短码协议口径不变）
     S = s; markDirty(); Save.save();
     outEl.textContent = '取档成功，已载入云端存档；覆盖前的进度已存入恢复槽，可在下方找回。';
     toast('云端存档已载入'); render();
@@ -1287,12 +1421,18 @@ const Vault = {
 };
 
 /* ---------------- 启动 ---------------- */
+/* 开始页门：冷打开（新会话）先落开始页选档；同会话内刷新/重进直达游戏
+   （sessionStorage 标记，标签页关掉即失效）——选档发生在会话入口，不打断游戏内重载 */
+let atGate = true;
+function passGate(){ atGate = false; try { sessionStorage.setItem('kaizongmen_gate', 'in'); } catch (e) {} }
 function boot(){
   const raw = Save.loadRaw(CONFIG.save.autoKey);
   const s = raw && normalizeState(raw);
   if (s) S = s; else if (raw) { const lg = Save.loadRaw(CONFIG.save.lastGoodKey); const s2 = lg && normalizeState(lg); if (s2) S = s2; }
   if (!s && !raw) Save.migrateWalking();
-  if (S.sect.started){ genOrders(false); ensureDaily(); genRush(); Offline.settleOnReturn(); Ads.resumePending(); }
+  if (S.sect.started){ Save.ensureActiveSlot();   // ver3 迁移：给现行档归槽（找不到空槽就保持未归槽）
+    genOrders(false); ensureDaily(); genRush(); Offline.settleOnReturn(); Ads.resumePending(); }
+  try { if (sessionStorage.getItem('kaizongmen_gate') === 'in') atGate = false; } catch (e) { atGate = false; }
   window.UI_READY = true;
   render();
   setInterval(() => { if (dirty) Save.save(); }, CONFIG.save.autosaveMs);
