@@ -1332,7 +1332,7 @@ function viewSet(){ let h = '';
     '素材：封面、弟子头像、图标、音乐音效均为本作旧版定版资产；无行走人物与场景图集。声音开关统管 BGM 与音效，默认开，选择会存档记住；BGM 在首次点击后开始低音量循环。</p>' +
     '<div class="row"><span>声音</span><button class="btn sm" onclick="toggleSound()">' + (S.settings.soundOn ? '已开（点关）' : '已关（点开）') + '</button></div>' +
     '<div class="row"><span>新手引导</span><button class="btn sm" onclick="gReplay()">重看新手引导</button></div></div>';
-  h += '<div class="card"><h3>重置</h3><p class="small">删档重开：清掉主档（自动档）与全部档位槽（含当前活动槽）、恢复槽，回到开宗起名。行走版旧档备份不会动。</p>' +
+  h += '<div class="card"><h3>重置</h3><p class="small">删档重开：清掉主档（自动档）与全部档位槽（含当前活动槽）、恢复槽与行走版原档，回到开始页重新选档开宗（行走版旧档备份保留，但不会再自动迁回）。</p>' +
     '<div class="btnrow"><button class="' + (__armed['wipe'] ? 'btn arm' : 'btn danger') + '" onclick="wipeAll()">' + armLabel('wipe', '删档重开') + '</button></div></div>';
   return h; }
 function toggleSound(){ S.settings.soundOn = !S.settings.soundOn; markDirty(); Save.save();
@@ -1392,6 +1392,7 @@ function wipeAll(){ if (!armed('wipe')){ toast('再点一次确认删档重开')
   try { localStorage.removeItem(CONFIG.save.autoKey); localStorage.removeItem(CONFIG.save.lastGoodKey);
     localStorage.removeItem(CONFIG.save.restoreKey);
     for (let i = 1; i <= CONFIG.save.slots; i++) localStorage.removeItem(CONFIG.save.slotPrefix + i);
+    localStorage.removeItem(CONFIG.save.walkingKey);   // 行走版原档一并清：否则下次冷打开会被自动迁移“复活”，删档删不干净（备份键保留不动）
     localStorage.removeItem(Guide.KEY);              // 引导状态一并清：删档后即全新访客（Guide 在下方定义、点击时已就绪）
     sessionStorage.removeItem('kaizongmen_gate'); } catch (e) {}
   if (Guide.active) Guide.stop(); Guide.st = null; guideArmFresh = true;
@@ -1477,7 +1478,7 @@ const Vault = {
  * 讲解只落在真实界面的真实控件上。动作步没有「下一步」，只认真实操作推进（done 谓词轮询＋目标点击命中双保险）；
  * 信息步才有「下一步」。玩家切错页：讲解台改提示回页、高亮改指对应页签，回页自动恢复本步。
  * 进度存独立 key kaizongmen_tguide（未开宗阶段也存）；完成/跳过后同步 meta.guideDone，永不再触发。
- * 仅全新访客触发：本地已有主档/任一槽位存档/行走版旧档且无进行中 tguide → 老玩家，写 veteran 标记零打扰。
+ * 仅全新访客触发：本地已有文本版主档/任一槽位存档且无进行中 tguide → 老玩家，写 veteran 标记零打扰（行走版旧档不算数）。
  * 讲解台 z-index 15（低于 toast 20/飘字 30），高亮圈 pointer-events:none、不遮挡目标点击。 */
 let gClicked = false;   // 当前动作步的目标点击命中标记（advance 时清零）
 const GUIDE_TOTAL = 13;
@@ -1532,7 +1533,8 @@ const Guide = {
     const tg = this.peek();
     if (S.meta.guideDone || (tg && (tg.done || tg.skipped))){ this.active = false; return; }
     if (tg && tg.step >= 1 && tg.step <= GUIDE_TOTAL && !tg.done){ this.st = tg; this.st.phase = tg.phase || 0; this.start(); return; }
-    const hasSave = S.sect.started || !!Save.loadRaw(CONFIG.save.autoKey) || slotSaveExists() || !!Save.loadRaw(CONFIG.save.walkingKey);
+    const hasSave = S.sect.started || !!Save.loadRaw(CONFIG.save.autoKey) || slotSaveExists();
+    /* 老玩家判定只认文本版存档：行走版是另一个形态，其旧档不算数（2026-11-12 主人真机反馈：留有行走版档被误判老玩家、引导永不触发） */
     if (hasSave){ this.st = { step: GUIDE_TOTAL, phase: 0, done: true, veteran: true }; this.saveSt(); this.active = false; return; }
     this.st = { step: 1, phase: 0, done: false }; this.saveSt(); this.start();
   },
