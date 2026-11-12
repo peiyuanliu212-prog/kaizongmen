@@ -68,6 +68,18 @@
   .bar { height:7px; background:#e2d9bf; border-radius:4px; overflow:hidden; margin:3px 0 6px; }
   .bar i { display:block; height:100%; background:#7a9a5b; }
   .tgrid { display:flex; flex-wrap:wrap; gap:3px 10px; font-size:13px; }
+  /* 新手引导（联赛 v58/v59 形态）：底部讲解台 bottom/height 写死、固定一处永不移动；引导期页面加底部留白，目标可完整滚到台上方 */
+  body.guiding main { padding-bottom:248px; }
+  #gDesk { position:fixed; left:50%; transform:translateX(-50%); bottom:52px; width:100%; max-width:520px; height:138px; z-index:15; background:#fffdf4; border-top:2px solid #7a4a2b; box-shadow:0 -4px 16px rgba(60,50,30,.28); padding:9px 14px 10px; display:none; flex-direction:column; }
+  #gDesk .gHead { display:flex; align-items:center; gap:8px; }
+  #gDesk .gTitle { font-weight:700; font-size:14px; white-space:nowrap; }
+  #gDesk .gDots { flex:1; text-align:center; }
+  #gDesk .gDot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#d8cfb2; margin:0 2px; }
+  #gDesk .gDot.done { background:#7a9a5b; }
+  #gDesk .gDot.on { background:#a33b2e; }
+  #gText { margin-top:5px; font-size:14px; line-height:1.5; flex:1; overflow:hidden; }
+  #gFoot { display:flex; justify-content:space-between; align-items:center; min-height:28px; }
+  #gRing { position:fixed; z-index:14; border:2px solid #a33b2e; border-radius:9px; box-shadow:0 0 0 3px rgba(163,59,46,.16); pointer-events:none; display:none; transition:top .18s ease,left .18s ease,width .18s ease,height .18s ease; }
 </style>
 </head>
 <body>
@@ -87,6 +99,12 @@
 </div>
 <div id="toast"></div>
 <div id="floaters"></div>
+<div id="gDesk">
+  <div class="gHead"><span class="gTitle" id="gTitle"></span><span class="gDots" id="gDots"></span><button class="btn sm" id="gSkip" onclick="gSkip()">跳过</button></div>
+  <div id="gText"></div>
+  <div id="gFoot"><span class="small" id="gHint"></span><button class="btn pri sm" id="gNext" onclick="gNext()">下一步</button></div>
+</div>
+<div id="gRing"></div>
 
 <script>
 'use strict';
@@ -335,8 +353,9 @@ function freshState(){
   return {
     ver: 3, createdAt: nowMs(),
     /* ver3（优化批）新增：meta.activeSlot＝当前进度归入的档位槽（1–5，未归槽=null）；
-       主档 kaizongmen_text_v1 仍是工作副本，Save.save 每次同步把快照双写到活动槽 */
-    meta: { activeSlot: null },
+       主档 kaizongmen_text_v1 仍是工作副本，Save.save 每次同步把快照双写到活动槽；
+       meta.guideDone＝新手引导完成/跳过标记（引导进度本体存独立 key kaizongmen_tguide，此处只同步结论） */
+    meta: { activeSlot: null, guideDone: false },
     sect: { started: false, name: '青云宗', masterName: '', rank: 0, buildDegree: 0 },
     balances: { coin: 0 }, inventory: {},
     plots: Array.from({ length: CONFIG.plotCount }, () => ({ cropId: null, plantedAt: 0, readyAt: 0 })),
@@ -424,6 +443,7 @@ function normalizeState(raw){ // 任意来源（本地档/长码/短码）的存
      （把现行档快照写入空槽）在 boot 时由 Save.ensureActiveSlot 执行，本函数不碰 localStorage */
   s.meta = Object.assign(F.meta, raw.meta || {});
   if (!(Number.isInteger(s.meta.activeSlot) && s.meta.activeSlot >= 1 && s.meta.activeSlot <= CONFIG.save.slots)) s.meta.activeSlot = null;
+  s.meta.guideDone = !!s.meta.guideDone;   // 引导完成标记走 normalize 默认（老档无此字段＝false；是否触发由 Guide 的老玩家判定把关）
   s.sect = Object.assign(F.sect, raw.sect || {});
   s.balances = Object.assign(F.balances, raw.balances || {});
   s.inventory = Object.assign({}, raw.inventory || {});
@@ -1030,7 +1050,7 @@ function viewSetup(){
   '<p class="muted">荒山一座，茅屋两间。从今天起，你说了算。</p>' +
   '<label class="lb">宗门名</label><input type="text" id="inSect" maxlength="8" value="青云宗">' +
   '<label class="lb">掌门名</label><input type="text" id="inMaster" maxlength="6" placeholder="给自己起个名号">' +
-  '<div class="btnrow"><button class="btn pri" onclick="startSect()">开宗立派（礼金 ' + CONFIG.startGiftCoin + ' 灵石）</button></div>' +
+  '<div class="btnrow"><button class="btn pri" id="btnStart" onclick="startSect()">开宗立派（礼金 ' + CONFIG.startGiftCoin + ' 灵石）</button></div>' +
   '<p class="small" style="margin-top:8px">玩法就一件事：点按钮做经营决策。种田、收徒、扩建、晋阶，离线也在长。</p></div></div>';
   return h;
 }
@@ -1074,6 +1094,7 @@ function startSect(){
     for (let i = 1; i <= CONFIG.save.slots; i++)
       if (!localStorage.getItem(CONFIG.save.slotPrefix + i)){ S.meta.activeSlot = i; break; } }
   recomputeDegree();
+  const tgRec = Guide.peek(); if (tgRec && (tgRec.done || tgRec.skipped)) S.meta.guideDone = true;   // 引导已完成/跳过 → 开宗即同步标记（Guide 定义在下方，运行时调用无碍）
   Ledger.transact({ coin: CONFIG.startGiftCoin, reason: 'opening_gift' });
   genOrders(true); ensureDaily(); genRush(); markDirty(); Save.save();
   toast('开宗！礼金 ' + CONFIG.startGiftCoin + ' 灵石已入账'); beep(); passGate(); go('home');
@@ -1093,7 +1114,7 @@ function offlineDoubleAd(){ if (!S.pendingSettlement || S.pendingSettlement.doub
 function viewHome(){
   const c = collectSummary(), n = collectCount(c); let h = '';
   /* 今日清单（联赛口径）：今天能领能做的放最前——可领取＋掌门日课同组，日课不再埋在手记里 */
-  h += '<div class="card collect"><h3>今日清单</h3><h4>可领取' + (n ? '（' + n + '）' : '') + '</h4>';
+  h += '<div class="card collect" id="cardCollect"><h3>今日清单</h3><h4>可领取' + (n ? '（' + n + '）' : '') + '</h4>';
   if (!n) h += '<p class="muted">暂无。种田、派工、派遣之后，回来这里收。</p>';
   if (c.offline) h += '<div class="row"><span>离线结算 <b>' + c.offline + ' 灵石</b>' +
     (S.pendingSettlement.earlyBonus ? '<span class="small">（含早归加成 ' + S.pendingSettlement.earlyBonus + '）</span>' : '') + '</span>' +
@@ -1104,13 +1125,13 @@ function viewHome(){
   if (c.jobs) h += '<div class="row"><span>已完成工单 <b>' + c.jobs + ' 条</b></span><button class="btn sm" onclick="collectAllJobs()">收取</button></div>';
   if (c.dispatch) h += '<div class="row"><span>归来派遣 <b>' + c.dispatch + ' 人</b></span><button class="btn sm" onclick="claimAllDispatch()">交接</button></div>';
   if (c.signin) h += '<div class="row"><span>今日签到 <b>' + c.signin + ' 灵石</b></span><button class="btn sm" onclick="doSignIn()">领取</button></div>';
-  if (n >= 1) h += '<div class="btnrow"><button class="btn pri" onclick="claimAll()">一键全收</button></div>';
-  if (S.daily){ h += '<hr class="sep"><h4>掌门日课（全完成奖 ' + CONFIG.dailyReward + ' 灵石）</h4><ul class="quest">' +
+  if (n >= 1) h += '<div class="btnrow"><button class="btn pri" id="btnClaimAll" onclick="claimAll()">一键全收</button></div>';
+  if (S.daily){ h += '<div id="dailyBlock"><hr class="sep"><h4>掌门日课（全完成奖 ' + CONFIG.dailyReward + ' 灵石）</h4><ul class="quest">' +
       S.daily.taskIds.map(id => { const t = dailyDef(id), p = Math.min(S.daily.progress[id] || 0, t.target), done = p >= t.target;
         return '<li class="' + (done ? 'done' : 'todo') + '">' + (done ? '✓ ' : '○ ') + esc(t.label) + '（' + p + '/' + t.target + '）</li>'; }).join('') + '</ul>' +
       (S.daily.claimed ? '<p class="small">今日日课奖励已领。</p>'
         : dailyAllDone() ? '<div class="btnrow"><button class="btn pri sm" onclick="claimDaily()">领取日课奖励（' + CONFIG.dailyReward + ' 灵石）</button></div>' : '') +
-      '<p class="small">明日预告：' + drawDailyTasks('d' + (S.day.index + 1)).map(id => esc(dailyDef(id).label)).join('、') + '</p>'; }
+      '<p class="small">明日预告：' + drawDailyTasks('d' + (S.day.index + 1)).map(id => esc(dailyDef(id).label)).join('、') + '</p></div>'; }
   h += '</div>';
   const ev = S.pendingEvent ? eventByAnyId(S.pendingEvent) : null;
   if (ev){ h += '<div class="card"><h3>山上有事 · ' + (ev.chain ? '连环第 ' + ev.step + ' 环 · ' : '') + esc(ev.title) + '</h3><p>' + esc(ev.text) + '</p>';
@@ -1126,7 +1147,7 @@ function viewHome(){
   h += '</div>';
   h += '<div class="card"><h3>第 ' + S.day.index + ' 天</h3>' +
     (S.lastReport ? '<p class="small">昨日简报：' + esc(S.lastReport) + '</p>' : '<p class="small">今日入账 ' + S.stats.todayEarned + ' 灵石。</p>') +
-    '<div class="btnrow"><button class="' + armBtn('sleep') + '" onclick="doSleep()">' + armLabel('sleep', icn('sleep') + '歇息 · 过天') + '</button></div></div>';
+    '<div class="btnrow"><button id="btnSleep" class="' + armBtn('sleep') + '" onclick="doSleep()">' + armLabel('sleep', icn('sleep') + '歇息 · 过天') + '</button></div></div>';
   return h;
 }
 function questList(){ return [
@@ -1138,9 +1159,9 @@ function questList(){ return [
 
 /* ---- 生产 ---- */
 function viewProd(){ let h = '<div class="card"><h3>' + icn('lingzhi') + '药圃（6 块）</h3><div class="grid">';
-  S.plots.forEach((p, i) => { h += '<div class="plot">';
+  S.plots.forEach((p, i) => { h += '<div class="plot"' + (i === 0 ? ' id="plot0"' : '') + '>';
     if (!p.cropId) h += '<b>空地 ' + (i + 1) + '</b><div class="st">种什么？</div><div class="btnrow">' +
-      '<button class="btn sm" onclick="plantCrop(' + i + ',\'lingzhi\')">灵芝 · 1 分钟' + (S.hookFirstCrop ? '' : '（首块 10 秒）') + '</button>' +
+      '<button class="btn sm"' + (i === 0 ? ' id="btnFirstPlant"' : '') + ' onclick="plantCrop(' + i + ',\'lingzhi\')">灵芝 · 1 分钟' + (S.hookFirstCrop ? '' : '（首块 10 秒）') + '</button>' +
       '<button class="btn sm" onclick="plantCrop(' + i + ',\'ninglu\')">凝露草 · 耗灵芝 1</button></div>';
     else { const crop = CONFIG.crops[p.cropId], ready = nowMs() >= p.readyAt;
       h += '<b>' + crop.name + '</b><div class="st">' + (ready ? '<span class="cd">已成熟</span>' : '还剩 ' + fmtDur(p.readyAt - nowMs())) + '</div>' +
@@ -1187,7 +1208,7 @@ function stationHtml(stationId, recipeId){ const r = CONFIG.recipes.find(x => x.
 
 /* ---- 弟子 ---- */
 function viewDisc(){ const G = CONFIG.discipleGen; let h = '';
-  h += '<div class="card"><h3>' + icn('recruit') + '招募弟子（' + S.disciples.length + '/' + G.rosterCap + '）</h3>' +
+  h += '<div class="card" id="cardRecruit"><h3>' + icn('recruit') + '招募弟子（' + S.disciples.length + '/' + G.rosterCap + '）</h3>' +
     '<p>山门招募，一人 ' + G.recruitCost + ' 灵石。</p>' +
     '<p class="small">概率公示：品质 寻常 50% · 良好 32% · 上佳 14% · 绝佳 4%；三资质（悟性/根骨/手艺）按品质区间随机（寻常 20–50、良好 40–70、上佳 60–85、绝佳 80–99）；命格随机一项，来历随机拼成。</p>' +
     '<div class="btnrow"><button class="btn pri" onclick="recruit()">招募弟子（' + G.recruitCost + ' 灵石）</button></div></div>';
@@ -1306,7 +1327,8 @@ function viewSet(){ let h = '';
     '广告为本地模拟占位（口径与正式版一致：主动触发、序号衰减、未落定不发）。<br>' +
     '存档版本 ver3：当前进度归入一个档位槽并同步双写，开始页可切换/新开/删除档位；长码可按档位分别导出导入。老版本存档载入时自动补齐并归槽，不会丢进度。<br>' +
     '素材：封面、弟子头像、图标、音乐音效均为本作旧版定版资产；无行走人物与场景图集。声音开关统管 BGM 与音效，默认开，选择会存档记住；BGM 在首次点击后开始低音量循环。</p>' +
-    '<div class="row"><span>声音</span><button class="btn sm" onclick="toggleSound()">' + (S.settings.soundOn ? '已开（点关）' : '已关（点开）') + '</button></div></div>';
+    '<div class="row"><span>声音</span><button class="btn sm" onclick="toggleSound()">' + (S.settings.soundOn ? '已开（点关）' : '已关（点开）') + '</button></div>' +
+    '<div class="row"><span>新手引导</span><button class="btn sm" onclick="gReplay()">重看新手引导</button></div></div>';
   h += '<div class="card"><h3>重置</h3><p class="small">删档重开：清掉主档（自动档）与全部档位槽（含当前活动槽）、恢复槽，回到开宗起名。行走版旧档备份不会动。</p>' +
     '<div class="btnrow"><button class="' + (__armed['wipe'] ? 'btn arm' : 'btn danger') + '" onclick="wipeAll()">' + armLabel('wipe', '删档重开') + '</button></div></div>';
   return h; }
@@ -1420,6 +1442,144 @@ const Vault = {
   },
 };
 
+/* ================= 新手引导（形态照联赛 v58/v59 定版） =================
+ * 底部讲解台 fixed 停靠底部同一位置（bottom 52px、height 138px 写死，rect 全程恒定），永不移动；
+ * 引导期页面加底部滚动留白（body.guiding main），目标可完整滚到讲解台上方；高亮圈独立元素、每 tick 按目标 rect 追踪；
+ * 讲解只落在真实界面的真实控件上。动作步没有「下一步」，只认真实操作推进（done 谓词轮询＋目标点击命中双保险）；
+ * 信息步才有「下一步」。玩家切错页：讲解台改提示回页、高亮改指对应页签，回页自动恢复本步。
+ * 进度存独立 key kaizongmen_tguide（未开宗阶段也存）；完成/跳过后同步 meta.guideDone，永不再触发。
+ * 仅全新访客触发：本地已有主档/任一槽位存档/行走版旧档且无进行中 tguide → 老玩家，写 veteran 标记零打扰。
+ * 讲解台 z-index 15（低于 toast 20/飘字 30），高亮圈 pointer-events:none、不遮挡目标点击。 */
+let gClicked = false;   // 当前动作步的目标点击命中标记（advance 时清零）
+const GUIDE_TOTAL = 13;
+const GUIDE_STEPS = [
+  { title: '开宗立派', phases: [{ ctx: 'setup', sel: '#inSect', type: 'info',
+      text: '点按钮做经营决策的宗门经营游戏：种田、收徒、扩建、晋阶，离线也在长。先给宗门起个名字（用默认的也行）。',
+      skipIf: () => S.sect.started }] },   // 已开宗（设置页重看时）自动跳过本步
+  { title: '开宗', phases: [{ ctx: 'setup', sel: '#btnStart', type: 'action',
+      text: '点「开宗立派」：领 100 灵石开宗礼金，从今天起，你说了算。', done: () => S.sect.started }] },
+  { title: '资源条', phases: [{ ctx: 'home', sel: '#hdr', type: 'info',
+      text: '顶部是你的家底：灵石、材料、弟子数都看这里；带红字的「可领取」是有东西能领了。' }] },
+  { title: '今日清单', phases: [{ ctx: 'home', sel: '#cardCollect', type: 'info',
+      text: '总览第一张卡是今日清单：能领的都汇在这——离线结算、成熟作物、签到，一键全收全领掉。' }] },
+  { title: '去生产', phases: [{ ctx: 'any', sel: '[data-tab="prod"]', type: 'action',
+      text: '点底部「生产」页签，去看看你的药圃。', done: () => tab === 'prod' }] },
+  { title: '种第一块田', phases: [{ ctx: 'prod', sel: '#btnFirstPlant', type: 'action',
+      text: '在第一块田点「灵芝」种下。新手首块田只要 10 秒就成熟。', done: () => S.stats.planted > 0 }] },
+  { title: '等它长', phases: [{ ctx: 'prod', sel: '#plot0', type: 'info',
+      text: '田里开始倒计时了。把弟子派到药圃岗、参悟功法，都能让作物长得更快。',
+      skipIf: () => !S.plots[0].cropId || nowMs() >= S.plots[0].readyAt }] },
+  { title: '回收菜', phases: [{ ctx: 'any', sel: '[data-tab="home"]', type: 'action',
+      text: '回底部「总览」页签，把刚熟的灵芝收掉。', done: () => tab === 'home' }] },
+  { title: '一键全收', phases: [{ ctx: 'home', sel: '#btnClaimAll', altSel: '#cardCollect', type: 'action', dyn: true,
+      text: '点「一键全收」，刚熟的灵芝就进仓库了。',
+      infoText: '可领的都已经领完了：以后离线结算、成熟作物、签到都汇在这张卡，点「一键全收」一次全领。',
+      done: () => gClicked || collectCount(collectSummary()) === 0 }] },
+  { title: '招募弟子', phases: [
+      { ctx: 'any', sel: '[data-tab="disc"]', type: 'action', text: '去底部「弟子」页签看看。', done: () => tab === 'disc' },
+      { ctx: 'disc', sel: '#cardRecruit', type: 'info',
+        text: '50 灵石招一名弟子，品质概率明写在卡上。招来别闲着——给他派个岗位才有产出。' }] },
+  { title: '宗门页', phases: [{ ctx: 'any', sel: '[data-tab="sect"]', type: 'info',
+      text: '「宗门」页是长线：扩建建筑、参悟功法、集市宝匣、宗门宝库，都在这页。' }] },
+  { title: '掌门日课', phases: [
+      { ctx: 'any', sel: '[data-tab="home"]', type: 'action', text: '回底部「总览」页签，看今天的日课。', done: () => tab === 'home' },
+      { ctx: 'home', sel: '#dailyBlock', altSel: '#cardCollect', type: 'info',
+        text: '掌门日课：每天三件事，全清奖 40 灵石；卡片下方还有明日预告，今晚就知道明天干什么。' }] },
+  { title: '过天与存档', phases: [{ ctx: 'home', sel: '#btnSleep', type: 'info',
+      text: '点「歇息 · 过天」结束一天，会出昨日简报。存档在底部「设置」页：五槽、长码、云端短码都在那。点「完成」，开宗大吉。' }] },
+];
+const Guide = {
+  KEY: 'kaizongmen_tguide', st: null, active: false, timer: null, _sig: '', _lastScroll: 0, _dynMode: null,
+  peek(){ try { const r = localStorage.getItem(this.KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } },
+  saveSt(){ try { if (this.st) localStorage.setItem(this.KEY, JSON.stringify(this.st)); } catch (e) {} },
+  stepDef(){ return GUIDE_STEPS[(this.st ? this.st.step : 1) - 1] || null; },
+  phase(){ const s = this.stepDef(); if (!s) return null; return s.phases[Math.min(this.st.phase || 0, s.phases.length - 1)]; },
+  context(){ if (!S.sect.started || (atGate && (S.sect.started || slotSaveExists()))) return 'setup'; return tab; },
+  wrongPage(){ const ph = this.phase(); if (!ph || !ph.ctx || ph.ctx === 'any') return false; return this.context() !== ph.ctx; },
+  phaseType(ph){ if (!ph.dyn) return ph.type;   // 第 9 步 dyn：模式在进入本步时快照定型——进来有「一键全收」按钮＝动作步（领完按钮消失也按动作步判 done，不翻降级）；进来就没按钮才降级信息步
+    if (this._dynMode == null) this._dynMode = document.querySelector(ph.sel) ? 'action' : 'info';
+    return this._dynMode; },
+  init(){
+    const tg = this.peek();
+    if (S.meta.guideDone || (tg && (tg.done || tg.skipped))){ this.active = false; return; }
+    if (tg && tg.step >= 1 && tg.step <= GUIDE_TOTAL && !tg.done){ this.st = tg; this.st.phase = tg.phase || 0; this.start(); return; }
+    const hasSave = S.sect.started || !!Save.loadRaw(CONFIG.save.autoKey) || slotSaveExists() || !!Save.loadRaw(CONFIG.save.walkingKey);
+    if (hasSave){ this.st = { step: GUIDE_TOTAL, phase: 0, done: true, veteran: true }; this.saveSt(); this.active = false; return; }
+    this.st = { step: 1, phase: 0, done: false }; this.saveSt(); this.start();
+  },
+  start(){ this.active = true; gClicked = false; this._dynMode = null; document.body.classList.add('guiding');
+    $('gDesk').style.display = 'flex'; this.timer = setInterval(() => this.tick(), 200); this.tick(); },
+  stop(){ this.active = false; if (this.timer) clearInterval(this.timer); this.timer = null;
+    const d = $('gDesk'); if (d) d.style.display = 'none'; const r = $('gRing'); if (r) r.style.display = 'none';
+    document.body.classList.remove('guiding'); },
+  advance(){ const s = this.stepDef(); if (!s){ this.finish(false); return; }
+    gClicked = false; this._dynMode = null;
+    if (this.st.phase < s.phases.length - 1) this.st.phase++;
+    else { this.st.step++; this.st.phase = 0; }
+    this._sig = ''; this.saveSt();
+    if (this.st.step > GUIDE_TOTAL) this.finish(false); },
+  next(){ if (!this.active || this.wrongPage()) return; const ph = this.phase(); if (!ph) return;
+    if (this.phaseType(ph) !== 'info') return; this.advance(); this.tick(); },
+  finish(skipped){ if (this.st){ this.st.done = true; if (skipped) this.st.skipped = true; this.saveSt(); }
+    if (S.sect.started && !S.meta.guideDone){ S.meta.guideDone = true; markDirty(); Save.save(); }
+    this.stop(); if (!skipped) toast('引导完成，宗门交给你了'); },
+  yielding(){ return !!(S.pendingEvent && S.eventOpen); },   // 真实抉择（事件卡展开）出现时引导让行：讲解台与高亮圈隐藏、不推进，抉择结束自动接回原步
+  replay(){ if (!S.sect.started) return;   // 设置页「重看新手引导」：从第 1 步重走（已开宗的 1–2 步自动跳过），走完/跳过后完成标记自动恢复（finish 恒置 done）
+    this.st = { step: 1, phase: 0, done: false, replay: true }; this.saveSt();
+    this._sig = ''; this._dynMode = null; gClicked = false;
+    if (!this.active) this.start(); else this.tick(); },
+  tick(){ if (!this.active) return;
+    if (this.yielding()){ const d = $('gDesk'); if (d) d.style.display = 'none';
+      const r = $('gRing'); if (r) r.style.display = 'none'; this._yielded = true; return; }
+    if (this._yielded){ this._yielded = false; this._sig = '';
+      const d = $('gDesk'); if (d) d.style.display = 'flex'; }
+    let guard = 0;
+    while (guard++ < 24){ const ph = this.phase(); if (!ph) break;
+      if (ph.skipIf && ph.skipIf()){ this.advance(); if (!this.active) return; continue; }
+      if (this.phaseType(ph) === 'action' && ph.done && ph.done()){ this.advance(); if (!this.active) return; continue; }
+      break; }
+    this.paint(); this.positionRing(); },
+  paint(){ const ph = this.phase(); if (!ph || !$('gDesk')) return;
+    const wrong = this.wrongPage(), type = this.phaseType(ph);
+    const sig = this.st.step + '|' + this.st.phase + '|' + (wrong ? 1 : 0) + '|' + type;
+    if (sig === this._sig) return; this._sig = sig;
+    const s = this.stepDef();
+    $('gTitle').textContent = '第 ' + this.st.step + '/' + GUIDE_TOTAL + ' 步 · ' + s.title;
+    let dots = ''; for (let i = 1; i <= GUIDE_TOTAL; i++)
+      dots += '<span class="gDot' + (i < this.st.step ? ' done' : i === this.st.step ? ' on' : '') + '"></span>';
+    $('gDots').innerHTML = dots;
+    const TABNAMES = { home: '总览', prod: '生产', disc: '弟子', sect: '宗门', set: '设置' };
+    if (wrong){ $('gText').textContent = '这一步不在当前页。点底部「' + (TABNAMES[ph.ctx] || '') + '」页签回去，讲解接着来。';
+      $('gHint').textContent = '讲解台在这儿等你'; }
+    else { $('gText').textContent = (ph.dyn && type === 'info') ? ph.infoText : ph.text;
+      $('gHint').textContent = type === 'action' ? '完成上面的操作，自动继续' : ''; }
+    const nx = $('gNext');
+    if (!wrong && type === 'info'){ nx.style.display = '';
+      nx.textContent = (this.st.step === GUIDE_TOTAL && this.st.phase === s.phases.length - 1) ? '完成' : '下一步'; }
+    else nx.style.display = 'none'; },
+  positionRing(){ const ring = $('gRing'); if (!ring) return;
+    const ph = this.phase(); if (!ph){ ring.style.display = 'none'; return; }
+    let sel = ph.sel;
+    if (this.wrongPage()) sel = '[data-tab="' + ph.ctx + '"]';
+    else if (ph.dyn && this.phaseType(ph) === 'info') sel = ph.altSel || ph.sel;
+    const el = sel ? document.querySelector(sel) : null;
+    if (!el){ ring.style.display = 'none'; return; }
+    let r = el.getBoundingClientRect();
+    const deskTop = window.innerHeight - 190;   // 讲解台上沿（bottom 52 + height 138）
+    if (r.bottom > deskTop - 6 || r.top < 2){ const t = Date.now();
+      if (t - this._lastScroll > 700){ this._lastScroll = t; el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }
+    r = el.getBoundingClientRect();
+    ring.style.display = 'block';
+    ring.style.left = (r.left - 4) + 'px'; ring.style.top = (r.top - 4) + 'px';
+    ring.style.width = (r.width + 8) + 'px'; ring.style.height = (r.height + 8) + 'px'; },
+};
+document.addEventListener('click', function(e){ if (!Guide.active) return; const ph = Guide.phase();
+  if (!ph || ph.type !== 'action') return; const t = e.target; if (!t || !t.closest) return;
+  if ((ph.sel && t.closest(ph.sel)) || (ph.altSel && t.closest(ph.altSel))) gClicked = true; }, true);
+function gNext(){ Guide.next(); }
+function gSkip(){ if (Guide.active) Guide.finish(true); }
+function gReplay(){ Guide.replay(); }
+
 /* ---------------- 启动 ---------------- */
 /* 开始页门：冷打开（新会话）先落开始页选档；同会话内刷新/重进直达游戏
    （sessionStorage 标记，标签页关掉即失效）——选档发生在会话入口，不打断游戏内重载 */
@@ -1435,6 +1595,7 @@ function boot(){
   try { if (sessionStorage.getItem('kaizongmen_gate') === 'in') atGate = false; } catch (e) { atGate = false; }
   window.UI_READY = true;
   render();
+  Guide.init();   // 新手引导：仅全新访客触发/进行中恢复，老玩家零打扰（判定见 Guide.init）
   setInterval(() => { if (dirty) Save.save(); }, CONFIG.save.autosaveMs);
   setInterval(() => { const a = document.activeElement;
     if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT' || a.tagName === 'SELECT')) return;
