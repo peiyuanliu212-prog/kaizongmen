@@ -1308,9 +1308,9 @@ function slotRow(key, label, slotIdx){ const sm = Save.slotSummary(key);
 function viewSet(){ let h = '';
   h += '<div class="card"><h3>云端短码</h3>';
   if (!Vault.enabled()) h += '<p><b>云端通道开通中</b></p><p class="small">短码服务部署后自动可用；现在可先用下方长码换设备。通道未通不影响游玩与本地存档。</p>';
-  else h += '<div class="btnrow"><button class="btn" onclick="vaultPut()">把当前档生成短码</button></div><div id="vaultOut" style="margin-top:6px"></div>' +
-    '<label class="lb">输入短码取档（覆盖前自动存恢复槽）</label><input type="text" id="vaultCode" maxlength="14" placeholder="如 KZ-XXXXXXXX">' +
-    '<div class="btnrow"><button class="btn" onclick="vaultGet()">取档并载入</button></div><div id="vaultMsg" style="margin-top:6px"></div>';
+  else h += '<div class="btnrow"><button class="btn" onclick="vaultPut()">把当前档生成短码</button></div><div id="vaultOut" style="margin-top:6px">' + vaultUi.outHtml + '</div>' +
+    '<label class="lb">输入短码取档（覆盖前自动存恢复槽）</label><input type="text" id="vaultCode" maxlength="14" placeholder="如 KZ-XXXXXXXX" value="' + esc(vaultUi.code) + '" oninput="vaultUi.code=this.value">' +
+    '<div class="btnrow"><button class="btn" onclick="vaultGet()">取档并载入</button></div><div id="vaultMsg" style="margin-top:6px">' + esc(vaultUi.msg) + '</div>';
   h += '</div>';
   h += '<div class="card"><h3>存档槽</h3><p class="small">自动档：每 5 秒及关键动作自动保存，刷新不丢；当前进度归入的档位槽（标「当前」）会同步双写，在开始页可切换档位。手动槽存/读/删均需点两次确认。</p>' +
     slotRow(CONFIG.save.restoreKey, '恢复槽') +
@@ -1397,8 +1397,11 @@ function wipeAll(){ if (!armed('wipe')){ toast('再点一次确认删档重开')
   if (Guide.active) Guide.stop(); Guide.st = null; guideArmFresh = true;
   atGate = true;                                     // 回开始页选档（viewSetup 在 atGate 时恒显示档位卡）
   S = freshState(); toast('已删档，重新开宗'); render(); }
-function vaultPut(){ Vault.put($('vaultOut')); }
-function vaultGet(){ Vault.get($('vaultCode'), $('vaultMsg')); }
+/* 短码区 UI 状态承载：反馈文本与输入内容都存变量、由 viewSet 渲染——
+   游戏内有每秒重渲染，直接写 DOM 的提示会被冲掉（预览实测静默失败的根因），与长码 codeDraft 同一口径 */
+let vaultUi = { outHtml: '', msg: '', code: '' };
+function vaultPut(){ Vault.put(); }
+function vaultGet(){ Vault.get(); }
 
 /* ---------------- 云端短码（vault 客户端；协议：双 POST ＋ 信封 {code:0,data:{…}}，失败展示后端 message） ---------------- */
 const Vault = {
@@ -1415,8 +1418,8 @@ const Vault = {
       try {
         const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000));
         const r = await Promise.race([sh.request({ path: path, method: 'POST', data: bodyObj || {} }), timeout]);
-        if (r && typeof r.code === 'number'){                     // SDK 透传信封形态
-          if (r.code !== 0) return { ok: false, message: r.message || '云端返回异常' };
+        if (r && ('code' in r)){                                  // SDK 透传信封形态（业务码为数字、网关错误码可能是字符串，两样都认）
+          if (String(r.code) !== '0') return { ok: false, message: r.message || '云端返回异常' };
           return { ok: true, data: r.data || {} };
         }
         const d = (r && r.data) || null;                          // SDK 已解信封形态：r.data 即业务数据
@@ -1435,34 +1438,35 @@ const Vault = {
     finally { clearTimeout(timer); }
   },
   payloadStr(){ Save.save(); return JSON.stringify(S); },
-  async put(outEl){
-    if (!this.enabled()){ outEl.textContent = '云端通道开通中'; return; }
+  async put(){
+    if (!this.enabled()){ vaultUi.outHtml = '云端通道还没开通，先用下方长码换设备。'; render(); return; }
     const payload = this.payloadStr();
     const bytes = new Blob([payload]).size;
-    if (bytes > 256 * 1024){ outEl.textContent = '存档已 ' + Math.ceil(bytes / 1024) + ' KB，超过短码上限 256 KB，请改用下方长码。'; return; }
-    outEl.textContent = '正在生成短码…';
+    if (bytes > 256 * 1024){ vaultUi.outHtml = '存档已 ' + Math.ceil(bytes / 1024) + ' KB，超过短码上限 256 KB，请改用下方长码。'; render(); return; }
+    vaultUi.outHtml = '正在生成短码…'; render();
     const r = await this.call('/api/kzvault/put', { payload });
-    if (!r.ok){ outEl.textContent = '生成失败：' + r.message; return; }
+    if (!r.ok){ vaultUi.outHtml = '生成失败：' + esc(r.message) + '。可以再试一次，还不行就用下方长码。'; render(); return; }
     const code = String(r.data.shortCode || '').toUpperCase();
-    if (!code){ outEl.textContent = '生成失败：云端未返回短码，请改用长码'; return; }
-    outEl.innerHTML = '你的云端短码：<b style="font-size:19px;letter-spacing:2px">KZ-' + esc(code) + '</b>' +
+    if (!code){ vaultUi.outHtml = '生成失败：云端没有返回短码，请改用下方长码。'; render(); return; }
+    vaultUi.outHtml = '你的云端短码：<b style="font-size:19px;letter-spacing:2px">KZ-' + esc(code) + '</b>' +
       '<br><span class="small">换设备时在设置页输入此码取档（带不带 KZ- 前缀都可以）。请自行抄好，短码不另存本机。</span>';
+    render();
   },
-  async get(inputEl, outEl){
-    if (!this.enabled()){ outEl.textContent = '云端通道开通中'; return; }
-    let code = (inputEl.value || '').trim().toUpperCase().replace(/\s+/g, '');
+  async get(){
+    if (!this.enabled()){ vaultUi.msg = '云端通道还没开通，先用下方长码换设备。'; render(); return; }
+    let code = (vaultUi.code || '').trim().toUpperCase().replace(/\s+/g, '');
     if (code.indexOf('KZ-') === 0) code = code.slice(3);       // 玩家带前缀输入时先剥掉再发
-    if (!code){ outEl.textContent = '先输入短码再取档。'; return; }
-    outEl.textContent = '正在取档…';
+    if (!code){ vaultUi.msg = '先输入短码再取档。'; render(); return; }
+    vaultUi.msg = '正在取档…'; render();
     const r = await this.call('/api/kzvault/get', { code });
-    if (!r.ok){ outEl.textContent = '取档失败：' + r.message + '（当前进度未动）'; return; }
+    if (!r.ok){ vaultUi.msg = '取档失败：' + r.message + '（当前进度未动）'; render(); return; }
     let parsed = null; try { parsed = JSON.parse(r.data.payload || ''); } catch (e) {}
     const s = parsed && normalizeState(parsed);
-    if (!s){ outEl.textContent = '取档失败：云端存档校验不通过，已放弃覆盖（当前进度未动）。'; return; }
+    if (!s){ vaultUi.msg = '取档失败：云端存档校验不通过，已放弃覆盖（当前进度未动）。'; render(); return; }
     Save.writeSlot(CONFIG.save.restoreKey);                    // 覆盖前自动把当前档存入恢复槽
     s.meta.activeSlot = S.meta.activeSlot;                      // 归属沿用本机当前档位（短码协议口径不变）
     S = s; markDirty(); Save.save();
-    outEl.textContent = '取档成功，已载入云端存档；覆盖前的进度已存入恢复槽，可在下方找回。';
+    vaultUi.msg = '取档成功，已载入云端存档；覆盖前的进度已存入恢复槽，可在下方找回。';
     toast('云端存档已载入'); render();
   },
 };
