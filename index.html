@@ -124,7 +124,9 @@ const CONFIG = {
           slotPrefix: 'kaizongmen_tslot_', slots: 5, restoreKey: 'kaizongmen_tslot_restore',
           walkingKey: 'kaizongmen_save', walkingBackupKey: 'kaizongmen_save_walking_backup',
           autosaveMs: 5000 },
-  vault: { apiBase: '' },       // 云端短码：部署时填共用 CloudBase env 的 activity_api 网关 base；留空＝显示「云端通道开通中」，不影响其他功能
+  vault: { apiBase: '',         // 浏览器 fetch 兜底网关 base（留空＝网页版只用长码，不影响其他功能）
+           shellBase: 'https://app-46e35349b3-d0gk0b9r6abfd909f-1252166086.ap-shanghai.app.tcloudbase.com',   // 壳内 cloud.request 的 url 前缀（应用 env 网关域名，平台官方口径：url＝网关域名＋/api 路由）
+           shellEnvId: 'app-46e35349b3-d0gk0b9r6abfd909f' },
   tiers: [                      // 五档周期（照抄）
     { tier: 1, durationMs: 60 * 1000 },
     { tier: 2, durationMs: 10 * 60 * 1000 },
@@ -1418,9 +1420,15 @@ const Vault = {
     if (sh){
       try {
         const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000));
-        const r = await Promise.race([sh.request({ path: path, method: 'POST', data: bodyObj || {} }), timeout]);
-        if (r && ('code' in r)){                                  // SDK 透传信封形态（业务码为数字、网关错误码可能是字符串，两样都认）
-          if (String(r.code) !== '0') return { ok: false, message: r.message || '云端返回异常' };
+        /* 平台官方调用形态（act-cloudbase 技能包示例原文）：cloud.request({ url: 网关域名＋路由, method, data, envId })；
+           只给 path 会被 SDK 拒「Missing parameter: url is required」（2026-11-12 预览实测，非预览伪影） */
+        const req = { url: CONFIG.vault.shellBase + path, method: 'POST', data: bodyObj || {} };
+        if (CONFIG.vault.shellEnvId) req.envId = CONFIG.vault.shellEnvId;
+        const r = await Promise.race([sh.request(req), timeout]);
+        if (r && typeof r.statusCode === 'number' && r.statusCode !== 200)
+          return { ok: false, message: r.message || ('云端返回异常（HTTP ' + r.statusCode + '）') };
+        if (r && ('code' in r)){                                  // 信封形态（业务码数字、网关错误码可能是字符串；成功码 0 与 200 都认）
+          if (String(r.code) !== '0' && String(r.code) !== '200') return { ok: false, message: r.message || '云端返回异常' };
           return { ok: true, data: r.data || {} };
         }
         const d = (r && r.data) || null;                          // SDK 已解信封形态：r.data 即业务数据
