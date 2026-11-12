@@ -37,6 +37,8 @@
   .btn:disabled { opacity:.42; cursor:not-allowed; }
   .btn.sm { padding:3px 9px; font-size:13px; }
   .btnrow { display:flex; gap:7px; flex-wrap:wrap; margin-top:8px; }
+  .subbar { display:flex; gap:6px; margin:0 0 10px; }
+  .subbar .btn { flex:1; text-align:center; }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
   .plot { border:1px solid #d8cfb2; border-radius:8px; padding:10px; background:#fdfaf0; min-height:96px; }
   .plot .st { font-size:12px; color:#7c7261; }
@@ -986,6 +988,12 @@ function armBtn(key, label){ return (__armed[key] && nowMs() - __armed[key] < 35
 
 /* ================= UI ================= */
 let tab = 'home';
+/* 页内分栏（主人 2026-11-12 新令：不要一长条划到底，一屏一主题）：每页顶部子栏目切换，只渲染当前子栏目。
+   默认子栏目承载各页主玩法与全部引导锚点；引导另有 GUIDE_SUB 跟随表，目标不在当前子栏目时自动切过去 */
+let sub = { home: 'today', prod: 'farm', disc: 'roster', sect: 'build', set: 'save' };
+function setSub(p, s){ sub[p] = s; render(); window.scrollTo(0, 0); }
+function subBar(p, items){ return '<div class="subbar">' + items.map(it =>
+  '<button class="btn sm' + (sub[p] === it[0] ? ' pri' : '') + '" onclick="setSub(\'' + p + '\',\'' + it[0] + '\')">' + it[1] + '</button>').join('') + '</div>'; }
 function go(t){ tab = t; Audio8.play('page_flip', 0.35); render(); window.scrollTo(0, 0); }
 document.querySelectorAll('#tabbar button').forEach(b => b.onclick = () => { go(b.dataset.tab); });
 function inv(id){ return S.inventory[id] || 0; }
@@ -1117,7 +1125,9 @@ function claimOffline(){ const amt = Offline.claim(false);
 function offlineDoubleAd(){ if (!S.pendingSettlement || S.pendingSettlement.doubled) return;
   Ads.request('offline_double', { type: 'offlineDouble' }); }
 function viewHome(){
-  const c = collectSummary(), n = collectCount(c); let h = '';
+  const c = collectSummary(), n = collectCount(c);
+  let h = subBar('home', [['today', '今日'], ['story', '手记']]);
+  if (sub.home === 'today'){
   /* 今日清单（联赛口径）：今天能领能做的放最前——可领取＋掌门日课同组，日课不再埋在手记里 */
   h += '<div class="card collect" id="cardCollect"><h3>今日清单</h3><h4>可领取' + (n ? '（' + n + '）' : '') + '</h4>';
   if (!n) h += '<p class="muted">暂无。种田、派工、派遣之后，回来这里收。</p>';
@@ -1145,14 +1155,16 @@ function viewHome(){
       return '<div class="row"><span>' + esc(o.label) + '<br><span class="small">' + esc(o.note) + '</span></span>' +
       '<button class="btn sm" ' + (dis ? 'disabled' : '') + ' onclick="chooseEvent(' + i + ')">就这么办</button></div>'; }).join('');
     h += '</div>'; }
+  h += '<div class="card"><h3>第 ' + S.day.index + ' 天</h3>' +
+    (S.lastReport ? '<p class="small">昨日简报：' + esc(S.lastReport) + '</p>' : '<p class="small">今日入账 ' + S.stats.todayEarned + ' 灵石。</p>') +
+    '<div class="btnrow"><button id="btnSleep" class="' + armBtn('sleep') + '" onclick="doSleep()">' + armLabel('sleep', icn('sleep') + '歇息 · 过天') + '</button></div></div>';
+  } else {
   const qs = questList(), nextQ = qs.find(q => !q.done);
   h += '<div class="card"><h3>掌门手记</h3><p class="small">下一目标：' + (nextQ ? esc(nextQ.label) : '把建设度推到 ' +
     (nextRankDef() ? nextRankDef().need + '，晋阶「' + nextRankDef().name + '」' : '已是名门大派，继续攒家底')) + '</p><ul class="quest">' +
     qs.map(q => '<li class="' + (q.done ? 'done' : 'todo') + '">' + (q.done ? '✓ ' : '○ ') + esc(q.label) + '</li>').join('') + '</ul>';
   h += '</div>';
-  h += '<div class="card"><h3>第 ' + S.day.index + ' 天</h3>' +
-    (S.lastReport ? '<p class="small">昨日简报：' + esc(S.lastReport) + '</p>' : '<p class="small">今日入账 ' + S.stats.todayEarned + ' 灵石。</p>') +
-    '<div class="btnrow"><button id="btnSleep" class="' + armBtn('sleep') + '" onclick="doSleep()">' + armLabel('sleep', icn('sleep') + '歇息 · 过天') + '</button></div></div>';
+  }
   return h;
 }
 function questList(){ return [
@@ -1163,7 +1175,9 @@ function questList(){ return [
   { label: '扩建一次或参悟聚灵诀（宗门页）', done: S.stats.upgrades > 0 } ]; }
 
 /* ---- 生产 ---- */
-function viewProd(){ let h = '<div class="card"><h3>' + icn('lingzhi') + '药圃（6 块）</h3><div class="grid">';
+function viewProd(){ let h = subBar('prod', [['farm', '种植'], ['order', '订单']]);
+  if (sub.prod === 'farm'){
+  h += '<div class="card"><h3>' + icn('lingzhi') + '药圃（6 块）</h3><div class="grid">';
   S.plots.forEach((p, i) => { h += '<div class="plot"' + (i === 0 ? ' id="plot0"' : '') + '>';
     if (!p.cropId) h += '<b>空地 ' + (i + 1) + '</b><div class="st">种什么？</div><div class="btnrow">' +
       '<button class="btn sm"' + (i === 0 ? ' id="btnFirstPlant"' : '') + ' onclick="plantCrop(' + i + ',\'lingzhi\')">灵芝 · 1 分钟' + (S.hookFirstCrop ? '' : '（首块 10 秒）') + '</button>' +
@@ -1177,6 +1191,7 @@ function viewProd(){ let h = '<div class="card"><h3>' + icn('lingzhi') + '药圃
   h += stationHtml('forge', 'r_linglu');
   h += stationHtml('mine', 'r_xuanyu');
   h += '</div>';
+  } else {
   h += '<div class="card"><h3>' + icn('order') + '订单墙</h3>';
   if (!S.orders.length) h += '<p class="muted">暂无订单。</p>';
   h += S.orders.map(o => { const ok = canAffordEff({ items: o.needs });
@@ -1195,6 +1210,7 @@ function viewProd(){ let h = '<div class="card"><h3>' + icn('lingzhi') + '药圃
       '<span><b>' + r.reward + ' 灵石</b><span class="tag">×2</span> <button class="btn sm" ' + (ok ? '' : 'disabled') + ' onclick="deliverRush()">交付急单</button></span></div>' +
       '<p class="small">每日 1 张，30 分钟内交，过期作废。</p>'; }
   h += '</div>';
+  }
   return h; }
 function stationHtml(stationId, recipeId){ const r = CONFIG.recipes.find(x => x.id === recipeId);
   const locked = stationId === 'mine' && !S.mineUnlocked; let h = '<h4>' + CONFIG.stations[stationId].name + '</h4>';
@@ -1212,7 +1228,9 @@ function stationHtml(stationId, recipeId){ const r = CONFIG.recipes.find(x => x.
   return h; }
 
 /* ---- 弟子 ---- */
-function viewDisc(){ const G = CONFIG.discipleGen; let h = '';
+function viewDisc(){ const G = CONFIG.discipleGen;
+  let h = subBar('disc', [['roster', '名册'], ['codex', '图鉴']]);
+  if (sub.disc === 'roster'){
   h += '<div class="card" id="cardRecruit"><h3>' + icn('recruit') + '招募弟子（' + S.disciples.length + '/' + G.rosterCap + '）</h3>' +
     '<p>山门招募，一人 ' + G.recruitCost + ' 灵石。</p>' +
     '<p class="small">概率公示：品质 寻常 50% · 良好 32% · 上佳 14% · 绝佳 4%；三资质（悟性/根骨/手艺）按品质区间随机（寻常 20–50、良好 40–70、上佳 60–85、绝佳 80–99）；命格随机一项，来历随机拼成。</p>' +
@@ -1235,15 +1253,19 @@ function viewDisc(){ const G = CONFIG.discipleGen; let h = '';
         '<button class="btn sm" onclick="startDispatch(\'' + d.id + '\',\'' + ds.id + '\')">' + ds.name + '（' + itemName(ds.item) + '）</button>').join('') + '</div>' +
       '<p class="small">派遣产物为启动材料，不可出售。点已选岗位可取消派工。</p>'; }
     return s + '</div>'; }).join('');
+  } else {
   h += '<div class="card"><h3>' + icn('disciple') + '弟子图鉴</h3>' +
     (S.disciples.length ? '<div class="avaWall">' + S.disciples.map(d => avaImg(d, '')).join('') + '</div>' : '') +
     '<p class="small">见过的品质与命格会点亮。</p>' +
     '<p>品质：' + CONFIG.discipleGen.qualities.map(q => (S.codex.qualities[q.name] ? '<span class="chk">✓ ' + q.name + '</span>' : '<span class="miss">？' + q.name + '</span>')).join('　') + '</p>' +
     '<p>命格：' + CONFIG.discipleGen.fates.map(f => (S.codex.fates[f.name] ? '<span class="chk">✓ ' + f.name + '</span>' : '<span class="miss">？？？</span>')).join('　') + '</p></div>';
+  }
   return h; }
 
 /* ---- 宗门 ---- */
-function viewSect(){ let h = '';
+function viewSect(){
+  let h = subBar('sect', [['build', '建设'], ['vault', '宝库'], ['codex', '图鉴']]);
+  if (sub.sect === 'build'){
   const nr = nextRankDef();
   h += '<div class="card"><h3>' + icn('promote') + '宗门品级 · ' + CONFIG.ranks[S.sect.rank].name + '</h3>' +
     '<p>建设度 <b>' + S.sect.buildDegree + '</b>' + (nr ? ' · 晋阶「' + nr.name + '」需 ' + nr.need : ' · 已是顶峰') + '</p>';
@@ -1267,6 +1289,7 @@ function viewSect(){ let h = '';
     '<div class="row"><span><b>引气诀 ' + S.technique2.level + ' 层</b><br><span class="small">掌门绝学：每层弟子历练获取 +20%。当前倍率 ×' + expMul().toFixed(1) + '。</span></span>' +
     (S.technique2.level >= T2.maxLevel ? '<span class="tag grey">已至顶层</span>' :
       '<button class="btn sm" onclick="doTechnique2()">参悟下一层（' + T2.costs[S.technique2.level] + ' 灵石）</button>') + '</div></div>';
+  } else if (sub.sect === 'vault'){
   const M = CONFIG.market, price = chestPrice();
   h += '<div class="card"><h3>' + icn('bag') + '山下集市 · 宝匣</h3>' +
     '<p class="small">开匣必出宝物或碎片。概率公示：整件 60% · 碎片 ×2 占 40%；每开 10 匣必出 1 件未拥有整件（保底）。每日首匣半价 ' + M.firstPrice + ' 灵石，其后 ' + M.price + ' 灵石/匣。</p>' +
@@ -1288,6 +1311,7 @@ function viewSect(){ let h = '';
   h += '<div class="card"><h3>' + icn('signin') + '每日签到</h3><p class="small">累计签到 ' + S.routine.signIn.total + ' 天（断签不清零）。阶梯：' +
     CONFIG.routine.signInRewards.join(' / ') + ' 灵石。</p>' +
     (canSignIn() ? '<div class="btnrow"><button class="btn pri" onclick="doSignIn()">签到（+' + signInReward() + ' 灵石）</button></div>' : '<p>今日已签到。</p>') + '</div>';
+  } else {
   h += '<div class="card"><h3>' + icn('bag') + '物品图鉴</h3>' + Object.keys(CONFIG.items).filter(k => k !== 'coin').map(k => {
     const it = CONFIG.items[k];
     return '<div class="row"><span>' + itemIcn(k) + (S.codex.items[k] ? '<span class="chk">✓</span> ' + it.name : '<span class="miss">？？？</span>') +
@@ -1295,6 +1319,7 @@ function viewSect(){ let h = '';
     '<h4>宝物图鉴（' + ownedCount() + '/24）</h4>' + CONFIG.treasureSets.map(st =>
       '<p class="small" style="margin-top:4px">' + st.name + '：' + CONFIG.treasures.filter(t => t.set === st.id).map(t =>
         S.treasures.owned[t.id] ? '<span class="chk">✓ ' + t.name + '</span>' : '<span class="miss">？？？</span>').join('　') + '</p>').join('') + '</div>';
+  }
   return h; }
 
 /* ---- 设置 ---- */
@@ -1307,7 +1332,9 @@ function slotRow(key, label, slotIdx){ const sm = Save.slotSummary(key);
   return '<div class="row"><span>' + label + (slotIdx && S.meta.activeSlot === slotIdx ? ' <span class="tag">当前</span>' : '') + '<br><span class="small">' +
     (sm ? ('第 ' + sm.day + ' 天 · ' + sm.rank + ' · 建设度 ' + sm.degree + ' · 灵石 ' + sm.coin + ' · 弟子 ' + sm.disciples + ' 人 · ' + fmtClock(sm.savedAt)) : '空') +
     '</span></span><span>' + acts + '</span></div>'; }
-function viewSet(){ let h = '';
+function viewSet(){
+  let h = subBar('set', [['save', '存档'], ['code', '长码'], ['sys', '系统']]);
+  if (sub.set === 'save'){
   h += '<div class="card"><h3>云端短码</h3>';
   if (!Vault.enabled()) h += '<p><b>云端通道开通中</b></p><p class="small">短码服务部署后自动可用；现在可先用下方长码换设备。通道未通不影响游玩与本地存档。</p>';
   else h += '<div class="btnrow"><button class="btn" onclick="vaultPut()">把当前档生成短码</button></div><div id="vaultOut" style="margin-top:6px">' + vaultUi.outHtml + '</div>' +
@@ -1317,6 +1344,7 @@ function viewSet(){ let h = '';
   h += '<div class="card"><h3>存档槽</h3><p class="small">自动档：每 5 秒及关键动作自动保存，刷新不丢；当前进度归入的档位槽（标「当前」）会同步双写，在开始页可切换档位。手动槽存/读/删均需点两次确认。</p>' +
     slotRow(CONFIG.save.restoreKey, '恢复槽') +
     [1, 2, 3, 4, 5].map(i => slotRow(CONFIG.save.slotPrefix + i, '存档槽 ' + i, i)).join('') + '</div>';
+  } else if (sub.set === 'code'){
   h += '<div class="card"><h3>存档长码</h3><p class="small">长码是整档文本，请自己全选复制保存。先选档位：导出所选槽的存档；导入写入所选槽（导入前该槽旧内容自动进恢复槽）。导入到当前档位会同步刷新正在玩的进度。</p>' +
     '<label class="lb">长码对应档位</label><select id="codeSlotSel" onchange="codeSlotChoice=this.value">' +
     '<option value="cur"' + (codeSlotChoice === 'cur' ? ' selected' : '') + '>当前进度</option>' +
@@ -1325,6 +1353,7 @@ function viewSet(){ let h = '';
     '<div class="btnrow"><button class="btn" onclick="genLongCode()">生成长码</button>' +
     '<button class="' + ( __armed['import'] ? 'btn arm' : 'btn') + '" onclick="importLongCode()">' + armLabel('import', '导入长码') + '</button></div>' +
     '<div id="longMsg" style="margin-top:6px"></div></div>';
+  } else {
   h += '<div class="card"><h3>说明</h3><p class="small">' +
     '离线产率/小时 ＝（49 ＋ 0.2 × 建设度）× 0.6 × 聚灵诀倍率，封顶 ＝ 产率 × 7 × 0.6；离线 8 小时内回来再 ×1.3。聚灵诀倍率 ＝ 1 ＋ 0.1 × 层数。<br>' +
     '招募概率：寻常 50% · 良好 32% · 上佳 14% · 绝佳 4%。<br>' +
@@ -1336,6 +1365,7 @@ function viewSet(){ let h = '';
     '<div class="row"><span>新手引导</span><button class="btn sm" onclick="gReplay()">重看新手引导</button></div></div>';
   h += '<div class="card"><h3>重置</h3><p class="small">删档重开：清掉主档（自动档）与全部档位槽（含当前活动槽）、恢复槽与行走版原档，回到开始页重新选档开宗（行走版旧档备份保留，但不会再自动迁回）。</p>' +
     '<div class="btnrow"><button class="' + (__armed['wipe'] ? 'btn arm' : 'btn danger') + '" onclick="wipeAll()">' + armLabel('wipe', '删档重开') + '</button></div></div>';
+  }
   return h; }
 function toggleSound(){ S.settings.soundOn = !S.settings.soundOn; markDirty(); Save.save();
   if (S.settings.soundOn){ Audio8.unlocked = true; Audio8.startBgm(); Audio8.play('success'); } else Audio8.stopBgm();
@@ -1518,7 +1548,7 @@ const GUIDE_STEPS = [
       { ctx: 'disc', sel: '#cardRecruit', type: 'info',
         text: '50 灵石招一名弟子，品质概率明写在卡上。招来别闲着——给他派个岗位才有产出。' }] },
   { title: '宗门页', phases: [{ ctx: 'any', sel: '[data-tab="sect"]', type: 'info',
-      text: '「宗门」页是长线：扩建建筑、参悟功法、集市宝匣、宗门宝库，都在这页。' }] },
+      text: '「宗门」页是长线：顶部小栏目切换——「建设」里扩建与功法，「宝库」里宝匣、宝库与签到。' }] },
   { title: '掌门日课', phases: [
       { ctx: 'any', sel: '[data-tab="home"]', type: 'action', text: '回底部「总览」页签，看今天的日课。', done: () => tab === 'home' },
       { ctx: 'home', sel: '#dailyBlock', altSel: '#cardCollect', type: 'info',
@@ -1526,8 +1556,15 @@ const GUIDE_STEPS = [
   { title: '过天与存档', phases: [{ ctx: 'home', sel: '#btnSleep', type: 'info',
       text: '点「歇息 · 过天」结束一天，会出昨日简报。存档在底部「设置」页：五槽、长码、云端短码都在那。点「完成」，开宗大吉。' }] },
 ];
+/* 引导锚点所在的子栏目（分栏后）：目标不在当前子栏目时，tick 自动切过去，绝不指不存在的控件 */
+const GUIDE_SUB = { '#cardCollect': 'today', '#btnClaimAll': 'today', '#dailyBlock': 'today', '#btnSleep': 'today',
+                    '#btnFirstPlant': 'farm', '#plot0': 'farm', '#cardRecruit': 'roster' };
 const Guide = {
   KEY: 'kaizongmen_tguide', st: null, active: false, timer: null, _sig: '', _lastScroll: 0, _dynMode: null,
+  followSub(){ const ph = this.phase(); if (!ph || !ph.sel || this.wrongPage()) return;
+    if (document.querySelector(ph.sel)) return;
+    const want = GUIDE_SUB[ph.sel], page = ph.ctx;
+    if (want && sub[page] && sub[page] !== want){ sub[page] = want; render(); } },
   peek(){ try { const r = localStorage.getItem(this.KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } },
   saveSt(){ try { if (this.st) localStorage.setItem(this.KEY, JSON.stringify(this.st)); } catch (e) {} },
   stepDef(){ return GUIDE_STEPS[(this.st ? this.st.step : 1) - 1] || null; },
@@ -1577,6 +1614,7 @@ const Guide = {
       if (ph.skipIf && ph.skipIf()){ this.advance(); if (!this.active) return; continue; }
       if (this.phaseType(ph) === 'action' && ph.done && ph.done()){ this.advance(); if (!this.active) return; continue; }
       break; }
+    this.followSub();
     this.paint(); this.positionRing(); },
   paint(){ const ph = this.phase(); if (!ph || !$('gDesk')) return;
     const wrong = this.wrongPage(), type = this.phaseType(ph);
