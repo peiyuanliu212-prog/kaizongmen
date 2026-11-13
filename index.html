@@ -210,6 +210,7 @@ const CONFIG = {
     { id: 'assign',  hook: 'assign',  label: '派工 3 人次', target: 3 },
     { id: 'upgrade', hook: 'upgrade', label: '扩建或参悟 1 次', target: 1 },
     { id: 'chest',   hook: 'chest',   label: '开启宝匣 1 次', target: 1 },
+    { id: 'ad',      hook: 'ad',      label: '看广告 2 次', target: 2 },
   ],
   dailyReward: 40,
   daily2Tasks: [                // 进阶日课（时长保底批）：日课全完成并领奖后解锁，再抽 3 件、奖 60；计数与日课同源（从当日 0 点起算）
@@ -396,6 +397,7 @@ function freshState(){
     codex: { items: {}, qualities: {}, fates: {} },
     ads: { date: '', seq: 0, pending: [], applied: [] },
     pendingSettlement: null, offlineClaim: { appliedDigests: [] },
+    tapBuff: { date: '', count: 0 },   // 掌门运功（竞品落地·点击轨）：每日点按催熟计数
     pendingEvent: null, eventOpen: false, promoteInfo: null, hookFirstCrop: false,
     stats: { earnedCoin: 0, todayEarned: 0, todayKey: dayKey(), orders: 0, planted: 0, harvested: 0,
              recruited: 0, assigned: 0, upgrades: 0, dispatches: 0 },
@@ -592,7 +594,8 @@ const Offline = {
     if (el <= CONFIG.offline.earlyBonusMs){ early = amount * (CONFIG.offline.earlyBonusMul - 1); amount += early; }
     amount = Math.floor(amount); if (amount < 1) return null;
     return { id: 'st_' + digest(from + ':' + to + ':' + amount), from, to, amount,
-             earlyBonus: Math.floor(early), digest: digest(from + ':' + to + ':' + amount), doubled: false };
+             earlyBonus: Math.floor(early), digest: digest(from + ':' + to + ':' + amount), doubled: false,
+             ratePerHour: Math.floor(rate), capAmount: Math.floor(cap), hours: Math.round(el / 360000) / 10 };  // 离线三件套明示（竞品落地）：时产/封顶/时长随结算单一事实源带出
   },
   settleOnReturn(){ if (S.pendingSettlement) return S.pendingSettlement;
     const p = this.compute(S.day.lastSeenAt || S.createdAt, nowMs());
@@ -632,6 +635,7 @@ const Ads = {
     else if (eff.type === 'orderRefresh'){ if (mult > 0){ genOrders(true); msg = '订单已刷新'; } }
     const delta = Math.max(0, due - (e.granted || 0));                            // 差量口径：只补未发部分
     if (delta > 0) Ledger.transact({ coin: delta, reason: 'ad_' + e.point });
+    bumpDaily('ad');   // 日课「看广告」计数：结算单点（含重进补发结算），与到账同刻
     e.granted = due; S.ads.seq = seq; S.ads.applied.push(id);
     S.ads.pending = S.ads.pending.filter(x => x.id !== id);
     markDirty(); Save.save();
@@ -879,6 +883,22 @@ function plantCrop(i, cropId){ const p = S.plots[i]; if (!p || p.cropId) return;
   if (cropId === 'lingzhi' && !S.hookFirstCrop){ dur = 10 * 1000; S.hookFirstCrop = true; }
   p.cropId = cropId; p.plantedAt = nowMs(); p.readyAt = nowMs() + dur;
   S.stats.planted++; markDirty(); Save.save(); beep(); render(); }
+/* 掌门运功（竞品落地·学《摸鱼修仙》点击＋自动双轨）：点按催熟全部生长中作物 3 秒，连击飘字，每日 60 次 */
+let tapCombo = 0, tapComboTimer = null;
+function tapState(){ const k = dayKey(); if (!S.tapBuff) S.tapBuff = { date: k, count: 0 };
+  if (S.tapBuff.date !== k){ S.tapBuff.date = k; S.tapBuff.count = 0; } return S.tapBuff; }
+function tapRowHtml(){ const t = tapState(), left = Math.max(0, 60 - t.count);
+  const growing = S.plots.some(p => p.cropId && p.readyAt > nowMs());
+  return '<div class="btnrow"><button class="btn sm" ' + (left > 0 && growing ? '' : 'disabled') +
+    ' onclick="tapCultivate()">掌门运功 · 催熟（今日剩 ' + left + ' 次）</button></div>'; }
+function tapCultivate(){ const t = tapState(); if (t.count >= 60){ toast('今日运功已达上限，明日再来'); return; }
+  const growing = S.plots.filter(p => p.cropId && p.readyAt > nowMs());
+  if (!growing.length){ toast('田里暂无生长中的作物'); return; }
+  growing.forEach(p => { p.readyAt -= 3000; });
+  t.count++; tapCombo++; clearTimeout(tapComboTimer);
+  tapComboTimer = setTimeout(() => { tapCombo = 0; }, 2500);
+  floatText('运功 ×' + tapCombo + ' · 催熟 -3 秒'); Audio8.play('click');
+  markDirty(); }
 function harvestPlot(i, silent){ const p = S.plots[i]; if (!p || !p.cropId || nowMs() < p.readyAt) return null;
   const crop = CONFIG.crops[p.cropId];
   Ledger.transact({ items: { [crop.itemId]: crop.yieldQty }, reason: 'harvest' });
@@ -1230,7 +1250,8 @@ function viewHome(){
   h += '<div class="card collect" id="cardCollect"><h3>今日清单</h3><h4>可领取' + (n ? '（' + n + '）' : '') + '</h4>';
   if (!n) h += '<p class="muted">暂无。种田、派工、派遣之后，回来这里收。</p>';
   if (c.offline) h += '<div class="row"><span>离线结算 <b>' + c.offline + ' 灵石</b>' +
-    (S.pendingSettlement.earlyBonus ? '<span class="small">（含早归加成 ' + S.pendingSettlement.earlyBonus + '）</span>' : '') + '</span>' +
+    (S.pendingSettlement.earlyBonus ? '<span class="small">（含早归加成 ' + S.pendingSettlement.earlyBonus + '）</span>' : '') +
+    (S.pendingSettlement.ratePerHour ? '<br><span class="small">离线 ' + S.pendingSettlement.hours + ' 小时 · 每小时产 ' + S.pendingSettlement.ratePerHour + ' 灵石 · 累计上限 ' + S.pendingSettlement.capAmount + ' 灵石</span>' : '') + '</span>' +
     '<span><button class="btn sm" onclick="claimOffline()">领取</button> ' +
     (S.pendingSettlement.doubled ? '<span class="tag grey">已双倍</span>' :
       '<button class="btn sm" onclick="offlineDoubleAd()">广告双倍</button>') + '</span></div>';
@@ -1282,16 +1303,16 @@ function questList(){ return [
 /* ---- 生产 ---- */
 function viewProd(){ let h = subBar('prod', [['farm', '种植'], ['order', '订单']]);
   if (sub.prod === 'farm'){
-  h += '<div class="card"><h3>' + icn('lingzhi') + '药圃（6 块）</h3><div class="grid">';
+  h += '<div class="card"><h3>' + icn('lingzhi') + '药圃（' + S.plots.length + ' 块）</h3><div class="grid">';
   S.plots.forEach((p, i) => { h += '<div class="plot"' + (i === 0 ? ' id="plot0"' : '') + '>';
     if (!p.cropId) h += '<b>空地 ' + (i + 1) + '</b><div class="st">种什么？</div><div class="btnrow">' +
-      '<button class="btn sm"' + (i === 0 ? ' id="btnFirstPlant"' : '') + ' onclick="plantCrop(' + i + ',\'lingzhi\')">灵芝 · 1 分钟' + (S.hookFirstCrop ? '' : '（首块 10 秒）') + '</button>' +
+      '<button class="btn sm"' + (i === 0 ? ' id="btnFirstPlant"' : '') + ' onclick="plantCrop(' + i + ',\'lingzhi\')">灵芝 · 90 秒' + (S.hookFirstCrop ? '' : '（首块 10 秒）') + '</button>' +
       '<button class="btn sm" onclick="plantCrop(' + i + ',\'ninglu\')">凝露草 · 耗灵芝 1</button></div>';
     else { const crop = CONFIG.crops[p.cropId], ready = nowMs() >= p.readyAt;
       h += '<b>' + crop.name + '</b><div class="st">' + (ready ? '<span class="cd">已成熟</span>' : '还剩 ' + fmtDur(p.readyAt - nowMs())) + '</div>' +
       (ready ? '<div class="btnrow"><button class="btn sm pri" onclick="harvestPlot(' + i + ')">收获 +1</button></div>' : ''); }
     h += '</div>'; });
-  h += '</div><p class="small">弟子派「药圃」岗：成熟时长 ×0.8/名（最多 2 名）；聚灵诀每层再提速 10%。</p></div>';
+  h += '</div>' + tapRowHtml() + '<p class="small">弟子派「药圃」岗：成熟时长 ×0.8/名（最多 2 名）；聚灵诀每层再提速 10%。掌门运功：点按给全部生长中的作物催熟 3 秒（连击计数），每日 60 次。</p></div>';
   h += '<div class="card"><h3>' + icn('build') + '工单</h3>';
   h += stationHtml('forge', 'r_linglu');
   h += stationHtml('mine', 'r_xuanyu');
@@ -1333,7 +1354,7 @@ function viewProd(){ let h = subBar('prod', [['farm', '种植'], ['order', '订�
   return h; }
 function stationHtml(stationId, recipeId){ const r = CONFIG.recipes.find(x => x.id === recipeId);
   const locked = stationId === 'mine' && !S.mineUnlocked; let h = '<h4>' + CONFIG.stations[stationId].name + '</h4>';
-  if (locked) return h + '<p class="muted">未开辟。去宗门页花 150 灵石开辟后山矿口。</p>';
+  if (locked) return h + '<p class="muted">未开辟。去宗门页花 150 灵石开辟后山矿口。<br>开辟后可采石炼玄玉——限时急单与高阶订单都要玄玉，先有个盼头。</p>';
   const mineNote = recipeId === 'r_xuanyu' ? '矿引来源：首次晋阶赠 1、派遣旧矿洞、事件拾遗。' : '';
   h += '<div class="row"><span>' + r.name + '<br><span class="small">耗 ' + needsText(r.inputs) + ' → ' +
     needsText(r.outputs) + ' · 约 ' + fmtDur(CONFIG.tiers[r.tier - 1].durationMs) + '（岗位/功法可提速）</span></span>' +
@@ -1591,7 +1612,7 @@ const Vault = {
         if (CONFIG.vault.shellEnvId) req.envId = CONFIG.vault.shellEnvId;
         const r = await Promise.race([sh.request(req), timeout]);
         if (r && typeof r.statusCode === 'number' && r.statusCode !== 200)
-          return { ok: false, message: r.message || ('云端返回异常（HTTP ' + r.statusCode + '）') };
+          return { ok: false, message: r.message || '云端返回异常，请稍后再试或改用长码' };
         if (r && ('code' in r)){                                  // 信封形态（业务码数字、网关错误码可能是字符串；成功码 0 与 200 都认）
           if (String(r.code) !== '0' && String(r.code) !== '200') return { ok: false, message: r.message || '云端返回异常' };
           return { ok: true, data: r.data || {} };
@@ -1606,7 +1627,7 @@ const Vault = {
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyObj || {}) });
       let env = null; try { env = await res.json(); } catch (e) {}
       if (!res.ok || !env || env.code !== 0)
-        return { ok: false, message: (env && env.message) ? env.message : ('云端返回异常（HTTP ' + res.status + '）') };
+        return { ok: false, message: (env && env.message) ? env.message : '云端返回异常，请稍后再试或改用长码' };
       return { ok: true, data: env.data || {} };
     } catch (e) { return { ok: false, message: e && e.name === 'AbortError' ? '云端请求超时，请改用长码' : '网络不通，请改用长码' }; }
     finally { clearTimeout(timer); }
