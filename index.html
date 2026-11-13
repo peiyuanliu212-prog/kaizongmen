@@ -398,6 +398,7 @@ function freshState(){
     ads: { date: '', seq: 0, pending: [], applied: [] },
     pendingSettlement: null, offlineClaim: { appliedDigests: [] },
     tapBuff: { date: '', count: 0 },   // 掌门运功（竞品落地·点击轨）：每日点按催熟计数
+    duel: { w: 0, l: 0 }, duelCode: '',   // 论道（联机增补）：本地战绩与我的论道码
     pendingEvent: null, eventOpen: false, promoteInfo: null, hookFirstCrop: false,
     stats: { earnedCoin: 0, todayEarned: 0, todayKey: dayKey(), orders: 0, planted: 0, harvested: 0,
              recruited: 0, assigned: 0, upgrades: 0, dispatches: 0 },
@@ -1242,6 +1243,217 @@ function claimOffline(){ const amt = Offline.claim(false);
   if (amt > 0) toast('离线结算到账 ' + amt + ' 灵石'); markDirty(); Save.save(); beep(); render(); }
 function offlineDoubleAd(){ if (!S.pendingSettlement || S.pendingSettlement.doubled) return;
   Ads.request('offline_double', { type: 'offlineDouble' }); }
+/* ================= 联机增补（2026-11-13 总台放行，报告 Top1/Top2/⑨⑩） =================
+   身份：展示走 auth.getUserInfo；写入走 cloud.request auth=true，服务端只读网关注入的 puid，页面不传身份字段。
+   未登录/网页版一律降级：榜单可看、论道码可用，账号与提交给提示，不挡单机主循环。 */
+const KZQW = { '寻常': 1, '良好': 2, '上佳': 3.5, '绝佳': 5.5 };   // 论道品质权重（公式公示）
+let kzIdCache;   // undefined 未查 / null 无登录态 / {puid, nickname}
+async function kzIdentity(force){
+  if (kzIdCache !== undefined && !force) return kzIdCache;
+  const A = window.ColorboxAI && window.ColorboxAI.auth;
+  if (!A || typeof A.getUserInfo !== 'function'){ kzIdCache = null; return null; }
+  try { const r = await A.getUserInfo();
+    kzIdCache = (r && r.code === 200 && r.data && r.data.puid) ? { puid: String(r.data.puid), nickname: r.data.nickname || '' } : null;
+  } catch (e) { kzIdCache = null; }
+  return kzIdCache;
+}
+/* ---- ⑩ 账号云存档（puid＋槽号绑；短码保留兜底） ---- */
+const acctUi = { loaded: false, loading: false, slots: [], msg: '', id: undefined };
+async function acctRefresh(){
+  if (acctUi.loading) return; acctUi.loading = true;
+  acctUi.id = await kzIdentity();
+  if (acctUi.id){
+    const r = await Vault.call('/api/kzacct/list', {}, { auth: true });
+    acctUi.slots = r.ok ? (r.data.slots || []) : [];
+    if (!r.ok) acctUi.msg = r.message;
+  }
+  acctUi.loaded = true; acctUi.loading = false; render();
+}
+async function acctUpload(){
+  const slot = S.meta.activeSlot || 1;
+  const payload = Vault.payloadStr();
+  const r = await Vault.call('/api/kzacct/put', { slot, payload }, { auth: true });
+  acctUi.msg = r.ok ? ('已把档位 ' + slot + ' 上传到账号（' + new Date(r.data.updatedAt).toLocaleString() + '）') : ('上传失败：' + r.message);
+  if (r.ok) acctUi.loaded = false;
+  render();
+}
+async function acctDownload(){
+  const slot = S.meta.activeSlot || 1;
+  if (!armed('acctDl')){ toast('再点一次确认：云端档将覆盖当前进度（覆盖前自动存恢复槽）'); return; }
+  const r = await Vault.call('/api/kzacct/get', { slot }, { auth: true });
+  if (!r.ok){ acctUi.msg = '取档失败：' + r.message; render(); return; }
+  if (!r.data.payload){ acctUi.msg = '这个账号的档位 ' + slot + ' 还没有云端存档，先上传一次。'; render(); return; }
+  const s = normalizeState(JSON.parse(r.data.payload));
+  if (!s){ acctUi.msg = '取档失败：云端存档校验不通过，已放弃覆盖（当前进度未动）。'; render(); return; }
+  Save.writeSlot(CONFIG.save.restoreKey);
+  S = s; S.meta.activeSlot = slot; markDirty(); Save.save();
+  acctUi.msg = '已载入账号里档位 ' + slot + ' 的存档；覆盖前的进度已存入恢复槽。';
+  toast('账号存档已载入'); render();
+}
+function acctCardHtml(){
+  let h = '<div class="card"><h3>账号云存档</h3>';
+  if (!acctUi.loaded){ if (!acctUi.loading) acctRefresh();
+    return h + '<p class="small">正在确认登录状态…</p></div>'; }
+  if (!acctUi.id) return h + '<p class="small">用虎扑账号登录后，存档可按号自动存取（仍按 5 个档位分开）。网页版与未登录时不可用，短码与长码照常兜底。</p></div>';
+  const slot = S.meta.activeSlot || 1;
+  h += '<p class="small">已登录：' + esc(acctUi.id.nickname || '虎扑用户') + '。当前档位 ' + slot + ' 可上传/载入；云端现有：' +
+    (acctUi.slots.length ? acctUi.slots.map(x => '档位 ' + x.slot + '（' + new Date(x.updatedAt).toLocaleString() + '）').join('、') : '暂无') + '。</p>' +
+    '<div class="btnrow"><button class="btn" onclick="acctUpload()">把当前档上传到账号</button>' +
+    '<button class="' + (__armed['acctDl'] ? 'btn arm' : 'btn') + '" onclick="acctDownload()">' + armLabel('acctDl', '从账号载入当前档位') + '</button></div>' +
+    (acctUi.msg ? '<div style="margin-top:6px">' + esc(acctUi.msg) + '</div>' : '') + '</div>';
+  return h;
+}
+/* ---- Top1 建设度排行榜（只挂荣誉不发奖励；同分先达到者优先） ---- */
+const boardUi = { loaded: false, loading: false, rows: [], me: null, rank: null, msg: '' };
+async function boardRefresh(){
+  if (boardUi.loading) return; boardUi.loading = true;
+  const r = await Vault.call('/api/kzboard/list', { limit: 50 });
+  boardUi.rows = r.ok ? (r.data.rows || []) : [];
+  if (!r.ok) boardUi.msg = r.message;
+  const id = await kzIdentity();
+  if (id){ const m = await Vault.call('/api/kzboard/me', {}, { auth: true });
+    if (m.ok){ boardUi.me = m.data.mine; boardUi.rank = m.data.rank; } }
+  boardUi.loaded = true; boardUi.loading = false; render();
+}
+async function boardSubmit(){
+  const id = await kzIdentity(true);
+  if (!id){ toast('请先在虎扑 App 内登录，再提交成绩'); return; }
+  const r = await Vault.call('/api/kzboard/submit', { sectName: S.sect.name, nickname: id.nickname || '',
+    degree: S.sect.buildDegree, grade: CONFIG.ranks[S.sect.rank].name, disciples: S.disciples.length }, { auth: true });
+  if (!r.ok){ toast('提交失败：' + r.message); return; }
+  toast('已上榜：建设度 ' + r.data.degree + '，第 ' + r.data.rank + ' 名');
+  boardUi.loaded = false; boardRefresh();
+}
+function boardHtml(){
+  let h = '<div class="card"><h3>建设度排行榜</h3>';
+  h += '<p class="small">我的宗门：<b>' + esc(S.sect.name) + '</b> · 建设度 <b>' + S.sect.buildDegree + '</b> · ' + CONFIG.ranks[S.sect.rank].name +
+    (boardUi.rank ? ' · 当前第 <b>' + boardUi.rank + '</b> 名' : ' · 尚未上榜') + '</p>' +
+    '<div class="btnrow"><button class="btn sm" onclick="boardSubmit()">提交我的成绩</button>' +
+    '<button class="btn sm" onclick="makePoster(\'board\')">生成海报分享</button></div>';
+  if (!boardUi.loaded){ if (!boardUi.loading) boardRefresh(); h += '<p class="small">榜单加载中…</p>'; }
+  else if (boardUi.msg && !boardUi.rows.length) h += '<p class="small">' + esc(boardUi.msg) + '</p>';
+  else if (!boardUi.rows.length) h += '<p class="muted">暂无上榜宗门，来当第一个。</p>';
+  else h += boardUi.rows.map((x, i) => '<div class="row"><span>' + (i + 1) + '. <b>' + esc(x.sectName) + '</b>' +
+      (x.nickname ? '<span class="small">（' + esc(x.nickname) + '）</span>' : '') + '<br><span class="small">' + esc(x.grade || '') + ' · 弟子 ' + x.disciples + ' 人</span></span>' +
+      '<span><b>' + x.degree + '</b></span></div>').join('');
+  h += '<p class="small">口径：按建设度排序，同分先达到者优先；只记荣誉、不发奖励。成绩须在虎扑 App 内登录后提交，服务端会校验数值范围。</p></div>';
+  return h;
+}
+/* ---- Top2 论道挑战码（快照异步切磋；判定公式公示；只给荣誉） ---- */
+const duelUi = { code: '', msg: '', report: null, busy: false };
+function duelPower(d){ return (KZQW[d.quality] || 1) * (20 + (d.exp || 0)); }
+function duelSnapshot(){
+  const team = S.disciples.slice().sort((a, b) => duelPower(b) - duelPower(a)).slice(0, 5)
+    .map(d => ({ n: d.name, q: d.quality, e: d.exp || 0, f: d.fate }));
+  return { v: 1, sect: S.sect.name, grade: CONFIG.ranks[S.sect.rank].name, degree: S.sect.buildDegree, team };
+}
+async function duelPublish(){
+  if (!S.disciples.length){ toast('先招募弟子再论道'); return; }
+  const r = await Vault.call('/api/kzduel/put', { payload: JSON.stringify(duelSnapshot()) });
+  if (!r.ok){ toast('生成失败：' + r.message); return; }
+  S.duelCode = r.data.code; markDirty(); Save.save();
+  duelUi.code = 'LD-' + r.data.code; duelUi.msg = '论道码已生成，把码发给朋友，对方在论道页输入即可与你的阵容切磋。'; render();
+}
+async function duelChallenge(){
+  const inp = document.getElementById('duelCodeIn');
+  const code = inp ? inp.value.trim() : '';
+  if (!code){ toast('先输入对方的论道码'); return; }
+  if (!S.disciples.length){ toast('先招募弟子再论道'); return; }
+  const r = await Vault.call('/api/kzduel/get', { code });
+  if (!r.ok){ duelUi.msg = '论道失败：' + r.message; render(); return; }
+  let them; try { them = JSON.parse(r.data.payload); } catch (e) { them = null; }
+  if (!them || !Array.isArray(them.team) || !them.team.length){ duelUi.msg = '论道失败：这枚码的快照已损坏。'; render(); return; }
+  const mine = duelSnapshot();
+  const myTeam = mine.team, thTeam = them.team.map(d => ({ name: d.n, quality: d.q, exp: d.e }));
+  const rounds = []; let mw = 0, tw = 0;
+  const n = Math.min(myTeam.length, thTeam.length);
+  for (let i = 0; i < n; i++){
+    const a = duelPower(myTeam[i]), b = duelPower(thTeam[i]);
+    const win = a >= b ? '我' : '彼';
+    if (a >= b) mw++; else tw++;
+    rounds.push({ a: myTeam[i].name, b: thTeam[i].name, pa: Math.round(a), pb: Math.round(b), win });
+  }
+  let winner;
+  if (mw !== tw) winner = mw > tw ? '我' : '彼';
+  else { const sa = myTeam.reduce((s, d) => s + duelPower(d), 0), sb = thTeam.reduce((s, d) => s + duelPower(d), 0);
+    winner = sa >= sb ? '我' : '彼'; }
+  if (winner === '我') S.duel.w++; else S.duel.l++;
+  markDirty(); Save.save();
+  duelUi.report = { themSect: them.sect || '无名宗门', themGrade: them.grade || '', rounds, winner, mw, tw };
+  duelUi.msg = ''; render();
+}
+function duelHtml(){
+  let h = '<div class="card"><h3>论道</h3>';
+  h += '<p class="small">把自家最强的 5 名弟子组成阵容，生成论道码发给朋友异步切磋。我的战绩：<b>' + S.duel.w + ' 胜 · ' + S.duel.l + ' 负</b>（只记荣誉，不发奖励）。</p>';
+  h += '<div class="btnrow"><button class="btn sm" onclick="duelPublish()">生成我的论道码</button></div>';
+  if (S.duelCode) h += '<p>我的论道码：<b>LD-' + esc(S.duelCode) + '</b><br><span class="small">自己手动复制发给朋友（平台不许程序自动复制）。阵容变化后重新生成即更新。</span></p>';
+  if (duelUi.msg) h += '<p class="small">' + esc(duelUi.msg) + '</p>';
+  h += '<label class="lb">输入对方的论道码</label><input type="text" id="duelCodeIn" maxlength="12" placeholder="如 LD-XXXXXXXX">' +
+    '<div class="btnrow"><button class="btn sm pri" onclick="duelChallenge()">开始论道</button></div>';
+  if (duelUi.report){ const R = duelUi.report;
+    h += '<div class="card" style="margin-top:8px"><h3>战报 · 对 ' + esc(R.themSect) + (R.themGrade ? '（' + esc(R.themGrade) + '）' : '') + '</h3>' +
+      R.rounds.map((x, i) => '<div class="row"><span>第 ' + (i + 1) + ' 阵：' + esc(x.a) + '（' + x.pa + '） 对 ' + esc(x.b) + '（' + x.pb + '）</span><span>' + (x.win === '我' ? '我方胜' : '对方胜') + '</span></div>').join('') +
+      '<p><b>' + (R.winner === '我' ? '论道获胜' : '惜败') + '</b>（' + R.mw + ' : ' + R.tw + '）</p>' +
+      '<div class="btnrow"><button class="btn sm" onclick="makePoster(\'duel\')">生成战报海报</button></div></div>'; }
+  h += '<p class="small">判定公示：弟子战力＝品质权重（寻常 1 / 良好 2 / 上佳 3.5 / 绝佳 5.5）×（20 ＋ 历练）；双方最强 5 人按序逐阵对决，胜阵多者赢，阵数相同比总战力，再同则守擂（被挑战）方胜。</p></div>';
+  return h;
+}
+/* ---- ⑨ 海报分享（Canvas 本地产物→OSS→发帖编辑器；网页版降级为预览＋保存） ---- */
+let posterBusy = false, posterUrl = '';
+function makePoster(kind){
+  const cv = document.createElement('canvas'); cv.width = 750; cv.height = 1000;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 1000); grad.addColorStop(0, '#2b2416'); grad.addColorStop(1, '#14110b');
+  g.fillStyle = grad; g.fillRect(0, 0, 750, 1000);
+  const lines = kind === 'duel' && duelUi.report
+    ? ['论道战报', S.sect.name, '对 ' + (duelUi.report.themSect || ''), (duelUi.report.winner === '我' ? '获胜 ' : '惜败 ') + duelUi.report.mw + ' : ' + duelUi.report.tw, '战绩 ' + S.duel.w + ' 胜 · ' + S.duel.l + ' 负']
+    : ['我在修仙界开宗门', S.sect.name, CONFIG.ranks[S.sect.rank].name + ' · 建设度 ' + S.sect.buildDegree, '弟子 ' + S.disciples.length + ' 人 · 开宗第 ' + S.day.index + ' 天', boardUi.rank ? '建设度榜第 ' + boardUi.rank + ' 名' : ''];
+  const img = new Image();
+  img.onload = () => { g.drawImage(img, 55, 60, 640, 520);
+    g.fillStyle = '#e8d9ae'; g.textAlign = 'center';
+    g.font = '700 44px sans-serif'; g.fillText(lines[0], 375, 660);
+    g.font = '700 54px sans-serif'; g.fillText(lines[1], 375, 740);
+    g.font = '30px sans-serif'; g.fillStyle = '#cbbd93';
+    lines.slice(2).filter(Boolean).forEach((t, i) => g.fillText(t, 375, 810 + i * 52));
+    g.font = '24px sans-serif'; g.fillStyle = '#8a7c58'; g.fillText('虎扑 AI 工坊 · 我在修仙界开宗门', 375, 950);
+    posterUrl = cv.toDataURL('image/png'); showPoster(cv); };
+  img.onerror = () => { g.fillStyle = '#e8d9ae'; g.textAlign = 'center'; g.font = '700 48px sans-serif';
+    lines.forEach((t, i) => { if (t) g.fillText(t, 375, 300 + i * 90); });
+    posterUrl = cv.toDataURL('image/png'); showPoster(cv); };
+  img.src = 'assets/e-cover-v2.png';
+}
+function showPoster(cv){
+  let ov = document.getElementById('posterOv');
+  if (!ov){ ov = document.createElement('div'); ov.id = 'posterOv'; ov.className = 'ceremony'; document.body.appendChild(ov); }
+  ov.innerHTML = '';
+  const im = document.createElement('img'); im.src = posterUrl; im.alt = '分享海报'; ov.appendChild(im);
+  const cap = document.createElement('div'); cap.className = 'cerCap';
+  const b1 = document.createElement('button'); b1.className = 'btn pri'; b1.textContent = '发帖分享'; b1.onclick = posterShare;
+  const b2 = document.createElement('button'); b2.className = 'btn'; b2.textContent = '关闭'; b2.style.marginLeft = '8px';
+  b2.onclick = () => { ov.style.display = 'none'; };
+  cap.appendChild(b1); cap.appendChild(b2); ov.appendChild(cap);
+  ov.style.display = 'flex';
+}
+async function posterShare(){
+  if (posterBusy) return;
+  const CB = window.ColorboxAI;
+  if (!CB || !CB.oss || typeof CB.oss.uploadFile !== 'function' || !CB.request || !CB.request.bbs){
+    toast('请在虎扑 App 内使用发帖分享（网页版可长按海报保存）'); return; }
+  posterBusy = true;
+  try {
+    const blob = await (await fetch(posterUrl)).blob();
+    const up = await CB.oss.uploadFile({ file: blob, filename: 'kaizongmen-poster.png' });
+    const url = up && (up.downloadUrl || (up.data && up.data.downloadUrl));
+    if (!url){ toast('海报上传失败，请稍后再试'); posterBusy = false; return; }
+    const args = { title: '我的宗门：' + S.sect.name + '（' + CONFIG.ranks[S.sect.rank].name + '）',
+      content: '在《我在修仙界开宗门》里经营到 ' + CONFIG.ranks[S.sect.rank].name + '，建设度 ' + S.sect.buildDegree + '，弟子 ' + S.disciples.length + ' 人。', imageUrl: url };
+    try { if (typeof CB.bbsConfig?.get === 'function'){ const cfg = await CB.bbsConfig.get();
+      if (cfg && typeof cfg.bbsTagId === 'string' && cfg.bbsTagId){ args.topicId = cfg.bbsTopicId; args.tagId = cfg.bbsTagId; args.topicName = cfg.bbsTopicName; args.tagName = cfg.bbsTagName; } } } catch (e) { /* 无话题配置则不传 */ }
+    const r = await CB.request.bbs.openPostEditor(args);
+    if (r && r.code !== 200) toast(r.message || '发帖编辑器打开失败');
+  } catch (e) { toast('分享失败，请稍后再试'); }
+  posterBusy = false;
+}
 function viewHome(){
   const c = collectSummary(), n = collectCount(c);
   let h = subBar('home', [['today', '今日'], ['story', '手记']]);
@@ -1369,7 +1581,7 @@ function stationHtml(stationId, recipeId){ const r = CONFIG.recipes.find(x => x.
 
 /* ---- 弟子 ---- */
 function viewDisc(){ const G = CONFIG.discipleGen;
-  let h = subBar('disc', [['roster', '名册'], ['codex', '图鉴']]);
+  let h = subBar('disc', [['roster', '名册'], ['codex', '图鉴'], ['duel', '论道']]);
   if (sub.disc === 'roster'){
   h += '<div class="card" id="cardRecruit"><h3>' + icn('recruit') + '招募弟子（' + S.disciples.length + '/' + G.rosterCap + '）</h3>' +
     '<p>山门招募，一人 ' + G.recruitCost + ' 灵石。</p>' +
@@ -1395,6 +1607,8 @@ function viewDisc(){ const G = CONFIG.discipleGen;
         '<button class="btn sm" onclick="startDispatch(\'' + d.id + '\',\'' + ds.id + '\')">' + ds.name + '（' + itemName(ds.item) + '）</button>').join('') + '</div>' +
       '<p class="small">派遣产物为启动材料，不可出售。点已选岗位可取消派工。</p>'; }
     return s + '</div>'; }).join('');
+  } else if (sub.disc === 'duel'){
+  h += duelHtml();
   } else {
   h += '<div class="card"><h3>' + icn('disciple') + '弟子图鉴</h3>' +
     (S.disciples.length ? '<div class="avaWall">' + S.disciples.map(d => avaImg(d, '')).join('') + '</div>' : '') +
@@ -1406,7 +1620,7 @@ function viewDisc(){ const G = CONFIG.discipleGen;
 
 /* ---- 宗门 ---- */
 function viewSect(){
-  let h = subBar('sect', [['build', '建设'], ['vault', '宝库'], ['codex', '图鉴']]);
+  let h = subBar('sect', [['build', '建设'], ['vault', '宝库'], ['codex', '图鉴'], ['board', '排行']]);
   if (sub.sect === 'build'){
   const nr = nextRankDef();
   h += '<div class="card"><h3>' + icn('promote') + '宗门品级 · ' + CONFIG.ranks[S.sect.rank].name + '</h3>' +
@@ -1453,6 +1667,8 @@ function viewSect(){
   h += '<div class="card"><h3>' + icn('signin') + '每日签到</h3><p class="small">累计签到 ' + S.routine.signIn.total + ' 天（断签不清零）。阶梯：' +
     CONFIG.routine.signInRewards.join(' / ') + ' 灵石。</p>' +
     (canSignIn() ? '<div class="btnrow"><button class="btn pri" onclick="doSignIn()">签到（+' + signInReward() + ' 灵石）</button></div>' : '<p>今日已签到。</p>') + '</div>';
+  } else if (sub.sect === 'board'){
+  h += boardHtml();
   } else {
   h += '<div class="card"><h3>' + icn('bag') + '物品图鉴</h3>' + Object.keys(CONFIG.items).filter(k => k !== 'coin').map(k => {
     const it = CONFIG.items[k];
@@ -1483,6 +1699,7 @@ function viewSet(){
     '<label class="lb">输入短码取档（覆盖前自动存恢复槽）</label><input type="text" id="vaultCode" maxlength="14" placeholder="如 KZ-XXXXXXXX" value="' + esc(vaultUi.code) + '" oninput="vaultUi.code=this.value">' +
     '<div class="btnrow"><button class="btn" onclick="vaultGet()">取档并载入</button></div><div id="vaultMsg" style="margin-top:6px">' + esc(vaultUi.msg) + '</div>';
   h += '</div>';
+  h += acctCardHtml();
   h += '<div class="card"><h3>存档槽</h3><p class="small">自动档：每 5 秒及关键动作自动保存，刷新不丢；当前进度归入的档位槽（标「当前」）会同步双写，在开始页可切换档位。手动槽存/读/删均需点两次确认。</p>' +
     slotRow(CONFIG.save.restoreKey, '恢复槽') +
     [1, 2, 3, 4, 5].map(i => slotRow(CONFIG.save.slotPrefix + i, '存档槽 ' + i, i)).join('') + '</div>';
@@ -1501,6 +1718,7 @@ function viewSet(){
     '招募概率：寻常 50% · 良好 32% · 上佳 14% · 绝佳 4%。<br>' +
     '订单墙为日常池轮换（每批 5 张）；限时急单每日 2 张连环（源自定时池，当天内交付奖励 ×2，第一张交掉约 4 小时后第二张送到）；另有大宗订单每日 1 张常驻（当日交掉为止）。掌门日课按游戏日刷新，全完成奖 40 灵石，领奖后解锁进阶日课（再 3 件，奖 60 灵石）。大殿每升一级药田 +2 块。宝匣概率：整件 60% · 碎片 ×2 占 40%，10 匣保底未拥有整件，每日首匣半价。<br>' +
     '广告为本地模拟占位（口径与正式版一致：主动触发、序号衰减、未落定不发）。<br>' +
+    '联机（虎扑 App 内登录后）：账号云存档按号分槽存取；建设度排行榜只记荣誉不发奖励；论道码可与朋友异步切磋，判定公式写在论道页。未登录不影响单机游玩。<br>' +
     '存档版本 ver3：当前进度归入一个档位槽并同步双写，开始页可切换/新开/删除档位；长码可按档位分别导出导入。老版本存档载入时自动补齐并归槽，不会丢进度。<br>' +
     '素材：封面、弟子头像、图标、音乐音效均为本作旧版定版资产；无行走人物与场景图集。声音开关统管 BGM 与音效，默认开，选择会存档记住；BGM 在首次点击后开始低音量循环。</p>' +
     '<div class="row"><span>声音</span><button class="btn sm" onclick="toggleSound()">' + (S.settings.soundOn ? '已开（点关）' : '已关（点开）') + '</button></div>' +
@@ -1601,14 +1819,16 @@ const Vault = {
     typeof window.ColorboxAI.cloud.request === 'function') ? window.ColorboxAI.cloud : null; },
   enabled(){ return !!this.shell() || !!this.base(); },
   /* 统一请求：8 秒超时；失败优先解析后端 {code,message} 把 message 交回调用方展示 */
-  async call(path, bodyObj){
+  async call(path, bodyObj, opts){
     const sh = this.shell();
+    if (opts && opts.auth && !sh) return { ok: false, message: '账号功能请在虎扑 App 内登录后使用' };
     if (sh){
       try {
         const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000));
         /* 平台官方调用形态（act-cloudbase 技能包示例原文）：cloud.request({ url: 网关域名＋路由, method, data, envId })；
            只给 path 会被 SDK 拒「Missing parameter: url is required」（2026-11-12 预览实测，非预览伪影） */
         const req = { url: CONFIG.vault.shellBase + path, method: 'POST', data: bodyObj || {} };
+        if (opts && opts.auth) req.auth = true;   // 受保护路由：SDK 换票带 Bearer，网关验后注入 puid（函数只读 context）
         if (CONFIG.vault.shellEnvId) req.envId = CONFIG.vault.shellEnvId;
         const r = await Promise.race([sh.request(req), timeout]);
         if (r && typeof r.statusCode === 'number' && r.statusCode !== 200)
