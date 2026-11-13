@@ -139,7 +139,7 @@ const CONFIG = {
            shellBase: 'https://app-46e35349b3-d0gk0b9r6abfd909f-1252166086.ap-shanghai.app.tcloudbase.com',   // 壳内 cloud.request 的 url 前缀（应用 env 网关域名，平台官方口径：url＝网关域名＋/api 路由）
            shellEnvId: 'app-46e35349b3-d0gk0b9r6abfd909f' },
   tiers: [                      // 五档周期（照抄）
-    { tier: 1, durationMs: 60 * 1000 },
+    { tier: 1, durationMs: 90 * 1000 },
     { tier: 2, durationMs: 10 * 60 * 1000 },
     { tier: 3, durationMs: 60 * 60 * 1000 },
     { tier: 4, durationMs: 6 * 3600 * 1000 },
@@ -171,7 +171,7 @@ const CONFIG = {
     mine:  { name: '矿脉工位', maxRunning: 2 },
   },
   buildings: [                  // 建筑（前四座照抄；后两座为厚度批新增：聚灵阵/藏书阁，上限 3 级，degreePerLevel 每级建设度）
-    { id: 'hall',  name: '大殿',   level: 1, degreePerLevel: 10 },
+    { id: 'hall',  name: '大殿',   level: 1, degreePerLevel: 10, note: '每级药田 +2 块' },
     { id: 'home',  name: '掌门居', level: 1, degreePerLevel: 10 },
     { id: 'forge', name: '淬炼坊', level: 1, degreePerLevel: 10 },
     { id: 'quarters', name: '弟子居舍', level: 0, degreePerLevel: 10 },
@@ -179,12 +179,12 @@ const CONFIG = {
     { id: 'library', name: '藏书阁', level: 0, degreePerLevel: 10, note: '每级新弟子资质下限 +3' },
   ],
   upgrades: {                   // 扩建报价（前五行照抄；后两行厚度批一页纸写死）
-    hall:     { 2: { coin: 120 }, 3: { coin: 260 } },
-    home:     { 2: { coin: 80 },  3: { coin: 180 } },
-    forge:    { 2: { coin: 100, items: { forge_plan: 1 } }, 3: { coin: 240 } },
-    quarters: { 1: { coin: 60 },  2: { coin: 110 }, 3: { coin: 200 } },
-    spiritArray: { 1: { coin: 200 }, 2: { coin: 400 }, 3: { coin: 800 } },
-    library:     { 1: { coin: 150 }, 2: { coin: 300 }, 3: { coin: 600 } },
+    hall:     { 2: { coin: 120 }, 3: { coin: 350 } },
+    home:     { 2: { coin: 80 },  3: { coin: 240 } },
+    forge:    { 2: { coin: 100, items: { forge_plan: 1 } }, 3: { coin: 320 } },
+    quarters: { 1: { coin: 60 },  2: { coin: 110 }, 3: { coin: 270 } },
+    spiritArray: { 1: { coin: 200 }, 2: { coin: 520 }, 3: { coin: 1080 } },
+    library:     { 1: { coin: 150 }, 2: { coin: 390 }, 3: { coin: 810 } },
     mineUnlock: { coin: 150 },
   },
   mineBuilding: { id: 'mine', name: '矿脉工位', degreePerLevel: 15 },
@@ -196,22 +196,31 @@ const CONFIG = {
   ],
   promoteRewardBase: 50,        // 晋阶礼金＝base × 新品级序（新品级 index+1）
   technique: {                  // 聚灵诀（一页纸批准新增）：Lv0 未习，每升一级全产率 +10%
-    name: '聚灵诀', maxLevel: 5, costs: [80, 160, 320, 640, 1280], perLevel: 0.1,
+    name: '聚灵诀', maxLevel: 5, costs: [80, 160, 360, 760, 1560], perLevel: 0.1,
     // 产率倍率 techMul ＝ 1 ＋ 0.1 × 当前等级；作用于：离线产率（乘倍率）、作物/工单时长（除以倍率）
   },
   technique2: {                 // 引气诀（厚度批第二功法线）：Lv0 未习，每层弟子历练获取 +20%
-    name: '引气诀', maxLevel: 5, costs: [120, 240, 480, 960, 1920], perLevel: 0.2,
+    name: '引气诀', maxLevel: 5, costs: [120, 240, 540, 1140, 2280], perLevel: 0.2,
     // 历练倍率 expMul ＝ 1 ＋ 0.2 × 当前等级；作用于：过天结算时在岗弟子历练入账
   },
   dailyTasks: [                 // 掌门日课池（厚度批）：每日确定性抽 3 件，计数走既有动作钩子，全完成奖 40 灵石
-    { id: 'harvest', hook: 'harvest', label: '收获作物 3 次', target: 3 },
-    { id: 'orders',  hook: 'order',   label: '交付订单 2 笔', target: 2 },
+    { id: 'harvest', hook: 'harvest', label: '收获作物 5 次', target: 5 },
+    { id: 'orders',  hook: 'order',   label: '交付订单 3 笔', target: 3 },
     { id: 'recruit', hook: 'recruit', label: '招募弟子 1 人', target: 1 },
     { id: 'assign',  hook: 'assign',  label: '派工 3 人次', target: 3 },
     { id: 'upgrade', hook: 'upgrade', label: '扩建或参悟 1 次', target: 1 },
     { id: 'chest',   hook: 'chest',   label: '开启宝匣 1 次', target: 1 },
   ],
   dailyReward: 40,
+  daily2Tasks: [                // 进阶日课（时长保底批）：日课全完成并领奖后解锁，再抽 3 件、奖 60；计数与日课同源（从当日 0 点起算）
+    { id: 'job1',      hook: 'job',         label: '完成工单 1 条',   target: 1 },
+    { id: 'orders2b',  hook: 'order',       label: '今日交付订单共 6 笔',   target: 6 },
+    { id: 'harvest8',  hook: 'harvest',     label: '今日收获共 10 次',  target: 10 },
+    { id: 'dispBack',  hook: 'dispatchBack', label: '迎接派遣归来 1 人', target: 1 },
+    { id: 'chest2b',   hook: 'chest',       label: '今日开启宝匣共 2 次',   target: 2 },
+    { id: 'assign6',   hook: 'assign',      label: '今日派工共 8 人次',     target: 8 },
+  ],
+  daily2Reward: 60,
   discipleExp: { perDay: 34, need: 100, maxStage: 5, perStage: 0.05 },  // 弟子历练：在岗过天 +34×引气诀倍率（perDay 为运营口径，一页纸只写死满 100 升阶/上限 5/每阶 +5%）
   treasureSets: [               // 宗门宝库（厚度批）：4 套 ×6 件，集齐永久加成在事实源函数内叠加
     { id: 'kaishan',  name: '开山套', bonusText: '集齐：建设度 +10', degreeBonus: 10 },
@@ -237,7 +246,7 @@ const CONFIG = {
   shardExchangeCost: 3,         // 碎片 3 换 1 指定未拥有件
   treasureDrop: { eventShardChance: 0.3, dispatchShardChance: 0.25, dispatchWholeChance: 0.05, batchShardQty: 1, batchWholeChance: 0.3 },  // 宝物来源运营口径（一页纸写死来源类别，未写死概率）：普通事件完成 30% 碎片×1；派遣归来 25% 碎片×1、5% 整件；订单交满一批宝箱碎片×1 必得＋30% 整件
   market: { price: 80, firstPrice: 40, pityMax: 10, wholeChance: 0.6, shardQty: 2 },  // 山下集市·宝匣（厚度批写死）：整件 60%/碎片×2 40%，第 10 匣保底未拥有整件，每日首匣半价
-  rushMs: 30 * 60 * 1000,       // 限时急单：每日 1 张（源自 orders.pools.timed），30 分钟过期作废，奖励 ×2
+  rushMs: 30 * 60 * 1000,       // （旧口径已废）急单现为当日有效，过期点＝当日 24:00，见 genRush
   discipleGen: {                // 弟子生成池（照抄）
     recruitCost: 50, rosterCap: 8,
     surnames: ['陈','陆','沈','林','苏','顾','江','许','何','罗','郑','冯'],
@@ -286,10 +295,10 @@ const CONFIG = {
     ],
   },
   orders: {                     // 订单三池原表（照抄）；MVP 订单墙只用 daily 池轮换（简化，已在设置页注明）
-    dailyCount: 3,
+    dailyCount: 5,              // 时长保底批（2026-11-13 主人令速玩日均≥10 分钟）：每批 3→5 张（池 4 张轮换）、需求量约 +50%，订单驱动种收循环
     pools: {
-      daily: [ { needs: { lingzhi: 3 }, reward: 30 }, { needs: { lingzhi: 5 }, reward: 52 },
-               { needs: { ninglu: 2 }, reward: 36 }, { needs: { lingzhi: 2, ninglu: 1 }, reward: 40 } ],
+      daily: [ { needs: { lingzhi: 4 }, reward: 38 }, { needs: { lingzhi: 7 }, reward: 66 },
+               { needs: { ninglu: 3 }, reward: 50 }, { needs: { lingzhi: 3, ninglu: 2 }, reward: 58 } ],
       timed: [ { needs: { ninglu: 3 }, reward: 58 }, { needs: { linglu: 1 }, reward: 48 },
                { needs: { lingzhi: 4, ninglu: 2 }, reward: 66 } ],
       rush:  [ { needs: { linglu: 2 }, reward: 96 }, { needs: { xuanyu: 1 }, reward: 90 },
@@ -460,8 +469,11 @@ function normalizeState(raw){ // 任意来源（本地档/长码/短码）的存
   s.sect = Object.assign(F.sect, raw.sect || {});
   s.balances = Object.assign(F.balances, raw.balances || {});
   s.inventory = Object.assign({}, raw.inventory || {});
-  s.plots = Array.isArray(raw.plots) && raw.plots.length ? raw.plots.slice(0, CONFIG.plotCount) : F.plots;
-  while (s.plots.length < CONFIG.plotCount) s.plots.push({ cropId: null, plantedAt: 0, readyAt: 0 });
+  // 田数随大殿等级（时长保底批）：6 ＋ 2×(大殿级−1)；先按原始建筑算上限再对齐田块（长档已长的田不砍）
+  const rawHall = (Array.isArray(raw.buildings) ? raw.buildings : []).find(b => b && b.id === 'hall');
+  const plotCapN = CONFIG.plotCount + 2 * (clamp((rawHall && rawHall.level) || 1, 1, 3) - 1);
+  s.plots = Array.isArray(raw.plots) && raw.plots.length ? raw.plots.slice(0, Math.max(plotCapN, raw.plots.length)) : F.plots;
+  while (s.plots.length < plotCapN) s.plots.push({ cropId: null, plantedAt: 0, readyAt: 0 });
   s.jobs = Array.isArray(raw.jobs) ? raw.jobs : [];
   s.disciples = Array.isArray(raw.disciples) ? raw.disciples : [];
   // 建筑按 CONFIG 全量对齐：老档缺的新建筑（聚灵阵/藏书阁）以初始等级补入，已有等级保留
@@ -751,16 +763,28 @@ function canAffordEff(eff){ if (!eff) return true;
 /* ---------------- 掌门日课（厚度批：每日抽 3 件、计数走动作钩子、全完成奖 40；按游戏日刷新，明日预告与明日实抽同源） ---------------- */
 function drawDailyTasks(seedStr){ let h = hashStr(seedStr); const pool = CONFIG.dailyTasks.map(t => t.id); const out = [];
   while (out.length < 3 && pool.length){ h = (h * 1103515245 + 12345) >>> 0; out.push(pool.splice(h % pool.length, 1)[0]); } return out; }
+function drawDaily2Tasks(seedStr){ let h = hashStr(seedStr); const pool = CONFIG.daily2Tasks.map(t => t.id); const out = [];
+  while (out.length < 3 && pool.length){ h = (h * 1103515245 + 12345) >>> 0; out.push(pool.splice(h % pool.length, 1)[0]); } return out; }
 function dailyDef(id){ return CONFIG.dailyTasks.find(t => t.id === id); }
+function daily2Def(id){ return CONFIG.daily2Tasks.find(t => t.id === id); }
 function ensureDaily(){ const k = 'd' + S.day.index;
-  if (!S.daily || S.daily.key !== k){ S.daily = { key: k, taskIds: drawDailyTasks(k), progress: {}, claimed: false }; markDirty(); } }
+  if (!S.daily || S.daily.key !== k){ S.daily = { key: k, taskIds: drawDailyTasks(k), progress: {}, claimed: false,
+    task2Ids: drawDaily2Tasks(k + 'b'), progress2: {}, claimed2: false }; markDirty(); return; }
+  if (!S.daily.task2Ids){ S.daily.task2Ids = drawDaily2Tasks(k + 'b'); S.daily.progress2 = S.daily.progress2 || {}; S.daily.claimed2 = !!S.daily.claimed2; markDirty(); } }
 function bumpDaily(hook){ if (!S.daily) return;
   for (const id of S.daily.taskIds){ const t = dailyDef(id); if (!t || t.hook !== hook) continue;
-    const cur = S.daily.progress[id] || 0; if (cur < t.target){ S.daily.progress[id] = cur + 1; markDirty(); } } }
+    const cur = S.daily.progress[id] || 0; if (cur < t.target){ S.daily.progress[id] = cur + 1; markDirty(); } }
+  for (const id of (S.daily.task2Ids || [])){ const t = daily2Def(id); if (!t || t.hook !== hook) continue;
+    const cur = (S.daily.progress2 || {})[id] || 0; if (cur < t.target){ S.daily.progress2[id] = cur + 1; markDirty(); } } }
 function dailyAllDone(){ return !!S.daily && S.daily.taskIds.every(id => (S.daily.progress[id] || 0) >= dailyDef(id).target); }
+function daily2AllDone(){ return !!S.daily && (S.daily.task2Ids || []).length > 0 &&
+  S.daily.task2Ids.every(id => ((S.daily.progress2 || {})[id] || 0) >= daily2Def(id).target); }
 function claimDaily(){ if (!dailyAllDone() || S.daily.claimed) return;
   Ledger.transact({ coin: CONFIG.dailyReward, reason: 'daily' }); S.daily.claimed = true;
-  toast('日课全完成，奖励 ' + CONFIG.dailyReward + ' 灵石'); markDirty(); Save.save(); Audio8.play('success'); render(); }
+  toast('日课全完成，奖励 ' + CONFIG.dailyReward + ' 灵石；进阶日课已解锁'); markDirty(); Save.save(); Audio8.play('success'); render(); }
+function claimDaily2(){ if (!S.daily.claimed || !daily2AllDone() || S.daily.claimed2) return;
+  Ledger.transact({ coin: CONFIG.daily2Reward, reason: 'daily2' }); S.daily.claimed2 = true;
+  toast('进阶日课全完成，奖励 ' + CONFIG.daily2Reward + ' 灵石'); markDirty(); Save.save(); Audio8.play('success'); render(); }
 
 /* ---------------- 宗门宝库（厚度批：24 件 4 套；重复/溢出转碎片，碎片 3 换 1；里程碑领灵石） ---------------- */
 function treasureById(id){ return CONFIG.treasures.find(t => t.id === id); }
@@ -809,18 +833,42 @@ function doTechnique2(){ const T = CONFIG.technique2, lv = S.technique2.level;
   markDirty(); Save.save(); Audio8.play('success'); render(); }
 
 /* ---------------- 限时急单（厚度批：每日 1 张，源自 timed 池，30 分钟过期作废，奖励 ×2） ---------------- */
-function genRush(){ const k = dayKey(); if (S.rush && S.rush.dateKey === k) return;
+function genRush(){ const k = dayKey();
+  if (S.rush && S.rush.dateKey === k){   // 连环急单：第一张交掉后隔 4 小时送到第二张（时长保底批，D2/D3 的中段内容）
+    if (S.rush.done && (S.rush.seq || 1) < 2 && S.rush.nextAt && nowMs() >= S.rush.nextAt && !S.rush.secondMade){
+      const pool = CONFIG.orders.pools.timed, o = pool[S.day.index % pool.length];
+      const eod = new Date(); eod.setHours(24, 0, 0, 0);
+      S.rush = { dateKey: k, seq: 2, needs: Object.assign({}, o.needs), baseReward: o.reward, reward: o.reward * 2,
+                 expiresAt: eod.getTime(), done: false, expired: false }; markDirty(); }
+    return; }
   const pool = CONFIG.orders.pools.timed, o = pool[(S.day.index - 1) % pool.length];
-  S.rush = { dateKey: k, needs: Object.assign({}, o.needs), baseReward: o.reward, reward: o.reward * 2,
-             expiresAt: nowMs() + CONFIG.rushMs, done: false, expired: false }; markDirty(); }
+  const eod = new Date(); eod.setHours(24, 0, 0, 0);   // 时长保底批：急单改「当日有效」——回访节奏慢的玩家也吃得到，不再 30 分钟作废
+  S.rush = { dateKey: k, seq: 1, needs: Object.assign({}, o.needs), baseReward: o.reward, reward: o.reward * 2,
+             expiresAt: eod.getTime(), done: false, expired: false }; markDirty(); }
 function deliverRush(){ const r = S.rush; if (!r || r.done) return;
   if (nowMs() > r.expiresAt){ r.expired = true; toast('急单已过期作废'); markDirty(); Save.save(); render(); return; }
   if (!canAffordEff({ items: r.needs })){ toast('货物不够：需 ' + needsText(r.needs)); return; }
   Ledger.transact(Object.assign({ reason: 'rush' }, txOf({ items: r.needs }, -1)));
   Ledger.transact({ coin: r.reward, reason: 'rush' });
   r.done = true; S.stats.orders++; bumpDaily('order');
-  toast('急单赶上了！奖励 ' + r.reward + ' 灵石（×2）');
+  if ((r.seq || 1) < 2){ r.nextAt = nowMs() + 4 * 3600 * 1000; toast('急单赶上了！奖励 ' + r.reward + ' 灵石（×2）；约 4 小时后还有一张'); }
+  else toast('急单赶上了！奖励 ' + r.reward + ' 灵石（×2）');
   maybeEvent(); markDirty(); Save.save(); beep(); render(); }
+
+/* ---------------- 大宗订单（时长保底批）：每日 1 张常驻大单，当日有效、交掉为止，给全天生产一个总目标 ---------------- */
+const BIG_ORDERS = [
+  { needs: { lingzhi: 16 }, reward: 240 }, { needs: { lingzhi: 8, ninglu: 6 }, reward: 300 },
+  { needs: { ninglu: 8 }, reward: 320 }, { needs: { lingzhi: 6, ninglu: 3, linglu: 2 }, reward: 380 },
+];
+function genBigOrder(){ const k = dayKey(); if (S.bigOrder && S.bigOrder.dateKey === k) return;
+  const t = BIG_ORDERS[(S.day.index - 1) % BIG_ORDERS.length];
+  S.bigOrder = { dateKey: k, needs: Object.assign({}, t.needs), reward: t.reward, done: false }; markDirty(); }
+function deliverBigOrder(){ const b = S.bigOrder; if (!b || b.done) return;
+  if (!canAffordEff({ items: b.needs })){ toast('货物不够：需 ' + needsText(b.needs)); return; }
+  Ledger.transact(Object.assign({ reason: 'bigorder' }, txOf({ items: b.needs }, -1)));
+  Ledger.transact({ coin: b.reward, reason: 'bigorder' });
+  b.done = true; S.stats.orders++; bumpDaily('order');
+  toast('大宗订单交付！奖励 ' + b.reward + ' 灵石'); markDirty(); Save.save(); beep(); render(); }
 
 /* ---------------- 生产：药圃 / 工单 / 订单 ---------------- */
 function plantCrop(i, cropId){ const p = S.plots[i]; if (!p || p.cropId) return;
@@ -848,13 +896,13 @@ function startJob(recipeId){ const r = CONFIG.recipes.find(x => x.id === recipeI
   markDirty(); Save.save(); beep(); render(); }
 function collectJob(jobId, silent){ const j = S.jobs.find(x => x.id === jobId); if (!j || nowMs() < j.readyAt) return null;
   const r = CONFIG.recipes.find(x => x.id === j.recipeId); if (!r) return null;
-  Ledger.transact({ items: Object.assign({}, r.outputs), reason: 'job_done' });
+  Ledger.transact({ items: Object.assign({}, r.outputs), reason: 'job_done' }); bumpDaily('job');
   for (const k in r.outputs) floatText('+' + r.outputs[k] + ' ' + itemName(k)); Audio8.play('harvest_store');
   S.jobs = S.jobs.filter(x => x.id !== jobId); markDirty();
   if (!silent){ Save.save(); beep(); render(); } return r; }
 function jobSpeed(jobId){ Ads.request('job_speedup', { type: 'jobSpeed', jobId }); }
 function genOrders(force){ if (S.orders.length && !force) return;
-  const pool = CONFIG.orders.pools.daily, off = (S.ordersBatch * CONFIG.orders.dailyCount) % pool.length;
+  const pool = CONFIG.orders.pools.daily, off = S.ordersBatch % pool.length;
   S.orders = []; for (let i = 0; i < CONFIG.orders.dailyCount; i++){ const o = pool[(off + i) % pool.length];
     S.orders.push({ uid: 'o' + S.ordersBatch + '_' + i, needs: Object.assign({}, o.needs), reward: o.reward }); }
   S.ordersBatchDone = 0; markDirty(); }
@@ -909,7 +957,7 @@ function claimDispatch(id, silent){ const d = S.disciples.find(x => x.id === id)
   const droll = Math.random();
   if (droll < CONFIG.treasureDrop.dispatchWholeChance) grantTreasureFrom(null);
   else if (droll < CONFIG.treasureDrop.dispatchWholeChance + CONFIG.treasureDrop.dispatchShardChance){ S.treasures.shards += 1; floatText('宝物碎片 +1'); }
-  d.dispatch = null; S.stats.dispatches++; markDirty();
+  d.dispatch = null; S.stats.dispatches++; bumpDaily('dispatchBack'); markDirty();
   if (!silent){ Save.save(); beep(); render(); } return dest; }
 
 /* ---------------- 宗门：扩建 / 晋阶 / 功法 / 签到 / 过天 ---------------- */
@@ -918,6 +966,9 @@ function doUpgrade(bid){ const b = S.buildings.find(x => x.id === bid); if (!b) 
   if (!Ledger.canAfford(cost)){ toast('还差：' + costText(cost)); return; }
   Ledger.transact(Object.assign({ reason: 'upgrade' }, txOf(cost, -1)));
   b.level++; recomputeDegree(); S.stats.upgrades++; bumpDaily('upgrade');
+  if (bid === 'hall'){ const cap = CONFIG.plotCount + 2 * (b.level - 1);   // 大殿扩建：药田 +2 块（时长保底批）
+    while (S.plots.length < cap) S.plots.push({ cropId: null, plantedAt: 0, readyAt: 0 });
+    floatText('药田 +2 块'); }
   floatText('+10 建设度'); toast(b.name + ' 升至 ' + b.level + ' 级，建设度 ' + S.sect.buildDegree);
   markDirty(); Save.save(); Audio8.play('success'); render(); }
 function unlockMine(){ const cost = CONFIG.upgrades.mineUnlock;
@@ -955,6 +1006,20 @@ function doSignIn(silent){ if (!canSignIn()){ if (!silent) toast('今日已签�
   if (S.routine.signIn.total === 7){ S.treasures.shards += 2; toast('累计签到第 7 天大奖：宝物碎片 ×2'); floatText('宝物碎片 +2'); }  // 七日签到大奖（厚度批，签到阶梯原样不动）
   markDirty();
   if (!silent){ Save.save(); beep(); render(); } return r; }
+/* 弟子指点（时长保底批）：每名弟子每个真实日可指点 1 次，历练 +12、10% 掉宝物碎片；给每日一份与人数挂钩的固定互动量 */
+const ADVISE_LINES = ['手把手教了一遍，眼睛都亮了些。', '挑出两处错漏，若有所思地点头。', '今日这一课，记性好的话能受用半月。',
+  '练得满头是汗，嘴上说还想再来一遍。', '一点就透，掌门心里暗暗点头。', '挨了两句训，反倒练得更起劲了。'];
+function adviseDisciple(id){ const d = S.disciples.find(x => x.id === id); if (!d || d.dispatch) return;
+  if (d.adviseDate === dayKey()){ toast('今日已经指点过，明日再来'); return; }
+  d.adviseDate = dayKey();
+  d.stage = d.stage || 0; d.exp = d.exp || 0;
+  if (d.stage < CONFIG.discipleExp.maxStage){ d.exp += 12;
+    while (d.exp >= CONFIG.discipleExp.need && d.stage < CONFIG.discipleExp.maxStage){ d.exp -= CONFIG.discipleExp.need; d.stage++; toast(d.name + ' 升至 ' + d.stage + ' 阶'); }
+    if (d.stage >= CONFIG.discipleExp.maxStage) d.exp = CONFIG.discipleExp.need; }
+  if (Math.random() < 0.1){ S.treasures.shards += 1; floatText('宝物碎片 +1'); }
+  const line = ADVISE_LINES[Math.abs(hashStr(d.id + dayKey())) % ADVISE_LINES.length];
+  toast('指点「' + d.name + '」：历练 +12。' + line);
+  markDirty(); Save.save(); Audio8.play('success'); render(); }
 function doSleep(){ if (!armed('sleep')){ toast('再点一次确认歇息过天'); return; }
   const report = '第 ' + S.day.index + ' 天入账 ' + S.stats.todayEarned + ' 灵石 · 在册弟子 ' + S.disciples.length + ' 人 · 建设度 ' + S.sect.buildDegree;
   // 弟子历练过天结算（厚度批）：在岗（有岗位、未派遣）弟子得历练 ＝ 34 × 引气诀倍率取整，满 100 升阶（上限 5 阶，满阶停在 100）
@@ -1179,6 +1244,13 @@ function viewHome(){
         return '<li class="' + (done ? 'done' : 'todo') + '">' + (done ? '✓ ' : '○ ') + esc(t.label) + '（' + p + '/' + t.target + '）</li>'; }).join('') + '</ul>' +
       (S.daily.claimed ? '<p class="small">今日日课奖励已领。</p>'
         : dailyAllDone() ? '<div class="btnrow"><button class="btn pri sm" onclick="claimDaily()">领取日课奖励（' + CONFIG.dailyReward + ' 灵石）</button></div>' : '') +
+      (S.daily.claimed
+        ? '<hr class="sep"><h4>进阶日课（全完成奖 ' + CONFIG.daily2Reward + ' 灵石）</h4><ul class="quest">' +
+          (S.daily.task2Ids || []).map(id => { const t = daily2Def(id), p = Math.min((S.daily.progress2 || {})[id] || 0, t.target), done = p >= t.target;
+            return '<li class="' + (done ? 'done' : 'todo') + '">' + (done ? '✓ ' : '○ ') + esc(t.label) + '（' + p + '/' + t.target + '）</li>'; }).join('') + '</ul>' +
+          (S.daily.claimed2 ? '<p class="small">今日进阶日课奖励已领。</p>'
+            : daily2AllDone() ? '<div class="btnrow"><button class="btn pri sm" onclick="claimDaily2()">领取进阶奖励（' + CONFIG.daily2Reward + ' 灵石）</button></div>' : '')
+        : '<p class="small">完成日课并领奖后，解锁「进阶日课」（再 3 件，奖 ' + CONFIG.daily2Reward + ' 灵石）。</p>') +
       '<p class="small">明日预告：' + drawDailyTasks('d' + (S.day.index + 1)).map(id => esc(dailyDef(id).label)).join('、') + '</p></div>'; }
   h += '</div>';
   const ev = S.pendingEvent ? eventByAnyId(S.pendingEvent) : null;
@@ -1233,15 +1305,29 @@ function viewProd(){ let h = subBar('prod', [['farm', '种植'], ['order', '订�
       '<span><b>' + o.reward + ' 灵石</b> <button class="btn sm" ' + (ok ? '' : 'disabled') + ' onclick="deliverOrder(\'' + o.uid + '\')">交付</button></span></div>'; }).join('');
   h += '<p class="small">本批已交 ' + S.ordersBatchDone + '/' + CONFIG.orders.dailyCount + '，交齐自动刷新。</p>' +
     '<div class="btnrow"><button class="btn sm" onclick="orderRefreshAd()">广告刷新订单</button></div></div>';
+  genRush();   // 连环急单到点生成（幂等守卫在内）
   const r = S.rush;   // 限时急单卡（订单墙之后渲染，不与日常单按钮混排）
   h += '<div class="card"><h3>' + icn('order') + '限时急单</h3>';
-  if (!r || r.done) h += '<p class="muted">' + (r && r.done ? '今日急单已交付，明日再来。' : '今日急单还没到，稍后再看。') + '</p>';
+  if (!r || r.done) h += '<p class="muted">' + (r && r.done
+    ? ((r.seq || 1) < 2 && r.nextAt && nowMs() < r.nextAt) ? '第一张急单已交付，下一张约 ' + fmtDur(r.nextAt - nowMs()) + ' 后送到。'
+      : (r.seq || 1) >= 2 ? '今日两张急单都已交付，明日再来。' : '今日急单已交付，明日再来。'
+    : '今日急单还没到，稍后再看。') + '</p>';
   else if (r.expired || nowMs() > r.expiresAt) h += '<p class="muted">今日急单已过期作废，明日再来。</p>';
   else { const ok = canAffordEff({ items: r.needs });
     h += '<div class="row"><span>' + needsText(r.needs) + '<br><span class="small">现有：' +
       Object.keys(r.needs).map(k => itemName(k) + ' ' + inv(k)).join('、') + ' · 还剩 <b>' + fmtDur(r.expiresAt - nowMs()) + '</b></span></span>' +
       '<span><b>' + r.reward + ' 灵石</b><span class="tag">×2</span> <button class="btn sm" ' + (ok ? '' : 'disabled') + ' onclick="deliverRush()">交付急单</button></span></div>' +
-      '<p class="small">每日 1 张，30 分钟内交，过期作废。</p>'; }
+      '<p class="small">每日 1 张，当天内交付都算，过期作废。</p>'; }
+  h += '</div>';
+  genBigOrder();
+  const bo = S.bigOrder;   // 大宗订单卡（急单之后）
+  h += '<div class="card"><h3>' + icn('order') + '大宗订单</h3>';
+  if (!bo || bo.done) h += '<p class="muted">' + (bo && bo.done ? '今日大宗订单已交付，明日再来。' : '今日大宗订单还没到，稍后再看。') + '</p>';
+  else { const ok = canAffordEff({ items: bo.needs });
+    h += '<div class="row"><span>' + needsText(bo.needs) + '<br><span class="small">现有：' +
+      Object.keys(bo.needs).map(k => itemName(k) + ' ' + inv(k)).join('、') + '</span></span>' +
+      '<span><b>' + bo.reward + ' 灵石</b> <button class="btn sm" ' + (ok ? '' : 'disabled') + ' onclick="deliverBigOrder()">交付大单</button></span></div>' +
+      '<p class="small">山下大客户的常驻大单，当天交掉为止，是全天种收的总目标。</p>'; }
   h += '</div>';
   }
   return h; }
@@ -1280,7 +1366,9 @@ function viewDisc(){ const G = CONFIG.discipleGen;
       const back = nowMs() >= d.dispatch.backAt;
       s += '<p>派遣中：' + esc(dest.name) + ' · ' + (back ? '<b>已归来</b>' : '还剩 ' + fmtDur(d.dispatch.backAt - nowMs())) + '</p>' +
         (back ? '<div class="btnrow"><button class="btn sm pri" onclick="claimDispatch(\'' + d.id + '\')">交接（+' + itemName(dest.item) + '）</button></div>' : ''); }
-    else { s += '<div class="btnrow">' + CONFIG.posts.map(p =>
+    else { s += '<div class="btnrow"><button class="btn sm" ' + (d.adviseDate === dayKey() ? 'disabled' : '') +
+        ' onclick="adviseDisciple(\'' + d.id + '\')">' + (d.adviseDate === dayKey() ? '今日已指点' : '指点（历练 +12）') + '</button></div>' +
+      '<div class="btnrow">' + CONFIG.posts.map(p =>
         '<button class="btn sm' + (d.post === p.id ? ' pri' : '') + '" onclick="setPost(\'' + d.id + '\',\'' + p.id + '\')">' + p.name + '</button>').join('') + '</div>' +
       '<div class="btnrow"><span class="small" style="align-self:center">派遣 22 小时：</span>' + CONFIG.dispatch.dests.map(ds =>
         '<button class="btn sm" onclick="startDispatch(\'' + d.id + '\',\'' + ds.id + '\')">' + ds.name + '（' + itemName(ds.item) + '）</button>').join('') + '</div>' +
@@ -1390,16 +1478,20 @@ function viewSet(){
   h += '<div class="card"><h3>说明</h3><p class="small">' +
     '离线产率/小时 ＝（49 ＋ 0.2 × 建设度）× 0.6 × 聚灵诀倍率，封顶 ＝ 产率 × 7 × 0.6；离线 8 小时内回来再 ×1.3。聚灵诀倍率 ＝ 1 ＋ 0.1 × 层数。<br>' +
     '招募概率：寻常 50% · 良好 32% · 上佳 14% · 绝佳 4%。<br>' +
-    '订单墙为日常池轮换；限时急单每日 1 张（源自定时池，30 分钟内交付奖励 ×2，过期作废）。掌门日课按游戏日刷新，全完成奖 40 灵石。宝匣概率：整件 60% · 碎片 ×2 占 40%，10 匣保底未拥有整件，每日首匣半价。<br>' +
+    '订单墙为日常池轮换（每批 5 张）；限时急单每日 2 张连环（源自定时池，当天内交付奖励 ×2，第一张交掉约 4 小时后第二张送到）；另有大宗订单每日 1 张常驻（当日交掉为止）。掌门日课按游戏日刷新，全完成奖 40 灵石，领奖后解锁进阶日课（再 3 件，奖 60 灵石）。大殿每升一级药田 +2 块。宝匣概率：整件 60% · 碎片 ×2 占 40%，10 匣保底未拥有整件，每日首匣半价。<br>' +
     '广告为本地模拟占位（口径与正式版一致：主动触发、序号衰减、未落定不发）。<br>' +
     '存档版本 ver3：当前进度归入一个档位槽并同步双写，开始页可切换/新开/删除档位；长码可按档位分别导出导入。老版本存档载入时自动补齐并归槽，不会丢进度。<br>' +
     '素材：封面、弟子头像、图标、音乐音效均为本作旧版定版资产；无行走人物与场景图集。声音开关统管 BGM 与音效，默认开，选择会存档记住；BGM 在首次点击后开始低音量循环。</p>' +
     '<div class="row"><span>声音</span><button class="btn sm" onclick="toggleSound()">' + (S.settings.soundOn ? '已开（点关）' : '已关（点开）') + '</button></div>' +
-    '<div class="row"><span>新手引导</span><button class="btn sm" onclick="gReplay()">重看新手引导</button></div></div>';
+    '<div class="row"><span>新手引导</span><button class="btn sm" onclick="gReplay()">重看新手引导</button></div>' +
+    '<div class="row"><span>桌面快捷方式</span><button class="btn sm" onclick="addToDesktop()">把宗门放到桌面</button></div></div>';
   h += '<div class="card"><h3>重置</h3><p class="small">删档重开：清掉主档（自动档）与全部档位槽（含当前活动槽）、恢复槽与行走版原档，回到开始页重新选档开宗（行走版旧档备份保留，但不会再自动迁回）。</p>' +
     '<div class="btnrow"><button class="' + (__armed['wipe'] ? 'btn arm' : 'btn danger') + '" onclick="wipeAll()">' + armLabel('wipe', '删档重开') + '</button></div></div>';
   }
   return h; }
+function addToDesktop(){ // 平台唯一召回口子（2026-11-13 主人批四款统一加）：只许玩家点击触发，禁自动调用；网页版无此接口时给提示
+  try { if (window.ColorboxAI && typeof window.ColorboxAI.addToDesktop === 'function'){ window.ColorboxAI.addToDesktop(); toast('已发送添加请求，按系统提示确认即可'); return; } } catch (e) { /* 接口异常不挡游戏 */ }
+  toast('请在虎扑 App 内打开本游戏，再用这个按钮添加桌面快捷方式'); }
 function toggleSound(){ S.settings.soundOn = !S.settings.soundOn; markDirty(); Save.save();
   if (S.settings.soundOn){ Audio8.unlocked = true; Audio8.startBgm(); Audio8.play('success'); } else Audio8.stopBgm();
   render(); }
