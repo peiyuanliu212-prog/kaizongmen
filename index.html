@@ -50,6 +50,15 @@
   textarea { min-height:74px; word-break:break-all; }
   label.lb { display:block; font-size:13px; color:#6b5f49; margin:9px 0 4px; }
   .cover { width:100%; border-radius:8px; display:block; border:1px solid #c9b992; }
+  .masthead { text-align:center; padding:26px 10px 16px; }
+  .masthead .mt { font-size:26px; font-weight:700; letter-spacing:4px; color:#3d3220; }
+  .masthead .ms { margin-top:8px; color:#7a6c50; font-size:13px; letter-spacing:1px; }
+  .ceremony { position:fixed; inset:0; z-index:80; background:#14110b; display:flex; flex-direction:column; }
+  .ceremony img { flex:1; width:100%; min-height:0; object-fit:cover; display:block; }
+  .ceremony .cerCap { padding:16px 18px 26px; text-align:center; background:linear-gradient(#241f14, #14110b); }
+  .ceremony .cerT { font-size:22px; letter-spacing:6px; color:#e8d9ae; font-weight:700; }
+  .ceremony .cerN { margin-top:8px; font-size:15px; color:#cbbd93; }
+  .ceremony .btn { margin-top:14px; min-width:180px; }
   #toast { position:fixed; left:50%; bottom:92px; transform:translateX(-50%); background:#2b2620; color:#f4efe1; padding:8px 16px; border-radius:18px; font-size:14px; opacity:0; pointer-events:none; transition:opacity .25s; z-index:20; max-width:88%; text-align:center; }
   .quest li { list-style:none; padding:3px 0; }
   .quest .done { color:#49654a; }
@@ -988,6 +997,8 @@ function armBtn(key, label){ return (__armed[key] && nowMs() - __armed[key] < 35
 
 /* ================= UI ================= */
 let tab = 'home';
+let naming = false;     // 已选空槽、进了游戏内起名（开始页只选档，起名在里面——主人 2026-11-13 定）
+let ceremony = false;   // 开宗大典幕（封面图只在这一幕全屏出现，点按进入宗门）
 /* 页内分栏（主人 2026-11-12 新令：不要一长条划到底，一屏一主题）：每页顶部子栏目切换，只渲染当前子栏目。
    默认子栏目承载各页主玩法与全部引导锚点；引导另有 GUIDE_SUB 跟随表，目标不在当前子栏目时自动切过去 */
 let sub = { home: 'today', prod: 'farm', disc: 'roster', sect: 'build', set: 'save' };
@@ -1003,6 +1014,10 @@ function slotSaveExists(){ for (let i = 1; i <= CONFIG.save.slots; i++)
   if (Save.slotSummary(CONFIG.save.slotPrefix + i)) return true; return false; }
 function render(){
   const started = S.sect.started;
+  /* 游戏内起名：选了空槽先进来取名（开始页只选档），封面大典幕盖在最上层 */
+  if (naming && !started){
+    $('hdr').style.display = 'none'; $('tabbar').style.display = 'none';
+    $('view').innerHTML = viewNaming(); return; }
   /* 开始页：未开宗，或冷打开时有存档（含仅槽内有档）→ 先选档再进游戏 */
   if (!started || (atGate && (started || slotSaveExists()))){
     $('hdr').style.display = 'none'; $('tabbar').style.display = 'none';
@@ -1022,7 +1037,15 @@ function render(){
   $('dotDisc').textContent = S.disciples.some(d => d.dispatch && nowMs() >= d.dispatch.backAt) ? ' ●' : '';
   $('view').innerHTML = tab === 'home' ? viewHome() : tab === 'prod' ? viewProd() :
                         tab === 'disc' ? viewDisc() : tab === 'sect' ? viewSect() : viewSet();
+  if (ceremony) $('view').innerHTML += ceremonyHtml();
 }
+function ceremonyHtml(){
+  return '<div class="ceremony"><img src="assets/e-cover-v2.png" alt="开宗大典">' +
+    '<div class="cerCap"><div class="cerT">开 宗 大 典</div>' +
+    '<div class="cerN">「' + esc(S.sect.name) + '」今日开宗 · ' + (S.sect.masterName === '掌门' ? '掌门亲立' : '掌门 ' + esc(S.sect.masterName)) + '</div>' +
+    '<button class="btn pri" onclick="closeCeremony()">进入宗门</button></div></div>';
+}
+function closeCeremony(){ ceremony = false; render(); }
 
 /* ---- 开宗起名＋开始页选档（ver3） ---- */
 let newGameSlot = null;   // 在空槽点「在此开新宗」后暂存目标槽，startSect 落槽后清掉
@@ -1042,28 +1065,35 @@ function slotCardHtml(i){
   return h + '</div>';
 }
 function viewSetup(){
-  let h = '<div style="padding-top:14px"><img class="cover" src="assets/e-cover-v2.png" alt="宗门封面">';
-  if (S.sect.started || slotSaveExists() || atGate){
-    h += '<div style="margin-top:10px">';
-    if (S.sect.started){
-      const sm = { name: S.sect.name, day: S.day.index, rank: CONFIG.ranks[S.sect.rank].name, degree: S.sect.buildDegree,
-                   coin: S.balances.coin || 0, disciples: S.disciples.length };
-      h += '<div class="card"><h3>当前进度' + (S.meta.activeSlot ? ' <span class="tag">档位 ' + S.meta.activeSlot + '</span>' : ' <span class="tag grey">未归槽</span>') + '</h3>' +
-        '<p><b>' + esc(sm.name) + '</b> · 第 ' + sm.day + ' 天 · ' + sm.rank + '<br>' +
-        '<span class="small">建设度 ' + sm.degree + ' · 灵石 ' + sm.coin + ' · 弟子 ' + sm.disciples + ' 人</span></p>' +
-        (S.meta.activeSlot ? '' : '<p class="small">档位槽已满或未归槽：在下方任一档位卡点「归入此槽」选槽（会覆盖该槽，点两次确认）。</p>') +
-        '<div class="btnrow"><button class="btn pri" onclick="passGate();go(\'home\')">继续游戏</button></div></div>';
-    }
-    for (let i = 1; i <= CONFIG.save.slots; i++) h += slotCardHtml(i);
-    h += '</div>';
+  /* 开始页只做一件事：选档。封面图不在这儿（开宗大典幕专用），起名也不在这儿（选空槽进去再取） */
+  let h = '<div class="masthead"><div class="mt">我在修仙界开宗门</div>' +
+    '<div class="ms">荒山一座，茅屋两间 · 点按钮做经营决策，离线也在长</div></div>';
+  h += '<div>';
+  if (S.sect.started){
+    const sm = { name: S.sect.name, day: S.day.index, rank: CONFIG.ranks[S.sect.rank].name, degree: S.sect.buildDegree,
+                 coin: S.balances.coin || 0, disciples: S.disciples.length };
+    h += '<div class="card"><h3>当前进度' + (S.meta.activeSlot ? ' <span class="tag">档位 ' + S.meta.activeSlot + '</span>' : ' <span class="tag grey">未归槽</span>') + '</h3>' +
+      '<p><b>' + esc(sm.name) + '</b> · 第 ' + sm.day + ' 天 · ' + sm.rank + '<br>' +
+      '<span class="small">建设度 ' + sm.degree + ' · 灵石 ' + sm.coin + ' · 弟子 ' + sm.disciples + ' 人</span></p>' +
+      (S.meta.activeSlot ? '' : '<p class="small">档位槽已满或未归槽：在下方任一档位卡点「归入此槽」选槽（会覆盖该槽，点两次确认）。</p>') +
+      '<div class="btnrow"><button class="btn pri" onclick="passGate();go(\'home\')">继续游戏</button></div></div>';
+  } else {
+    h += '<p class="muted" style="margin:2px 2px 10px">选一个档位：在空档位「在此开新宗」进去取名开宗；有存档的档位点「进入」接着玩。</p>';
   }
-  h += '<div class="card" style="margin-top:10px"><h3>开宗立派' + (newGameSlot ? '（档位 ' + newGameSlot + '）' : '') + '</h3>' +
-  '<p class="muted">荒山一座，茅屋两间。从今天起，你说了算。</p>' +
-  '<label class="lb">宗门名</label><input type="text" id="inSect" maxlength="8" value="青云宗">' +
-  '<label class="lb">掌门名</label><input type="text" id="inMaster" maxlength="6" placeholder="给自己起个名号">' +
-  '<div class="btnrow"><button class="btn pri" id="btnStart" onclick="startSect()">开宗立派（礼金 ' + CONFIG.startGiftCoin + ' 灵石）</button></div>' +
-  '<p class="small" style="margin-top:8px">玩法就一件事：点按钮做经营决策。种田、收徒、扩建、晋阶，离线也在长。</p></div></div>';
+  for (let i = 1; i <= CONFIG.save.slots; i++) h += slotCardHtml(i);
+  h += '</div>';
   return h;
+}
+/* 游戏内起名（选空槽后落到这里）：讲解台第 1、2 步就在这一屏，起名→开宗→大典幕→进总览 */
+function viewNaming(){
+  return '<div class="masthead"><div class="mt">开宗立派</div>' +
+    '<div class="ms">' + (newGameSlot ? '档位 ' + newGameSlot + ' · ' : '') + '荒山一座，茅屋两间。从今天起，你说了算。</div></div>' +
+    '<div class="card"><h3>给宗门起个名字</h3>' +
+    '<label class="lb">宗门名</label><input type="text" id="inSect" maxlength="8" value="青云宗">' +
+    '<label class="lb">掌门名</label><input type="text" id="inMaster" maxlength="6" placeholder="给自己起个名号">' +
+    '<div class="btnrow"><button class="btn pri" id="btnStart" onclick="startSect()">开宗立派（礼金 ' + CONFIG.startGiftCoin + ' 灵石）</button></div>' +
+    '<p class="small" style="margin-top:8px">玩法就一件事：点按钮做经营决策。种田、收徒、扩建、晋阶，离线也在长。</p>' +
+    '<div class="btnrow"><button class="btn sm" onclick="naming=false;atGate=true;render()">← 回开始页换个档位</button></div></div>';
 }
 /* 进入某档位：先把当前主档自动备份到恢复槽，两段确认后载入并把活动槽切换过去 */
 function enterSlot(i){
@@ -1080,11 +1110,15 @@ function assignSlot(i){
   S.meta.activeSlot = i; markDirty(); Save.save();
   toast('当前进度已归入档位 ' + i); render();
 }
-/* 在空槽开新宗：当前有进度先备份恢复槽（两段确认），清档后回起名区，新宗落到该槽 */
+/* 在空槽开新宗：当前有进度先备份恢复槽（两段确认），清档后直接进游戏内起名（不在开始页取名），新宗落到该槽 */
 function newGameAtSlot(i){
   if (!armed('slotNew' + i)){ toast(S.sect.started ? '再点一次确认在此开新宗（当前进度会先备份到恢复槽）' : '再点一次确认在此开新宗'); return; }
   if (S.sect.started) Save.writeSlot(CONFIG.save.restoreKey);
-  S = freshState(); newGameSlot = i; atGate = true;
+  S = freshState(); newGameSlot = i; naming = true;
+  /* 引导在起名这一刻才武装：第 1 步就是起名，讲解台全程在场，不再进游戏才从第 3 步冒出来。
+     全新访客 Guide.init 已在开机时备好第 1 步（选档时讲解台藏着，进起名页自动亮）；删档重开走 guideArmFresh 在此补武装 */
+  if (guideArmFresh){ guideArmFresh = false;
+    Guide.st = { step: 1, phase: 0, done: false }; Guide.saveSt(); if (!Guide.active) Guide.start(); }
   toast('在档位 ' + i + ' 开新宗：起个名字吧'); render();
 }
 /* 删槽：只删该槽；删的是活动槽只把 activeSlot 置 null，主档工作副本一字不动 */
@@ -1108,9 +1142,8 @@ function startSect(){
   const tgRec = Guide.peek(); if (tgRec && (tgRec.done || tgRec.skipped)) S.meta.guideDone = true;   // 引导已完成/跳过 → 开宗即同步标记（Guide 定义在下方，运行时调用无碍）
   Ledger.transact({ coin: CONFIG.startGiftCoin, reason: 'opening_gift' });
   genOrders(true); ensureDaily(); genRush(); markDirty(); Save.save();
-  toast('开宗！礼金 ' + CONFIG.startGiftCoin + ' 灵石已入账'); beep(); passGate(); go('home');
-  if (guideArmFresh){ guideArmFresh = false;         // 删档后的第一个新宗：以全新访客身份起引导（前两步 setup 步会被 skipIf 自动跳过）
-    Guide.st = { step: 1, phase: 0, done: false }; Guide.saveSt(); Guide.start(); }
+  naming = false; ceremony = true;                    // 开宗大典幕：封面图全屏一幕，点「进入宗门」才落到总览（引导此时让行）
+  beep(); passGate(); go('home');
 }
 
 /* ---- 总览：只留 可领取区 ＋ 事件 ＋ 手记 ＋ 过天 ---- */
@@ -1599,7 +1632,7 @@ const Guide = {
   finish(skipped){ if (this.st){ this.st.done = true; if (skipped) this.st.skipped = true; this.saveSt(); }
     if (S.sect.started && !S.meta.guideDone){ S.meta.guideDone = true; markDirty(); Save.save(); }
     this.stop(); if (!skipped) toast('引导完成，宗门交给你了'); },
-  yielding(){ return !!(S.pendingEvent && S.eventOpen); },   // 真实抉择（事件卡展开）出现时引导让行：讲解台与高亮圈隐藏、不推进，抉择结束自动接回原步
+  yielding(){ return !!((S.pendingEvent && S.eventOpen) || ceremony || (atGate && !naming)); },   // 让行：事件抉择展开、开宗大典幕在场、或还在开始页选档（没进起名）时，讲解台与高亮圈隐藏、不推进，条件结束自动接回原步
   replay(){ if (!S.sect.started) return;   // 设置页「重看新手引导」：从第 1 步重走（已开宗的 1–2 步自动跳过），走完/跳过后完成标记自动恢复（finish 恒置 done）
     this.st = { step: 1, phase: 0, done: false, replay: true }; this.saveSt();
     this._sig = ''; this._dynMode = null; gClicked = false;
