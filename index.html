@@ -1489,9 +1489,19 @@ function viewSet(){
     '<div class="btnrow"><button class="' + (__armed['wipe'] ? 'btn arm' : 'btn danger') + '" onclick="wipeAll()">' + armLabel('wipe', '删档重开') + '</button></div></div>';
   }
   return h; }
-function addToDesktop(){ // 平台唯一召回口子（2026-11-13 主人批四款统一加）：只许玩家点击触发，禁自动调用；网页版无此接口时给提示
-  try { if (window.ColorboxAI && typeof window.ColorboxAI.addToDesktop === 'function'){ window.ColorboxAI.addToDesktop(); toast('已发送添加请求，按系统提示确认即可'); return; } } catch (e) { /* 接口异常不挡游戏 */ }
-  toast('请在虎扑 App 内打开本游戏，再用这个按钮添加桌面快捷方式'); }
+function addToDesktop(){ // 平台唯一召回口子（2026-11-13 主人批四款统一加）：只许玩家点击按钮时调用，禁自动触发/代点。
+  // 结果判定按官方技能包 colorbox-add-to-desktop 原文：code 200 不等于已创建；安卓 alreadyAdded 提示已添加过；
+  // bridgeResult.result===false 展示 errorMsg（空则默认文案）；安卓 result===true 提示已添加，其他平台成功静默；回调为空静默。
+  if (!(window.ColorboxAI && typeof window.ColorboxAI.addToDesktop === 'function')){
+    toast('请在虎扑 App 内打开本游戏，再用这个按钮添加桌面快捷方式'); return; }
+  window.ColorboxAI.addToDesktop().then(res => {
+    if (!res || res.code !== 200){ toast((res && res.message) || '添加到桌面失败，请稍后重试'); return; }
+    const data = res.data || {};
+    if (data.platform === 'android' && data.alreadyAdded === true){ toast('已添加过，请勿重复添加'); return; }
+    const cb = data.bridgeResult;
+    if (cb && cb.result === false) toast(cb.errorMsg || '添加到桌面失败，请稍后重试');
+    else if (data.platform === 'android' && cb && cb.result === true) toast('已添加');
+  }).catch(() => { toast('添加到桌面失败，请稍后重试'); }); }
 function toggleSound(){ S.settings.soundOn = !S.settings.soundOn; markDirty(); Save.save();
   if (S.settings.soundOn){ Audio8.unlocked = true; Audio8.startBgm(); Audio8.play('success'); } else Audio8.stopBgm();
   render(); }
