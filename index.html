@@ -1772,7 +1772,7 @@ function viewSect(){
       '<p class="small">开宗时毁于山火的护山大阵，一段一段修回来。每修一段，离线产率 +2%（修满 +10%）。</p>' +
       '<div class="bar"><i style="width:' + (st * 20) + '%"></i></div>' +
       '<p>修复进度 <b>' + st + ' / 5</b>' + (done ? ' · 大阵重光，护佑全宗' : '') + '</p>' +
-      (done ? '' : '<div class="row"><span>下一段：' + CONFIG.array.forms[st + 1] + '<span class="small">（需 ' + costText(cost) + (cost.shards ? '＋宝物碎片 ×' + cost.shards : '') + '）</span></span>' +
+      (done ? '' : '<div class="row"><span>下一段：' + CONFIG.array.forms[st + 1] + '<span class="small" style="white-space:nowrap">（需 ' + costText(cost) + (cost.shards ? '＋宝物碎片 ×' + cost.shards : '') + '）</span></span>' +
         '<button class="' + (__armed['array'] ? 'btn arm' : 'btn') + '" onclick="repairArray()">' + armLabel('array', '着手修复') + '</button></div>') + '</div>'; }
   h += '<div class="card"><h3>' + icn('expand') + '建筑扩建</h3>' + S.buildings.map(b => { const def = CONFIG.buildings.find(x => x.id === b.id);
     const cost = (CONFIG.upgrades[b.id] || {})[b.level + 1];
