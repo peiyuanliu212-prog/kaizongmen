@@ -2414,6 +2414,7 @@ function gReplay(){ Guide.replay(); }
 let atGate = true;
 function passGate(){ atGate = false; try { sessionStorage.setItem('kaizongmen_gate', 'in'); } catch (e) {} }
 function boot(){
+  Audio8.preload();   // 音效池开机就加载解码（加载不受手势限制）：等首次点按时早已就绪，消除音画不同步（2026-11-18 自检修复）
   /* 全屏安全区（官方 colorbox-fullscreen-safe-top 口径：启动读一次、只避让一次）：壳给的顶部安全距写进 --safe-top，header 与开始页题头共用 */
   try { const st = window.ColorboxAI && typeof window.ColorboxAI.getFullscreenSafeTop === 'function' ? window.ColorboxAI.getFullscreenSafeTop() : 0;
     if (typeof st === 'number' && st > 0) document.documentElement.style.setProperty('--safe-top', st + 'px'); } catch (e) {}
