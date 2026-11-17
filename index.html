@@ -343,7 +343,7 @@ const CONFIG = {
     earlyBonusMs: 8 * 3600 * 1000, earlyBonusMul: 1.3,
     minSettleMs: 60 * 1000, track1Item: 'coin',
   },
-  ads: {                        // 广告口径（照抄序号衰减；mockWatchMs 按赶工口径 1200ms）
+  ads: {                        // 广告口径（序号衰减；壳内走 vatask 官方正链判读，mockWatchMs 仅纯网页试玩模拟用）
     fullSeq: 6, halfSeq: 8, mockWatchMs: 1200, pendingTtlMs: 3 * 60 * 1000,
   },
   eventChance: 0.35, patrolBonus: 0.1, patrolChanceCap: 0.6,
@@ -657,14 +657,44 @@ const Offline = {
 const Ads = {
   multFor(seq){ return seq <= CONFIG.ads.fullSeq ? 1 : seq <= CONFIG.ads.halfSeq ? 0.5 : 0; },
   /* effect 为可序列化描述：{type:'coinBonus', amount, tag} / {type:'jobSpeed', jobId} / {type:'orderRefresh'} / {type:'offlineDouble'} / {type:'promoteDouble'} */
+  vatask(){ const V = (typeof window !== 'undefined') && window.ColorboxAI && window.ColorboxAI.vatask;
+    return (V && typeof V.completeRewardVideo === 'function') ? V : null; },
+  inShell(){ return typeof window !== 'undefined' && !!window.ColorboxAI; },
+  /* 广告正链（2026-11-17 驿站二驳同根修复）：壳内只认 ColorboxAI.vatask.completeRewardVideo() 无参调用，
+     仅 code=200 且 data.rewarded=true 才结算；失败用官方 message 提示、不发奖不计数、清标记可重试。
+     壳在而无 vatask＝不支持，绝不回落模拟；计时模拟仅限纯网页（无 ColorboxAI）试玩自测，壳内不可达。 */
   request(point, effect){
     const k = dayKey(); if (S.ads.date !== k){ S.ads.date = k; S.ads.seq = 0; }
     if (S.ads.pending.some(e => e.state === 'watching')){ toast('上一条广告还在播放中'); return; }
+    const vt = this.vatask();
+    if (!vt && this.inShell()){ toast('当前环境暂不支持广告，请更新虎扑 App 后再试'); return; }
     const entry = { id: 'ad_' + nowMs().toString(36) + Math.floor(Math.random() * 999), point, effect,
-                    state: 'watching', createdAt: nowMs(), granted: 0 };
+                    state: 'watching', createdAt: nowMs(), granted: 0, via: vt ? 'vatask' : 'webmock' };
     S.ads.pending.push(entry); markDirty(); Save.save(); render();
-    setTimeout(() => { const e = S.ads.pending.find(x => x.id === entry.id);
-      if (e && e.state === 'watching'){ e.state = 'completed'; this.settle(e.id); } }, CONFIG.ads.mockWatchMs);
+    if (vt){
+      let pr; try { pr = vt.completeRewardVideo(); } catch (e) { pr = Promise.reject(e); }
+      Promise.resolve(pr).then(res => {
+        const e2 = S.ads.pending.find(x => x.id === entry.id);
+        if (!e2 || e2.state !== 'watching') return;
+        if (res && res.code === 200 && res.data && res.data.rewarded === true){
+          e2.state = 'completed'; markDirty(); Save.save();
+          try { const g = window.ColorboxAI.vatask.getActivityTaskState;
+            if (typeof g === 'function'){ const r = g(); if (r && r.catch) r.catch(() => {}); } } catch (e3) {}
+          this.settle(entry.id);
+        } else {
+          S.ads.pending = S.ads.pending.filter(x => x.id !== entry.id);
+          markDirty(); Save.save();
+          toast((res && res.message) || '广告未完整观看，奖励未发放'); render();
+        }
+      }).catch(() => {
+        const e2 = S.ads.pending.find(x => x.id === entry.id);
+        if (e2 && e2.state === 'watching'){ S.ads.pending = S.ads.pending.filter(x => x.id !== entry.id);
+          markDirty(); Save.save(); toast('广告拉起失败，请稍后再试'); render(); }
+      });
+    } else {
+      setTimeout(() => { const e = S.ads.pending.find(x => x.id === entry.id);
+        if (e && e.state === 'watching'){ e.state = 'completed'; this.settle(e.id); } }, CONFIG.ads.mockWatchMs);
+    }
   },
   settle(id){ const e = S.ads.pending.find(x => x.id === id);
     if (!e || e.state !== 'completed' || S.ads.applied.includes(id)) return;      // 未落定不发、已落定不重发
@@ -688,12 +718,13 @@ const Ads = {
                     : (msg || '本次广告倍率为 0，无奖励（已达软封顶）'));
     render();
   },
-  resumePending(){ // 重进时核对未落定：超时作废；在窗内且已过播放时长则补记完成并结算（差量补发）
+  resumePending(){ // 重进核对未落定：vatask 条目结果未确认＝不补发（官方口径），窗内保留继续拦、超时作废；
+                   // webmock 条目（纯网页模拟）才按计时补记完成；已 completed 的统一差量结算
     const t = nowMs(); let changed = false;
     for (const e of [...S.ads.pending]){
       if (e.state === 'watching'){
         if (t - e.createdAt > CONFIG.ads.pendingTtlMs){ S.ads.pending = S.ads.pending.filter(x => x.id !== e.id); changed = true; }
-        else if (t - e.createdAt >= CONFIG.ads.mockWatchMs){ e.state = 'completed'; changed = true; } } }
+        else if (e.via !== 'vatask' && t - e.createdAt >= CONFIG.ads.mockWatchMs){ e.state = 'completed'; changed = true; } } }
     if (changed){ markDirty(); Save.save(); }
     for (const e of [...S.ads.pending]) if (e.state === 'completed') this.settle(e.id);
   },
@@ -1972,7 +2003,7 @@ function viewSet(){
   return h; }
 /* 更新公告（玩家点击查看，禁进门自动弹）：只写已上线内容，不写未兑现承诺、不带任何码 */
 const CHANGELOG = [
-  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入'] },
+  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励'] },
   { v: '运营期更新', items: ['运营期解锁日历：护山大阵 11/21、派遣见闻 11/25、意见反馈 11/28 陆续开启，11/30 收官',
     '意见反馈（设置-反馈，11/28 开启）：首提奖 100 灵石、采纳奖 300 灵石＋鸣谢名单',
     '开宗纪事：11/17–11/30 累计登录 3/7/11 天领奖（总览页领取）',
