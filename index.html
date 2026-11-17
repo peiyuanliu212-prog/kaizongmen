@@ -1402,8 +1402,11 @@ function newGameAtSlot(i){
   S = freshState(); newGameSlot = i; naming = true; namingReset();
   /* 引导在起名这一刻才武装：第 1 步就是起名，讲解台全程在场，不再进游戏才从第 3 步冒出来。
      全新访客 Guide.init 已在开机时备好第 1 步（选档时讲解台藏着，进起名页自动亮）；删档重开走 guideArmFresh 在此补武装 */
-  if (guideArmFresh){ guideArmFresh = false;
-    Guide.st = { step: 1, phase: 0, done: false }; Guide.saveSt(); if (!Guide.active) Guide.start(); }
+  /* 每开新宗必重新武装引导（主人 2026-11-18 真机反馈：老玩家开新档没引导）：新宗＝新体验，与是否老玩家无关；
+     老玩家判定只管「载入已有档」不重复触发。删档重开的 guideArmFresh 路径并入此统一武装。 */
+  guideArmFresh = false;
+  if (Guide.active) Guide.stop();
+  Guide.st = { step: 1, phase: 0, done: false }; Guide.saveSt(); Guide.start();
   toast('在档位 ' + i + ' 开新宗：名号已为你拟好'); render();
 }
 /* 删槽：只删该槽；删的是活动槽只把 activeSlot 置 null，主档工作副本一字不动 */
@@ -2238,7 +2241,7 @@ const Vault = {
  * 讲解只落在真实界面的真实控件上。动作步没有「下一步」，只认真实操作推进（done 谓词轮询＋目标点击命中双保险）；
  * 信息步才有「下一步」。玩家切错页：讲解台改提示回页、高亮改指对应页签，回页自动恢复本步。
  * 进度存独立 key kaizongmen_tguide（未开宗阶段也存）；完成/跳过后同步 meta.guideDone，永不再触发。
- * 仅全新访客触发：本地已有文本版主档/任一槽位存档且无进行中 tguide → 老玩家，写 veteran 标记零打扰（行走版旧档不算数）。
+ * 触发口径（2026-11-18 修订）：全新访客触发；载入已有档的老玩家不触发（veteran 零打扰）；但每开新宗必重新武装（newGameAtSlot 统一处理）。
  * 讲解台 z-index 15（低于 toast 20/飘字 30），高亮圈 pointer-events:none、不遮挡目标点击。 */
 let gClicked = false;   // 当前动作步的目标点击命中标记（advance 时清零）
 const GUIDE_TOTAL = 13;
