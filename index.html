@@ -1288,6 +1288,7 @@ function readyTotal(){ return collectCount(collectSummary()); }
 function slotSaveExists(){ for (let i = 1; i <= CONFIG.save.slots; i++)
   if (Save.slotSummary(CONFIG.save.slotPrefix + i)) return true; return false; }
 function render(){
+  window.__lastRenderAt = Date.now();
   const started = S.sect.started;
   /* 游戏内起名：选了空槽先进来取名（开始页只选档），封面大典幕盖在最上层 */
   if (naming && !started){
@@ -2430,11 +2431,14 @@ function boot(){
   render();
   Guide.init();   // 新手引导：仅全新访客触发/进行中恢复，老玩家零打扰（判定见 Guide.init）
   setInterval(() => { if (dirty) Save.save(); }, CONFIG.save.autosaveMs);
-  let lastInteract = 0;   // 性能守卫：滑动/滚动中不整页重渲染（整页重绘会拽页且掉帧，2026-11-18 真机卡顿修复）
-  ['touchmove', 'wheel', 'scroll'].forEach(ev => document.addEventListener(ev, () => { lastInteract = Date.now(); }, { passive: true, capture: true }));
+  let lastInteract = 0, lastScrollTop = -1;   // 性能守卫 v2（2026-11-18 主人录屏实锤：滑动中整页重绘会与合成帧叠画）：滚动位置还在变、刚交互过、或刚渲染过，本秒一律不整页重绘
+  ['touchstart', 'touchmove', 'wheel', 'scroll'].forEach(ev => document.addEventListener(ev, () => { lastInteract = Date.now(); }, { passive: true, capture: true }));
   setInterval(() => { const a = document.activeElement;
     if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT' || a.tagName === 'SELECT')) return;
-    if (document.hidden || Date.now() - lastInteract < 900) return;
+    if (document.hidden || Date.now() - lastInteract < 1500) return;
+    const st = document.scrollingElement ? document.scrollingElement.scrollTop : 0;
+    if (st !== lastScrollTop){ lastScrollTop = st; return; }   // 惯性滚动未停稳：跳过，等停稳后下一秒再刷
+    if (window.__lastRenderAt && Date.now() - window.__lastRenderAt < 900) return;
     if (S.sect.started){ eventTouch(); render(); } }, 1000);
 }
 boot();
