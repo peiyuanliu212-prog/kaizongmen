@@ -11,6 +11,14 @@
   #app { max-width:520px; margin:0 auto; min-height:100vh; min-height:100dvh; background:#f4efe1; display:flex; flex-direction:column; box-shadow:0 0 18px rgba(60,50,30,.18); }
   #app { background-image:radial-gradient(rgba(122,74,43,.06) 1px, transparent 1.5px), radial-gradient(rgba(73,101,74,.05) 1px, transparent 1.5px); background-size:22px 22px, 30px 30px; background-position:0 0, 9px 13px; }
   .bannerImg { width:100%; height:126px; object-fit:cover; object-position:center 36%; border-radius:10px; border:2px solid #c9b992; display:block; margin:0 0 10px; }
+
+  /* ===== 全屏修仙场景背景（2026-11-18 主人挑定版1「云海仙山」：浮岛仙峰＋云海仙鹤＋山顶仙宫） ===== */
+  body { background:#26313a url('assets/scene/bg_main.jpg') center top / cover fixed no-repeat; }
+  #app { background:rgba(243,238,224,.20); }
+  .card { background:rgba(255,253,244,.92); }
+  header { background:rgba(239,232,211,.90); }
+  #view p.muted { background:rgba(255,253,244,.78); border-radius:6px; padding:4px 8px; }
+  .masthead .ms { background:rgba(255,252,244,.5); border-radius:6px; padding:1px 8px; display:inline-block; }
   .plotImg { width:100%; height:84px; object-fit:cover; border-radius:6px; display:block; margin:0 0 8px; border:1px solid #d8cfb2; }
   header { padding:calc(10px + var(--safe-top, 0px)) 14px 8px; background:#efe8d3; border-bottom:2px solid #c9b992; position:sticky; top:0; z-index:5; }
   header .sectline { display:flex; justify-content:space-between; align-items:baseline; }
@@ -2017,7 +2025,7 @@ function viewSet(){
   return h; }
 /* 更新公告（玩家点击查看，禁进门自动弹）：只写已上线内容，不写未兑现承诺、不带任何码 */
 const CHANGELOG = [
-  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励', '界面补图：药圃地块配作物图、开始页加封面图；切页音效改预加载，点哪响哪'] },
+  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励', '界面补图：药圃地块配作物图、开始页加封面图；切页音效改预加载，点哪响哪', '全站背景换修仙场景图「云海仙山」：浮岛云海铺满全屏'] },
   { v: '运营期更新', items: ['运营期解锁日历：护山大阵 11/21、派遣见闻 11/25、意见反馈 11/28 陆续开启，11/30 收官',
     '意见反馈（设置-反馈，11/28 开启）：首提奖 100 灵石、采纳奖 300 灵石＋鸣谢名单',
     '开宗纪事：11/17–11/30 累计登录 3/7/11 天领奖（总览页领取）',
