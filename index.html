@@ -2287,7 +2287,7 @@ const GUIDE_STEPS = [
   { title: '种第一块田', phases: [{ ctx: 'prod', sel: '#btnFirstPlant', type: 'action',
       text: '在第一块田点「灵芝」种下。新手首块田只要 10 秒就成熟。', done: () => S.stats.planted > 0 }] },
   { title: '等它长', phases: [{ ctx: 'prod', sel: '#plot0', type: 'info',
-      text: '田里开始倒计时了。把弟子派到药圃岗、参悟功法，都能让作物长得更快。',
+      text: '田里开始倒计时了。把弟子派到药圃岗、参悟功法，都能让作物长得更快；材料攒够了去工坊深加工，灵露、玄玉、玉髓一环比一环值钱。',
       skipIf: () => !S.plots[0].cropId || nowMs() >= S.plots[0].readyAt }] },
   { title: '回收菜', phases: [{ ctx: 'any', sel: '[data-tab="home"]', type: 'action',
       text: '回底部「总览」页签，把刚熟的灵芝收掉。', done: () => tab === 'home' }] },
@@ -2298,9 +2298,9 @@ const GUIDE_STEPS = [
   { title: '招募弟子', phases: [
       { ctx: 'any', sel: '[data-tab="disc"]', type: 'action', text: '去底部「弟子」页签看看。', done: () => tab === 'disc' },
       { ctx: 'disc', sel: '#cardRecruit', type: 'info',
-        text: '50 灵石招一名弟子，品质概率明写在卡上。招来别闲着——给他派个岗位才有产出。' }] },
+        text: '50 灵石招一名弟子，品质概率明写在卡上。招来别闲着——给他派个岗位才有产出，在岗过天攒历练、升阶更能干；名册满了就扩建弟子居舍，名册跟着涨。' }] },
   { title: '宗门页', phases: [{ ctx: 'any', sel: '[data-tab="sect"]', type: 'info',
-      text: '「宗门」页是长线：顶部小栏目切换——「建设」里扩建与功法，「宝库」里宝匣、宝库与签到。' }] },
+      text: '「宗门」页是长线：顶部小栏目切换——「建设」里扩建、功法与宗门供奉（灵石换离线产率），品级一路冲到「天下名宗」；「宝库」里宝匣、宝库与签到。' }] },
   { title: '掌门日课', phases: [
       { ctx: 'any', sel: '[data-tab="home"]', type: 'action', text: '回底部「总览」页签，看今天的日课。', done: () => tab === 'home' },
       { ctx: 'home', sel: '#dailyBlock', altSel: '#cardCollect', type: 'info',
