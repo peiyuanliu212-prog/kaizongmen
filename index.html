@@ -114,6 +114,24 @@
   body #tabbar { background:linear-gradient(180deg, rgba(250,244,225,.84), rgba(233,219,182,.82)), url('assets/tex/tex_paper.jpg') center / cover; border-top:2px solid #a98f5f; box-shadow:0 -3px 10px rgba(38,32,18,.22); }
   body .plot { background:linear-gradient(180deg, rgba(252,247,232,.78), rgba(245,236,210,.74)), url('assets/tex/tex_paper.jpg') center / cover; border:1px solid #b39b63; border-radius:10px; box-shadow:inset 0 0 14px rgba(160,128,74,.12); }
   body .masthead.ms h1, body .masthead.ms .ttl { text-shadow:0 1px 0 rgba(255,252,240,.8), 0 2px 8px rgba(255,252,240,.65); }
+
+  /* ===== 卷轴风全量落码 v2（主人验货通过·整洁优先）：真书法字体子集＋卷轴木轴＋木牌载体，文字区平整纸面 ===== */
+  @font-face { font-family:'MSZ'; src:url('assets/fonts/msz.woff2') format('woff2'); font-display:swap; }
+  @font-face { font-family:'LXGW'; src:url('assets/fonts/lxgw.woff2') format('woff2'); font-display:swap; }
+  body { font-family:'LXGW', serif; }
+  body .card { background:linear-gradient(180deg, rgba(252,247,233,.90), rgba(246,238,216,.88)), url('assets/tex/tex_paper.jpg') center / cover; border:1px solid #a98f5f; border-radius:6px; box-shadow:0 3px 10px rgba(30,24,12,.26); }
+  body .card::before, body .card::after { content:''; display:block; height:14px; background:url('assets/tex/car_scroll.jpg') center top / 100% auto no-repeat; border-radius:3px; }
+  body .card::before { margin:-6px -6px 9px; }
+  body .card::after { background-position:center bottom; margin:9px -6px -6px; }
+  body .card h3, body .card h4 { font-family:'MSZ'; letter-spacing:1px; color:#33240f; }
+  body header { font-family:'LXGW', serif; }
+  body .btn { font-family:'MSZ'; letter-spacing:1px; }
+  body .btn.pri { background:linear-gradient(180deg, rgba(70,48,24,.10), rgba(43,29,14,.16)), url('assets/tex/car_plaque.jpg') center / cover; color:#fdf6dd; text-shadow:0 1px 2px rgba(30,19,8,.7); border-color:#2c1e0e; }
+  body .subbar .btn:not(.pri) { background:linear-gradient(180deg,#fdf8ea,#f1e6c8); }
+  body #tabbar { background:linear-gradient(180deg,#4a4238,#38322a); border-top:3px solid #8d8272; box-shadow:0 -3px 10px rgba(30,24,12,.35); }
+  body #tabbar button { font-family:'MSZ'; letter-spacing:1px; color:#e8dfc8; }
+  body #tabbar button.on { background:url('assets/tex/car_plaque.jpg') center / cover; color:#fdf6dd; text-shadow:0 1px 2px rgba(30,19,8,.7); border-radius:8px; }
+  body .masthead .ttl, body .masthead h1 { font-family:'MSZ'; }
 </style>
 </head>
 <body>
@@ -2037,7 +2055,7 @@ function viewSet(){
   return h; }
 /* 更新公告（玩家点击查看，禁进门自动弹）：只写已上线内容，不写未兑现承诺、不带任何码 */
 const CHANGELOG = [
-  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励', '界面补图：药圃地块配作物图、开始页加封面图；切页音效改预加载，点哪响哪', '全站背景换修仙场景图「云海仙山」：浮岛云海铺满全屏', '界面改卷轴牌匾风：宣纸卷轴卡片＋木牌按钮＋石栏底栏'] },
+  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励', '界面补图：药圃地块配作物图、开始页加封面图；切页音效改预加载，点哪响哪', '全站背景换修仙场景图「云海仙山」：浮岛云海铺满全屏', '界面改卷轴风：真书法字体（标题马善政／正文霞鹜文楷）＋卷轴木轴卡片＋木牌按钮，整洁优先'] },
   { v: '运营期更新', items: ['运营期解锁日历：护山大阵 11/21、派遣见闻 11/25、意见反馈 11/28 陆续开启，11/30 收官',
     '意见反馈（设置-反馈，11/28 开启）：首提奖 100 灵石、采纳奖 300 灵石＋鸣谢名单',
     '开宗纪事：11/17–11/30 累计登录 3/7/11 天领奖（总览页领取）',
