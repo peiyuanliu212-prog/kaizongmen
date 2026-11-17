@@ -9,6 +9,9 @@
   html,body { background:#e9e2d0; }
   body { font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif; color:#2b2620; font-size:15px; line-height:1.55; }
   #app { max-width:520px; margin:0 auto; min-height:100vh; min-height:100dvh; background:#f4efe1; display:flex; flex-direction:column; box-shadow:0 0 18px rgba(60,50,30,.18); }
+  #app { background-image:radial-gradient(rgba(122,74,43,.06) 1px, transparent 1.5px), radial-gradient(rgba(73,101,74,.05) 1px, transparent 1.5px); background-size:22px 22px, 30px 30px; background-position:0 0, 9px 13px; }
+  .bannerImg { width:100%; height:126px; object-fit:cover; object-position:center 36%; border-radius:10px; border:2px solid #c9b992; display:block; margin:0 0 10px; }
+  .plotImg { width:100%; height:84px; object-fit:cover; border-radius:6px; display:block; margin:0 0 8px; border:1px solid #d8cfb2; }
   header { padding:calc(10px + var(--safe-top, 0px)) 14px 8px; background:#efe8d3; border-bottom:2px solid #c9b992; position:sticky; top:0; z-index:5; }
   header .sectline { display:flex; justify-content:space-between; align-items:baseline; }
   header .sectname { font-size:19px; font-weight:700; letter-spacing:2px; }
@@ -385,13 +388,22 @@ function toast(msg){ const t = $('toast'); t.textContent = msg; t.style.opacity 
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.style.opacity = 0, 2300); }
 /* ---------------- 声音（旧版定版音频资产：BGM 低音量循环＋6 音效；首次 pointerdown 解锁，设置页开关统管、存档记忆） ---------------- */
 const Audio8 = {
-  bgm: null, unlocked: false, lastSemantic: 0,
-  unlock(){ if (this.unlocked) return; this.unlocked = true; if (typeof S !== 'undefined' && S.settings.soundOn) this.startBgm(); },
+  bgm: null, unlocked: false, lastSemantic: 0, pool: {},
+  SFX: ['click', 'page_flip', 'success', 'coins', 'harvest_store', 'morning_bell'],
+  /* 预加载池（2026-11-17 主人真机反馈切页音效慢半拍：原实现每次播放都新建 Audio 现加载解码）：
+     解锁时把 6 个音效各预建 2 个实例 load() 好，播放时取空闲实例回零直播，点哪响哪 */
+  preload(){ for (const n of this.SFX){ if (this.pool[n]) continue; this.pool[n] = [];
+      for (let i = 0; i < 2; i++){ try { const a = new Audio('assets/audio/' + n + '.ogg'); a.preload = 'auto'; a.load(); this.pool[n].push(a); } catch (e) {} } } },
+  unlock(){ if (this.unlocked) return; this.unlocked = true; this.preload(); if (typeof S !== 'undefined' && S.settings.soundOn) this.startBgm(); },
   startBgm(){ if (!this.bgm){ try { this.bgm = new Audio('assets/audio/bgm_main_peace_valley.ogg'); this.bgm.loop = true; this.bgm.volume = 0.16; } catch (e) { return; } }
     if (S.settings.soundOn){ const p = this.bgm.play(); if (p && p.catch) p.catch(() => {}); } },
   stopBgm(){ if (this.bgm) this.bgm.pause(); },
   play(name, vol){ if (typeof S === 'undefined' || !S.settings.soundOn || !this.unlocked) return;
-    try { const a = new Audio('assets/audio/' + name + '.ogg'); a.volume = vol || 0.5;
+    try { if (!this.pool[name]) this.preload();
+      const list = this.pool[name] || [];
+      const a = list.find(x => x.paused || x.ended) || list[0] || new Audio('assets/audio/' + name + '.ogg');
+      try { a.currentTime = 0; } catch (e) {}
+      a.volume = vol || 0.5;
       const p = a.play(); if (p && p.catch) p.catch(() => {});
       if (name !== 'click') this.lastSemantic = nowMs(); } catch (e) {} },
 };
@@ -1272,7 +1284,8 @@ function slotCardHtml(i){
 function viewSetup(){
   /* 开始页只做一件事：选档。封面图不在这儿（开宗大典幕专用），起名也不在这儿（选空槽进去再取） */
   let h = '<div class="masthead"><div class="mt">我在修仙界开宗门</div>' +
-    '<div class="ms">荒山一座，茅屋两间 · 点按钮做经营决策，离线也在长</div></div>';
+    '<div class="ms">荒山一座，茅屋两间 · 点按钮做经营决策，离线也在长</div></div>' +
+    '<img class="bannerImg" src="assets/e-cover-v2.png" alt="">';
   h += '<div>';
   if (S.sect.started){
     const sm = { name: S.sect.name, day: S.day.index, rank: CONFIG.ranks[S.sect.rank].name, degree: S.sect.buildDegree,
@@ -1319,6 +1332,7 @@ function viewNaming(){
   namingEnsure();
   return '<div class="masthead"><div class="mt">开宗立派</div>' +
     '<div class="ms">' + (newGameSlot ? '档位 ' + newGameSlot + ' · ' : '') + '荒山一座，茅屋两间。从今天起，你说了算。</div></div>' +
+    '<img class="bannerImg" src="assets/e-cover-v2.png" alt="">' +
     '<div class="card" id="namingCard"><h3>宗门名号</h3>' +
     '<p>宗门名：<b>' + esc(namingUi.sect) + '</b></p>' +
     '<p>掌门名号：<b>' + esc(namingUi.master) + '</b></p>' +
@@ -1685,11 +1699,11 @@ function viewProd(){ let h = subBar('prod', [['farm', '种植'], ['order', '订�
   if (sub.prod === 'farm'){
   h += '<div class="card"><h3>' + icn('lingzhi') + '药圃（' + S.plots.length + ' 块）</h3><div class="grid">';
   S.plots.forEach((p, i) => { h += '<div class="plot"' + (i === 0 ? ' id="plot0"' : '') + '>';
-    if (!p.cropId) h += '<b>空地 ' + (i + 1) + '</b><div class="st">种什么？</div><div class="btnrow">' +
+    if (!p.cropId) h += '<img class="plotImg" src="assets/crops/crop_empty.jpg" alt=""><b>空地 ' + (i + 1) + '</b><div class="st">种什么？</div><div class="btnrow">' +
       '<button class="btn sm"' + (i === 0 ? ' id="btnFirstPlant"' : '') + ' onclick="plantCrop(' + i + ',\'lingzhi\')">灵芝 · 90 秒' + (S.hookFirstCrop ? '' : '（首块 10 秒）') + '</button>' +
       '<button class="btn sm" onclick="plantCrop(' + i + ',\'ninglu\')">凝露草 · 耗灵芝 1</button></div>';
     else { const crop = CONFIG.crops[p.cropId], ready = nowMs() >= p.readyAt;
-      h += '<b>' + crop.name + '</b><div class="st">' + (ready ? '<span class="cd">已成熟</span>' : '还剩 ' + fmtDur(p.readyAt - nowMs())) + '</div>' +
+      h += '<img class="plotImg" src="assets/crops/crop_' + p.cropId + '.jpg" alt=""><b>' + crop.name + '</b><div class="st">' + (ready ? '<span class="cd">已成熟</span>' : '还剩 ' + fmtDur(p.readyAt - nowMs())) + '</div>' +
       (ready ? '<div class="btnrow"><button class="btn sm pri" onclick="harvestPlot(' + i + ')">收获 +1</button></div>' : ''); }
     h += '</div>'; });
   h += '</div>' + tapRowHtml() + '<p class="small">弟子派「药圃」岗：成熟时长 ×0.8/名（最多 2 名）；聚灵诀每层再提速 10%。掌门运功：点按给全部生长中的作物催熟 3 秒（连击计数），每日 60 次。</p></div>';
@@ -2003,7 +2017,7 @@ function viewSet(){
   return h; }
 /* 更新公告（玩家点击查看，禁进门自动弹）：只写已上线内容，不写未兑现承诺、不带任何码 */
 const CHANGELOG = [
-  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励'] },
+  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励', '界面补图：药圃地块配作物图、开始页加封面图；切页音效改预加载，点哪响哪'] },
   { v: '运营期更新', items: ['运营期解锁日历：护山大阵 11/21、派遣见闻 11/25、意见反馈 11/28 陆续开启，11/30 收官',
     '意见反馈（设置-反馈，11/28 开启）：首提奖 100 灵石、采纳奖 300 灵石＋鸣谢名单',
     '开宗纪事：11/17–11/30 累计登录 3/7/11 天领奖（总览页领取）',
