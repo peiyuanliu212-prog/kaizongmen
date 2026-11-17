@@ -1258,14 +1258,42 @@ function viewSetup(){
   h += '</div>';
   return h;
 }
+/* 名号自动拟名（2026-11-17 驳回修复：平台口径——不许玩家手输游戏名称，改用登录昵称派生；
+   取不到昵称（网页端/未登录）回退预置名池，全程无输入框、无空白、无报错） */
+const SECT_POOL = ['青云宗', '沧澜派', '栖凤山', '听雪阁', '望舒宗', '临渊派', '抱朴山', '归元宗', '栖云观', '照夜山'];
+const MASTER_POOL = ['云游子', '抱朴子', '听泉客', '采薇人', '临渊子', '望舒生', '栖凤客', '归元子'];
+const SECT_SUFFIX = ['宗', '派', '山门', '阁'];
+const namingUi = { sect: '', master: '', src: '', roll: 0, nickBase: '' };
+let nickTried = false;
+function nameHash(str){ let h = 0; for (const c of String(str)) h = (h * 31 + c.codePointAt(0)) >>> 0; return h; }
+function namingReset(){ namingUi.sect = ''; namingUi.master = ''; namingUi.src = ''; namingUi.roll = 0; namingUi.nickBase = ''; nickTried = false; }
+function namingApplyPool(){ const r = namingUi.roll;
+  namingUi.sect = SECT_POOL[r % SECT_POOL.length];
+  namingUi.master = MASTER_POOL[(r * 3 + 1) % MASTER_POOL.length]; namingUi.src = 'pool'; }
+function namingApplyNick(nick){ const clean = String(nick || '').replace(/\s+/g, '').slice(0, 5); if (!clean) return false;
+  namingUi.nickBase = clean;
+  namingUi.sect = clean + SECT_SUFFIX[(nameHash(clean) + namingUi.roll) % SECT_SUFFIX.length];
+  namingUi.master = String(nick).slice(0, 6); namingUi.src = 'nick'; return true; }
+function namingEnsure(){ if (!namingUi.sect) namingApplyPool();
+  if (!nickTried){ nickTried = true;
+    kzIdentity().then(id => { if (id && id.nickname && !S.sect.started && namingUi.src === 'pool'){ if (namingApplyNick(id.nickname) && naming) render(); } }).catch(() => {}); } }
+function namingRoll(){ namingUi.roll++;
+  if (namingUi.src === 'nick' && namingUi.nickBase)
+    namingUi.sect = namingUi.nickBase + SECT_SUFFIX[(nameHash(namingUi.nickBase) + namingUi.roll) % SECT_SUFFIX.length];
+  else namingApplyPool();
+  render(); }
+
 /* 游戏内起名（选空槽后落到这里）：讲解台第 1、2 步就在这一屏，起名→开宗→大典幕→进总览 */
 function viewNaming(){
+  namingEnsure();
   return '<div class="masthead"><div class="mt">开宗立派</div>' +
     '<div class="ms">' + (newGameSlot ? '档位 ' + newGameSlot + ' · ' : '') + '荒山一座，茅屋两间。从今天起，你说了算。</div></div>' +
-    '<div class="card"><h3>给宗门起个名字</h3>' +
-    '<label class="lb">宗门名</label><input type="text" id="inSect" maxlength="8" value="青云宗">' +
-    '<label class="lb">掌门名</label><input type="text" id="inMaster" maxlength="6" placeholder="给自己起个名号">' +
-    '<div class="btnrow"><button class="btn pri" id="btnStart" onclick="startSect()">开宗立派（礼金 ' + CONFIG.startGiftCoin + ' 灵石）</button></div>' +
+    '<div class="card" id="namingCard"><h3>宗门名号</h3>' +
+    '<p>宗门名：<b>' + esc(namingUi.sect) + '</b></p>' +
+    '<p>掌门名号：<b>' + esc(namingUi.master) + '</b></p>' +
+    '<p class="small">' + (namingUi.src === 'nick' ? '已按你的虎扑昵称自动拟名。' : '名号由山门按规矩自动拟定；登录虎扑后会按你的昵称拟名。') + '</p>' +
+    '<div class="btnrow"><button class="btn sm" onclick="namingRoll()">换一个</button>' +
+    '<button class="btn pri" id="btnStart" onclick="startSect()">开宗立派（礼金 ' + CONFIG.startGiftCoin + ' 灵石）</button></div>' +
     '<p class="small" style="margin-top:8px">玩法就一件事：点按钮做经营决策。种田、收徒、扩建、晋阶，离线也在长。</p>' +
     '<div class="btnrow"><button class="btn sm" onclick="naming=false;atGate=true;render()">← 回开始页换个档位</button></div></div>';
 }
@@ -1288,12 +1316,12 @@ function assignSlot(i){
 function newGameAtSlot(i){
   if (!armed('slotNew' + i)){ toast(S.sect.started ? '再点一次确认在此开新宗（当前进度会先备份到恢复槽）' : '再点一次确认在此开新宗'); return; }
   if (S.sect.started) Save.writeSlot(CONFIG.save.restoreKey);
-  S = freshState(); newGameSlot = i; naming = true;
+  S = freshState(); newGameSlot = i; naming = true; namingReset();
   /* 引导在起名这一刻才武装：第 1 步就是起名，讲解台全程在场，不再进游戏才从第 3 步冒出来。
      全新访客 Guide.init 已在开机时备好第 1 步（选档时讲解台藏着，进起名页自动亮）；删档重开走 guideArmFresh 在此补武装 */
   if (guideArmFresh){ guideArmFresh = false;
     Guide.st = { step: 1, phase: 0, done: false }; Guide.saveSt(); if (!Guide.active) Guide.start(); }
-  toast('在档位 ' + i + ' 开新宗：起个名字吧'); render();
+  toast('在档位 ' + i + ' 开新宗：名号已为你拟好'); render();
 }
 /* 删槽：只删该槽；删的是活动槽只把 activeSlot 置 null，主档工作副本一字不动 */
 function delSlotGate(i){
@@ -1303,9 +1331,8 @@ function delSlotGate(i){
   toast('已删除档位 ' + i); render();
 }
 function startSect(){
-  const name = ($('inSect').value || '').trim() || '青云宗';
-  const master = ($('inMaster').value || '').trim() || '掌门';
-  S.sect.name = name.slice(0, 8); S.sect.masterName = master.slice(0, 6); S.sect.started = true;
+  namingEnsure();
+  S.sect.name = (namingUi.sect || '青云宗').slice(0, 8); S.sect.masterName = (namingUi.master || '掌门').slice(0, 6); S.sect.started = true;
   eventTouch();   // 运营期累计登录：开宗当天即首进日（窗口内才记）
   /* 落槽：指定了新宗槽位用它，否则沿用当前归属；无归属时默认 1 号槽，
      但 1 号槽已被别的进度占用就顺延找第一个空槽，全满则先不归槽（开始页可手动归入），绝不静默覆盖 */
@@ -1945,6 +1972,7 @@ function viewSet(){
   return h; }
 /* 更新公告（玩家点击查看，禁进门自动弹）：只写已上线内容，不写未兑现承诺、不带任何码 */
 const CHANGELOG = [
+  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入'] },
   { v: '运营期更新', items: ['运营期解锁日历：护山大阵 11/21、派遣见闻 11/25、意见反馈 11/28 陆续开启，11/30 收官',
     '意见反馈（设置-反馈，11/28 开启）：首提奖 100 灵石、采纳奖 300 灵石＋鸣谢名单',
     '开宗纪事：11/17–11/30 累计登录 3/7/11 天领奖（总览页领取）',
@@ -2132,8 +2160,8 @@ const Vault = {
 let gClicked = false;   // 当前动作步的目标点击命中标记（advance 时清零）
 const GUIDE_TOTAL = 13;
 const GUIDE_STEPS = [
-  { title: '开宗立派', phases: [{ ctx: 'setup', sel: '#inSect', type: 'info',
-      text: '点按钮做经营决策的宗门经营游戏：种田、收徒、扩建、晋阶，离线也在长。先给宗门起个名字（用默认的也行）。',
+  { title: '开宗立派', phases: [{ ctx: 'setup', sel: '#namingCard', type: 'info',
+      text: '点按钮做经营决策的宗门经营游戏：种田、收徒、扩建、晋阶，离线也在长。宗门名号已自动拟好（登录时按你的虎扑昵称），不合意点「换一个」。',
       skipIf: () => S.sect.started }] },   // 已开宗（设置页重看时）自动跳过本步
   { title: '开宗', phases: [{ ctx: 'setup', sel: '#btnStart', type: 'action',
       text: '点「开宗立派」：领 100 灵石开宗礼金，从今天起，你说了算。', done: () => S.sect.started }] },
