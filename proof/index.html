@@ -1,49 +1,56 @@
 <!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>开宗门 · 卷轴风验货页</title>
+<title>开宗门 · 卷轴风验货页 v2（整洁优先）</title>
 <style>
 @font-face { font-family:'MSZ'; src:url('assets/msz.woff2') format('woff2'); }
 @font-face { font-family:'LXGW'; src:url('assets/lxgw.woff2') format('woff2'); }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'LXGW', serif; background:#26313a url('assets/bg_main.jpg') center top / cover fixed no-repeat; color:#3a2a16; }
-#app { max-width:480px; margin:0 auto; padding:10px 10px 86px; background:rgba(243,238,224,.07); min-height:100vh; }
-.hdr { background:url('assets/car_scroll.jpg') center 8% / cover; border-radius:6px; padding:20px 16px 12px; box-shadow:0 3px 10px rgba(30,24,12,.35); }
-.hdr .nm { font-family:'MSZ'; font-size:30px; letter-spacing:2px; color:#3a2a16; display:inline-block; }
-.hdr .tag { float:right; font-size:12px; background:rgba(255,252,240,.75); border:1px solid #a98f5f; border-radius:6px; padding:3px 8px; margin-top:8px; }
-.res { margin-top:10px; font-size:14px; line-height:1.9; }
+body { font-family:'LXGW', serif; background:#26313a url('assets/bg_main.jpg') center top / cover fixed no-repeat; color:#2e2010; }
+#app { max-width:480px; margin:0 auto; padding:10px 10px 84px; background:rgba(243,238,224,.07); min-height:100vh; }
+.roll { height:15px; background:url('assets/car_scroll.jpg') center top / 100% auto no-repeat; border-radius:3px; }
+.roll.b { background-position:center bottom; }
+.hdr { background:linear-gradient(180deg, rgba(252,247,233,.97), rgba(246,238,216,.97)); border:1px solid #a98f5f; border-top:none; border-bottom:none; padding:10px 14px 12px; }
+.hdrWrap { box-shadow:0 3px 10px rgba(30,24,12,.30); border-radius:4px; overflow:hidden; margin-bottom:12px; }
+.hdr .nm { font-family:'MSZ'; font-size:29px; letter-spacing:2px; }
+.hdr .tag { float:right; font-size:12px; background:#fffdf4; border:1px solid #a98f5f; border-radius:6px; padding:3px 8px; margin-top:9px; }
+.res { margin-top:8px; display:flex; flex-wrap:wrap; gap:4px 14px; font-size:14px; line-height:1.65; }
+.res span { white-space:nowrap; }
 .res b { color:#a33327; }
-.subbar { display:flex; gap:8px; margin:12px 0 10px; }
+.subbar { display:flex; gap:8px; margin:0 0 12px; }
 .subbar button { flex:1; font-family:'MSZ'; font-size:17px; letter-spacing:4px; padding:9px 0; border-radius:8px; border:1px solid #8a6d3f; cursor:pointer; }
-.subbar .on { background:url('assets/car_plaque.jpg') center / cover; color:#f7ecd2; text-shadow:0 1px 2px rgba(30,19,8,.65); }
-.subbar .off { background:linear-gradient(180deg, rgba(253,248,234,.92), rgba(241,230,200,.90)); color:#4a341f; }
-.card { background:url('assets/car_scroll.jpg') center / 100% 100% no-repeat; padding:38px 30px 34px; margin-bottom:12px; }
-.card h3 { font-family:'MSZ'; font-size:21px; letter-spacing:1px; margin-bottom:8px; }
-.card p, .card li { font-size:14.5px; line-height:1.75; list-style:none; }
-.row { display:flex; justify-content:space-between; border-bottom:1px dashed rgba(122,90,50,.45); padding:5px 0; }
+.subbar .on { background:url('assets/car_plaque.jpg') center / cover; color:#fdf6dd; text-shadow:0 1px 2px rgba(30,19,8,.7); }
+.subbar .off { background:linear-gradient(180deg,#fdf8ea,#f1e6c8); color:#4a341f; }
+.card { box-shadow:0 3px 10px rgba(30,24,12,.28); border-radius:4px; overflow:hidden; margin-bottom:12px; }
+.card .body { background:linear-gradient(180deg, rgba(252,247,233,.88), rgba(246,238,216,.86)), url('assets/tex_paper.jpg') center / cover; border-left:1px solid #a98f5f; border-right:1px solid #a98f5f; padding:13px 17px 15px; }
+.card h3 { font-family:'MSZ'; font-size:21px; letter-spacing:1px; margin-bottom:7px; color:#33240f; }
+.card p, .card li { font-size:15px; line-height:1.8; list-style:none; }
+.row { display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed rgba(122,90,50,.4); padding:5px 0; }
 .row:last-child { border-bottom:none; }
-.mut { color:#7a6a4d; font-size:13px; }
+.mut { color:#6f5c39; font-size:13px; }
 .btn { font-family:'MSZ'; letter-spacing:2px; border:1px solid #3c2b16; border-radius:8px; padding:8px 16px; cursor:pointer; }
-.btn.pri { background:url('assets/car_plaque.jpg') center / cover; color:#f7ecd2; text-shadow:0 1px 2px rgba(30,19,8,.65); font-size:15px; }
-.btn.sm { background:linear-gradient(180deg,#fdf8ea,#f1e6c8); color:#4a341f; border-color:#a98f5f; font-size:13.5px; padding:5px 12px; }
-#tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:0; width:100%; max-width:480px; height:64px; background:url('assets/car_stone_bar.jpg') center / cover; display:flex; box-shadow:0 -3px 10px rgba(30,24,12,.35); }
-#tabbar button { flex:1; background:none; border:none; font-family:'MSZ'; font-size:16.5px; letter-spacing:2px; color:#43331d; cursor:pointer; }
-#tabbar button.on { background:url('assets/car_plaque.jpg') center / cover; color:#f7ecd2; text-shadow:0 1px 2px rgba(30,19,8,.65); border-radius:8px; margin:8px 4px; }
+.btn.pri { background:url('assets/car_plaque.jpg') center / cover; color:#fdf6dd; text-shadow:0 1px 2px rgba(30,19,8,.7); font-size:15px; }
+.btn.sm { background:linear-gradient(180deg,#fdf8ea,#f1e6c8); color:#4a341f; border-color:#a98f5f; font-family:'LXGW'; font-size:13.5px; padding:5px 13px; }
+#tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:0; width:100%; max-width:480px; height:62px; background:linear-gradient(180deg,#4a4238,#38322a); border-top:3px solid #8d8272; display:flex; box-shadow:0 -3px 10px rgba(30,24,12,.35); }
+#tabbar button { flex:1; background:none; border:none; font-family:'MSZ'; font-size:16.5px; letter-spacing:2px; color:#e8dfc8; cursor:pointer; }
+#tabbar button.on { background:url('assets/car_plaque.jpg') center / cover; color:#fdf6dd; text-shadow:0 1px 2px rgba(30,19,8,.7); border-radius:8px; margin:7px 4px; border:1px solid #2c1e0e; }
 </style></head>
 <body><div id="app">
-  <div class="hdr">
-    <span class="nm">青云宗</span><span class="tag">无名小派 · 第 1 天</span>
-    <div class="res">🪙 灵石 100&nbsp;&nbsp;🍄 灵芝 0&nbsp;&nbsp;🌸 凝露草 0&nbsp;&nbsp;🫙 灵露 0&nbsp;&nbsp;💎 玄玉 0<br>🧑 弟子 0/8&nbsp;&nbsp;<b>可领取 1</b></div>
+  <div class="hdrWrap"><div class="roll"></div>
+    <div class="hdr">
+      <span class="nm">青云宗</span><span class="tag">无名小派 · 第 1 天</span>
+      <div class="res"><span>🪙 灵石 100</span><span>🍄 灵芝 0</span><span>🌸 凝露草 0</span><span>🫙 灵露 0</span><span>💎 玄玉 0</span><span>🧑 弟子 0/8</span><span><b>可领取 1</b></span></div>
+    </div><div class="roll b"></div>
   </div>
   <div class="subbar"><button class="on">今日</button><button class="off">手记</button></div>
-  <div class="card">
-    <h3>📅 开宗纪事 · 累计登录</h3>
+  <div class="card"><div class="roll"></div><div class="body">
+    <h3>开宗纪事 · 累计登录</h3>
     <p>11/17–11/30 期间，打开游戏即算 1 天（断签不清零）。已累计 1 天。</p>
     <div class="row"><span>累计 3 天：80 灵石</span><span class="mut">还差 2 天</span></div>
     <div class="row"><span>累计 7 天：150 灵石＋碎片 ×1</span><span class="mut">还差 6 天</span></div>
     <div class="row"><span>累计 11 天：300 灵石＋碎片 ×2</span><span class="mut">还差 10 天</span></div>
-  </div>
-  <div class="card">
+  </div><div class="roll b"></div></div>
+  <div class="card"><div class="roll"></div><div class="body">
     <h3>今日清单</h3>
     <p>可领取（1）</p>
     <div class="row"><span>今日签到 10 灵石</span><button class="btn sm">领取</button></div>
@@ -55,7 +62,7 @@ body { font-family:'LXGW', serif; background:#26313a url('assets/bg_main.jpg') c
       <li>○ 收获作物 5 次（0/5）</li>
     </ul>
     <p class="mut">完成日课并领奖后，解锁「进阶日课」（再 3 件，奖 60 灵石）。</p>
-  </div>
+  </div><div class="roll b"></div></div>
 </div>
 <nav id="tabbar">
   <button class="on">🏆 总览</button><button>🍄 生产</button><button>🧑 弟子</button><button>🏔 宗门</button><button>⚙ 设置</button>
