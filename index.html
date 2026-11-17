@@ -192,6 +192,7 @@ const CONFIG = {
     ninglu:     { name: '凝露草', sellable: true },
     linglu:     { name: '灵露', sellable: true },
     xuanyu:     { name: '玄玉', sellable: true },
+    yusui:      { name: '玉髓', sellable: true },
     herb_seed:  { name: '药种', sellable: false },
     forge_plan: { name: '坊图', sellable: false },
     mine_charm: { name: '矿引', sellable: false },
@@ -204,6 +205,8 @@ const CONFIG = {
   recipes: [                    // 配方表（照抄）
     { id: 'r_linglu', station: 'forge', name: '淬炼灵露', tier: 3,
       inputs: { lingzhi: 2, ninglu: 1 }, outputs: { linglu: 1 } },
+    { id: 'r_yusui', station: 'forge', name: '凝炼玉髓', tier: 4,
+      inputs: { xuanyu: 1, linglu: 1 }, outputs: { yusui: 1 } },
     { id: 'r_xuanyu', station: 'mine', name: '探采玄玉', tier: 4,
       inputs: { linglu: 1, mine_charm: 1 }, outputs: { xuanyu: 1 } },
   ],
@@ -234,6 +237,8 @@ const CONFIG = {
     { name: '小有名气', need: 50 },
     { name: '一方宗门', need: 90 },
     { name: '名门大派', need: 130 },
+    { name: '声名远播', need: 170 },
+    { name: '天下名宗', need: 220 },
   ],
   promoteRewardBase: 50,        // 晋阶礼金＝base × 新品级序（新品级 index+1）
   technique: {                  // 聚灵诀（一页纸批准新增）：Lv0 未习，每升一级全产率 +10%
@@ -263,7 +268,7 @@ const CONFIG = {
     { id: 'assign6',   hook: 'assign',      label: '今日派工共 8 人次',     target: 8 },
   ],
   daily2Reward: 60,
-  discipleExp: { perDay: 34, need: 100, maxStage: 5, perStage: 0.05 },  // 弟子历练：在岗过天 +34×引气诀倍率（perDay 为运营口径，一页纸只写死满 100 升阶/上限 5/每阶 +5%）
+  discipleExp: { perDay: 34, need: 100, maxStage: 7, perStage: 0.05 },  // 弟子历练：在岗过天 +34×引气诀倍率（perDay 为运营口径，一页纸只写死满 100 升阶/上限 5/每阶 +5%）
   treasureSets: [               // 宗门宝库（厚度批）：4 套 ×6 件，集齐永久加成在事实源函数内叠加
     { id: 'kaishan',  name: '开山套', bonusText: '集齐：建设度 +10', degreeBonus: 10 },
     { id: 'nongsang', name: '农桑套', bonusText: '集齐：作物时长 −10%' },
@@ -360,7 +365,7 @@ const CONFIG = {
                { needs: { ninglu: 3 }, reward: 50 }, { needs: { lingzhi: 3, ninglu: 2 }, reward: 58 } ],
       timed: [ { needs: { ninglu: 3 }, reward: 58 }, { needs: { linglu: 1 }, reward: 48 },
                { needs: { lingzhi: 4, ninglu: 2 }, reward: 66 } ],
-      rush:  [ { needs: { linglu: 2 }, reward: 96 }, { needs: { xuanyu: 1 }, reward: 90 },
+      rush:  [ { needs: { linglu: 2 }, reward: 96 }, { needs: { xuanyu: 1 }, reward: 90 }, { needs: { yusui: 1 }, reward: 120 },
                { needs: { ninglu: 2, linglu: 1 }, reward: 110 } ],
     },
   },
@@ -476,6 +481,7 @@ function freshState(){
     /* 运营期批次（2026-11-17）：event 累计登录｜array 护山大阵｜dispatchFam 派遣熟悉度，normalize 对老档默认补齐 */
     event: { ops: { days: [], claimed: [] } },
     array: { stage: 0 },
+    offering: { until: 0, stacks: 0 },   // 宗门供奉（加厚批）：100 灵石/层，24h 内离线产率 +5%/层，上限 3 层
     dispatchFam: {},
     feedback: { granted: false },
     codex: { items: {}, qualities: {}, fates: {} },
@@ -518,6 +524,7 @@ function rollToday(){ const k = dayKey(); if (S.stats.todayKey !== k){ S.stats.t
 function techMul(){ return 1 + CONFIG.technique.perLevel * (S.technique.level || 0); }
 function expMul(){ return 1 + CONFIG.technique2.perLevel * (S.technique2.level || 0); }  // 引气诀：历练获取倍率（过天结算用）
 function buildingLevel(id){ const b = S.buildings.find(x => x.id === id); return b ? (b.level || 0) : 0; }
+function rosterCap(){ return CONFIG.discipleGen.rosterCap + 2 * buildingLevel('quarters'); }   // 名册上限＝基数 8＋弟子居舍每级 +2（加厚批，满级 14）
 function treasureSetCompleteOn(st, setId){ const owned = (st && st.treasures && st.treasures.owned) || {};
   return CONFIG.treasures.filter(t => t.set === setId).every(t => owned[t.id]); }
 function setComplete(setId){ return treasureSetCompleteOn(S, setId); }
@@ -591,6 +598,7 @@ function normalizeState(raw){ // 任意来源（本地档/长码/短码）的存
   if (!Array.isArray(s.event.ops.days)) s.event.ops.days = [];
   if (!Array.isArray(s.event.ops.claimed)) s.event.ops.claimed = [];
   if (typeof s.event.ops.finaleClaimed !== 'boolean') s.event.ops.finaleClaimed = false;
+  s.offering = Object.assign({ until: 0, stacks: 0 }, (raw.offering && typeof raw.offering === 'object') ? raw.offering : {});
   s.array = Object.assign({}, F.array, raw.array || {});
   if (typeof s.array.stage !== 'number') s.array.stage = 0;
   s.dispatchFam = Object.assign({}, raw.dispatchFam || {});
@@ -657,7 +665,7 @@ const Save = {
       s.day.index = Math.max(1, (w.day || {}).dayIndex || 1);
       s.day.lastSeenAt = w.lastSeenAt || nowMs();
       const G = CONFIG.discipleGen;
-      s.disciples = (Array.isArray(w.disciples) ? w.disciples : []).slice(0, G.rosterCap).map((d, i) => {
+      s.disciples = (Array.isArray(w.disciples) ? w.disciples : []).slice(0, 14)   /* 上限取动态名册的绝对最大值（8＋居舍3级×2），载入绝不误裁弟子 */.map((d, i) => {
         const q = G.qualities.find(x => x.name === d.quality) || G.qualities[0];
         const attrs = {}; for (const a of G.attrNames) attrs[a] = clamp((d.attrs || {})[a] || randInt(q.min, q.max), 1, 99);
         const fate = G.fates.find(f => f.name === d.fateName) || pick(G.fates);
@@ -682,7 +690,8 @@ const Offline = {
     const rate = (CONFIG.offline.rateBasePerHour + CONFIG.offline.ratePerBuildDegree * S.sect.buildDegree)
                  * CONFIG.offline.offlineRateFactor * techMul()
                  * (1 + 0.08 * buildingLevel('spiritArray')) * (setComplete('yunyou') ? 1.1 : 1)
-                 * (1 + CONFIG.array.ratePerStage * ((S.array && S.array.stage) || 0));   // 护山大阵：每段修复 +2%（公式单点叠加）
+                 * (1 + CONFIG.array.ratePerStage * ((S.array && S.array.stage) || 0))   // 护山大阵：每段修复 +2%（公式单点叠加）
+                 * ((S.offering && to <= (S.offering.until || 0)) ? 1 + 0.05 * (S.offering.stacks || 0) : 1);   // 宗门供奉：有效期内 +5%/层
     const cap = rate * CONFIG.offline.capHours * CONFIG.offline.capFactor;
     let amount = Math.min(rate * el / 3600000, cap);
     let early = 0;
@@ -1082,7 +1091,7 @@ function genDisciple(){ const G = CONFIG.discipleGen;
            fate: fate.name, fateDesc: fate.desc, personality: pick(G.personalities), origin,
            robe: pick(G.robes), post: null, dispatch: null, exp: 0, stage: 0 }; }
 function recruit(){ const G = CONFIG.discipleGen;
-  if (S.disciples.length >= G.rosterCap){ toast('名册已满（' + G.rosterCap + ' 人），先扩建弟子居舍再说'); return; }
+  if (S.disciples.length >= rosterCap()){ toast('名册已满（' + rosterCap() + ' 人），先扩建弟子居舍再说'); return; }
   if (!Ledger.transact({ coin: -G.recruitCost, reason: 'recruit' })){ toast('招募需要 ' + G.recruitCost + ' 灵石，家底还不够'); return; }
   const d = genDisciple(); S.disciples.push(d);
   S.codex.qualities[d.quality] = true; S.codex.fates[d.fate] = true; S.stats.recruited++; bumpDaily('recruit');
@@ -1120,6 +1129,16 @@ function claimDispatch(id, silent){ const d = S.disciples.find(x => x.id === id)
   if (!silent){ Save.save(); beep(); render(); } return dest; }
 
 /* ---------------- 宗门：扩建 / 晋阶 / 功法 / 签到 / 过天 ---------------- */
+function offerUp(){
+  const o = S.offering || (S.offering = { until: 0, stacks: 0 });
+  const now = nowMs();
+  if (now >= (o.until || 0)) o.stacks = 0;
+  if (o.stacks >= 3){ toast('供奉已满 3 层，等这轮效力过了再来'); return; }
+  if (!Ledger.transact({ coin: -100, reason: 'offering' })){ toast('灵石不足（供奉需 100 灵石）'); return; }
+  o.stacks += 1; o.until = now + 24 * 3600 * 1000;
+  toast('供奉完成：24 小时内离线产率 +' + (o.stacks * 5) + '%（' + o.stacks + '/3 层）');
+  markDirty(); Save.save(); Audio8.play('success'); render();
+}
 function repairArray(){ const st = (S.array && S.array.stage) || 0;
   if (st >= CONFIG.array.stages.length){ toast('护山大阵已经修好了'); return; }
   const cost = CONFIG.array.stages[st];
@@ -1286,7 +1305,7 @@ function render(){
   $('hRes').innerHTML = '<span>' + icn('coin') + '灵石 <b>' + (S.balances.coin || 0) + '</b></span>' +
     '<span>' + icn('lingzhi') + '灵芝 <b>' + inv('lingzhi') + '</b></span><span>' + icn('ninglu') + '凝露草 <b>' + inv('ninglu') + '</b></span>' +
     '<span>' + icn('bag') + '灵露 <b>' + inv('linglu') + '</b></span><span>' + icn('xuanyu') + '玄玉 <b>' + inv('xuanyu') + '</b></span>' +
-    '<span>' + icn('disciple') + '弟子 <b>' + S.disciples.length + '/' + CONFIG.discipleGen.rosterCap + '</b></span>' +
+    '<span>' + icn('disciple') + '弟子 <b>' + S.disciples.length + '/' + rosterCap() + '</b></span>' +
     (rt ? '<span class="ready">可领取 ' + rt + '</span>' : '');
   document.querySelectorAll('#tabbar button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('dotDisc').textContent = S.disciples.some(d => d.dispatch && nowMs() >= d.dispatch.backAt) ? ' ●' : '';
@@ -1806,7 +1825,7 @@ function stationHtml(stationId, recipeId){ const r = CONFIG.recipes.find(x => x.
 function viewDisc(){ const G = CONFIG.discipleGen;
   let h = subBar('disc', [['roster', '名册'], ['codex', '图鉴'], ['duel', '论道']]);
   if (sub.disc === 'roster'){
-  h += '<div class="card" id="cardRecruit"><h3>' + icn('recruit') + '招募弟子（' + S.disciples.length + '/' + G.rosterCap + '）</h3>' +
+  h += '<div class="card" id="cardRecruit"><h3>' + icn('recruit') + '招募弟子（' + S.disciples.length + '/' + rosterCap() + '）</h3>' +
     '<p>山门招募，一人 ' + G.recruitCost + ' 灵石。</p>' +
     '<p class="small">概率公示：品质 寻常 50% · 良好 32% · 上佳 14% · 绝佳 4%；三资质（悟性/根骨/手艺）按品质区间随机（寻常 20–50、良好 40–70、上佳 60–85、绝佳 80–99）；命格随机一项，来历随机拼成。</p>' +
     '<div class="btnrow"><button class="btn pri" onclick="recruit()">招募弟子（' + G.recruitCost + ' 灵石）</button></div></div>';
@@ -1887,6 +1906,11 @@ function viewSect(){
       '<p>修复进度 <b>' + st + ' / 5</b>' + (done ? ' · 大阵重光，护佑全宗' : '') + '</p>' +
       (done ? '' : '<div class="row"><span>下一段：' + CONFIG.array.forms[st + 1] + '<span class="small" style="white-space:nowrap">（需 ' + costText(cost) + (cost.shards ? '＋宝物碎片 ×' + cost.shards : '') + '）</span></span>' +
         '<button class="' + (__armed['array'] ? 'btn arm' : 'btn') + '" onclick="repairArray()">' + armLabel('array', '着手修复') + '</button></div>') + '</div>'; }
+  { const o = S.offering || { until: 0, stacks: 0 }; const on = nowMs() < (o.until || 0);
+    h += '<div class="card"><h3>' + icn('expand') + '宗门供奉</h3>' +
+      '<p class="small">给祖师像前添一炷香：每次供奉 100 灵石，24 小时内离线产率 +5%，可叠 3 层（+15%）。灵石有富余时，把钱换成实打实的产率。</p>' +
+      '<div class="row"><span>当前效力：' + (on ? '<b>+' + (o.stacks * 5) + '%</b>（' + o.stacks + '/3 层）' : '未供奉') + '</span>' +
+      '<button class="btn sm" onclick="offerUp()">供奉 · 100 灵石</button></div></div>'; }
   h += '<div class="card"><h3>' + icn('expand') + '建筑扩建</h3>' + S.buildings.map(b => { const def = CONFIG.buildings.find(x => x.id === b.id);
     const cost = (CONFIG.upgrades[b.id] || {})[b.level + 1];
     return '<div class="row"><span>' + def.name + ' · ' + b.level + ' 级<span class="small">（建设度 +' + (b.level * def.degreePerLevel) + (def.note ? '；' + def.note : '') + '）</span></span>' +
@@ -2058,6 +2082,7 @@ function viewSet(){
   return h; }
 /* 更新公告（玩家点击查看，禁进门自动弹）：只写已上线内容，不写未兑现承诺、不带任何码 */
 const CHANGELOG = [
+  { v: '加厚更新', items: ['生产链第三环：玄玉＋灵露可凝炼「玉髓」，急单高价收购', '宗门供奉：灵石换离线产率（100 灵石/层、24 小时、最高 +15%），富余灵石有出口了', '弟子名册随居舍扩建增长（最高 14 人），历练升阶开到 7 阶', '宗门品级新增「声名远播」（170）与「天下名宗」（220）两档'] },
   { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励', '界面补图：药圃地块配作物图、开始页加封面图；切页音效改预加载，点哪响哪', '全站背景换修仙场景图「云海仙山」：浮岛云海铺满全屏', '界面改卷轴风：真书法字体（标题马善政／正文霞鹜文楷）＋卷轴木轴卡片＋木牌按钮，整洁优先'] },
   { v: '运营期更新', items: ['运营期解锁日历：护山大阵 11/21、派遣见闻 11/25、意见反馈 11/28 陆续开启，11/30 收官',
     '意见反馈（设置-反馈，11/28 开启）：首提奖 100 灵石、采纳奖 300 灵石＋鸣谢名单',
