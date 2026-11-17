@@ -103,6 +103,17 @@
   #gText { margin-top:5px; font-size:14px; line-height:1.5; flex:1; overflow:hidden; }
   #gFoot { display:flex; justify-content:space-between; align-items:center; min-height:28px; }
   #gRing { position:fixed; z-index:14; border:2px solid #a33b2e; border-radius:9px; box-shadow:0 0 0 3px rgba(163,59,46,.16); pointer-events:none; display:none; transition:top .18s ease,left .18s ease,width .18s ease,height .18s ease; }
+
+  /* ===== 卷轴牌匾风（按重绘定稿风格落码：宣纸卷轴卡＋木牌按钮＋石栏底栏，文字全为真文案重排） ===== */
+  body .card { background:linear-gradient(180deg, rgba(250,244,225,.93), rgba(243,233,205,.90)); border:1.5px solid #a98f5f; border-radius:10px; box-shadow:inset 0 0 0 3px rgba(255,252,240,.5), inset 0 0 22px rgba(160,128,74,.16), 0 3px 10px rgba(38,32,18,.25); }
+  body .card h3, body .card h4 { color:#4a341f; }
+  body header { background:linear-gradient(180deg, rgba(250,244,225,.93), rgba(238,226,192,.90)); border-bottom:2px solid #a98f5f; box-shadow:0 3px 10px rgba(38,32,18,.20); }
+  body .btn { background:linear-gradient(180deg, #fdf8ea, #f1e6c8); border:1px solid #a98f5f; border-radius:8px; color:#4a341f; box-shadow:0 1px 3px rgba(60,45,20,.25); }
+  body .btn.pri { background:linear-gradient(180deg, #6d5133, #4f3a22); border-color:#3c2b16; color:#f7ecd2; }
+  body .subbar .btn:not(.pri) { background:linear-gradient(180deg, rgba(253,248,234,.88), rgba(241,230,200,.85)); }
+  body #tabbar { background:linear-gradient(180deg, rgba(250,244,225,.96), rgba(233,219,182,.95)); border-top:2px solid #a98f5f; box-shadow:0 -3px 10px rgba(38,32,18,.22); }
+  body .plot { background:linear-gradient(180deg, rgba(252,247,232,.94), rgba(245,236,210,.92)); border:1px solid #b39b63; border-radius:10px; box-shadow:inset 0 0 14px rgba(160,128,74,.12); }
+  body .masthead.ms h1, body .masthead.ms .ttl { text-shadow:0 1px 0 rgba(255,252,240,.8), 0 2px 8px rgba(255,252,240,.65); }
 </style>
 </head>
 <body>
@@ -2026,7 +2037,7 @@ function viewSet(){
   return h; }
 /* 更新公告（玩家点击查看，禁进门自动弹）：只写已上线内容，不写未兑现承诺、不带任何码 */
 const CHANGELOG = [
-  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励', '界面补图：药圃地块配作物图、开始页加封面图；切页音效改预加载，点哪响哪', '全站背景换修仙场景图「云海仙山」：浮岛云海铺满全屏'] },
+  { v: '名号修复', items: ['宗门名号改为自动拟名：按掌门虎扑昵称生成，未登录时从山门名池里选，不再手动输入', '广告改为平台官方激励视频：完整观看确认后才发奖励', '界面补图：药圃地块配作物图、开始页加封面图；切页音效改预加载，点哪响哪', '全站背景换修仙场景图「云海仙山」：浮岛云海铺满全屏', '界面改卷轴牌匾风：宣纸卷轴卡片＋木牌按钮＋石栏底栏'] },
   { v: '运营期更新', items: ['运营期解锁日历：护山大阵 11/21、派遣见闻 11/25、意见反馈 11/28 陆续开启，11/30 收官',
     '意见反馈（设置-反馈，11/28 开启）：首提奖 100 灵石、采纳奖 300 灵石＋鸣谢名单',
     '开宗纪事：11/17–11/30 累计登录 3/7/11 天领奖（总览页领取）',
