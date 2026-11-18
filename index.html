@@ -566,7 +566,7 @@ function recomputeDegree(){
 function postCount(postId){ return S.disciples.filter(d => !d.dispatch && d.post === postId).length; }
 function postFactor(postId, base){ // 岗位系数：在岗弟子（≤2 名计效）逐人连乘 base×（1 − 5%×该弟子历练阶位）；0 阶弟子与旧口径完全一致
   const ds = S.disciples.filter(d => !d.dispatch && d.post === postId).slice(0, 2);
-  let f = 1; for (const d of ds) f *= base * (1 - CONFIG.discipleExp.perStage * (d.stage || 0)) * (1 - artKindPct(d, postId)); return f / weatherMul('prod'); }   // 仙器岗位加速＋天象生产乘子（单点叠加；postFactor 是时长系数，天气加成须除入——灵潮产出旺→耗时短，雾锁反之）
+  let f = 1; for (const d of ds) f *= base * (1 - CONFIG.discipleExp.perStage * (d.stage || 0)) * (1 - artKindPct(d, postId)); return f / weatherMul('prod') / (eventToday() === 'fengshou' ? 2 : 1); }   // 仙器岗位加速＋天象生产乘子（单点叠加；postFactor 是时长系数，天气加成须除入——灵潮产出旺→耗时短，雾锁反之）
 function cropDurationMs(crop){ // 实际时长 ＝ 档位时长 ÷ 聚灵诀倍率 × 药圃岗位系数（播种时定格）；宝库·农桑套集齐再 ×0.9
   const base = CONFIG.tiers[crop.tier - 1].durationMs;
   let dur = base / techMul() * postFactor('farm', 0.8);
@@ -721,7 +721,8 @@ const Offline = {
                  * (1 + CONFIG.array.ratePerStage * ((S.array && S.array.stage) || 0))   // 护山大阵：每段修复 +2%（公式单点叠加）
                  * ((S.offering && to <= (S.offering.until || 0)) ? 1 + 0.05 * (S.offering.stacks || 0) : 1)   // 宗门供奉：有效期内 +5%/层
                  * (1 + artOfflinePct())   // 仙器：佩着的聚灵类＋青冥套离线加成（单点叠加）
-                 * weatherMul('prod');   // 天象：离线产率同乘生产乘子
+                 * weatherMul('prod')   // 天象：离线产率同乘生产乘子
+                 * eventRateMul();   // 活动日：丰收 ×2／同庆 ×1.3（日期门单点）
     const cap = rate * CONFIG.offline.capHours * CONFIG.offline.capFactor;
     let amount = Math.min(rate * el / 3600000, cap);
     let early = 0;
@@ -1043,6 +1044,14 @@ function equipArt(discId, artId){ const d = S.disciples.find(x => x.id === discI
 function unequipArt(discId){ const d = S.disciples.find(x => x.id === discId); if (!d) return; d.gear = null; markDirty(); Save.save(); beep(); render(); }
 
 /* ---------------- 天象·灵气潮汐（互鉴批一：每日天象影响生产/派遣，日期种子定象、全服同象、零存档） ---------------- */
+/* ---------------- 运营期活动日（每日内容日历·总台监管总表）：日期门单点，到日生效、过期自动失效 ---------------- */
+const EVENT_DAYS = { '2026-11-20': 'kaige', '2026-11-22': 'fengshou', '2026-11-23': 'chongceng', '2026-11-24': 'dachou', '2026-11-26': 'kaishi', '2026-11-29': 'tongqing', '2026-11-30': 'tongqing' };
+function eventToday(){ return EVENT_DAYS[dayKey()] || null; }
+function eventRateMul(){ const e = eventToday(); return e === 'fengshou' ? 2 : e === 'tongqing' ? 1.3 : 1; }
+function claimDayGift(){ if (eventToday() !== 'kaige') return;
+  if (!S.event) S.event = {}; if (S.event.dayGift === '2026-11-20'){ toast('开阁礼已经领过了'); return; }
+  S.event.dayGift = '2026-11-20'; artState().frags += 5;
+  toast('开阁礼到账：仙器碎片 +5（去宗门页·宝库开仙器包）'); markDirty(); Save.save(); Audio8.play('success'); render(); }
 function weatherToday(){ const k = dayKey(); let hsh = 0; for (let i = 0; i < k.length; i++) hsh = (hsh * 31 + k.charCodeAt(i)) >>> 0;
   const tot = CONFIG.weather.reduce((a, w) => a + w.w, 0); let r = hsh % tot;
   for (const w of CONFIG.weather){ if (r < w.w) return w; r -= w.w; } return CONFIG.weather[0]; }
@@ -1057,7 +1066,7 @@ function chronArt(def){ chronicle('art_first', '得第一件仙器——' + def.
 /* ---------------- 历练·弟子战斗（2026-11-18 设计稿落地：掌门不下场，3 人小队自动战斗＋三条副本线） ---------------- */
 let trainTeam = [], trainLog = null;
 function trainState(){ const T = S.train || (S.train = { day: '', trialFloor: 0, towerFloor: 0, wins: 0, left: { trial: CONFIG.train.trialDaily, cave: CONFIG.train.caveDaily, tower: CONFIG.train.towerDaily }, adDay: '', adUsed: {} });
-  const k = dayKey(); if (T.day !== k){ T.day = k; T.left = { trial: CONFIG.train.trialDaily, cave: CONFIG.train.caveDaily, tower: CONFIG.train.towerDaily }; T.adDay = k; T.adUsed = {}; }
+  const k = dayKey(); if (T.day !== k){ T.day = k; T.left = { trial: CONFIG.train.trialDaily + (eventToday() === 'chongceng' ? 3 : 0), cave: CONFIG.train.caveDaily, tower: CONFIG.train.towerDaily }; T.adDay = k; T.adUsed = {}; }
   if (typeof T.wins !== 'number') T.wins = 0; if (!T.left) T.left = { trial: 0, cave: 0, tower: 0 }; if (!T.adUsed) T.adUsed = {}; return T; }
 function gradeIdx(name){ return CONFIG.ranks.findIndex(g => g.name === name); }
 function battlePower(d){ const qm = { '寻常': 1, '良好': 1.15, '上佳': 1.3, '绝佳': 1.5 }; const at = d.attrs || {};
@@ -1093,7 +1102,7 @@ function doTrial(sweep){ const T = trainState();
     markDirty(); Save.save(); beep(); render(); return; }
   const floor = T.trialFloor + 1, ep = Math.round(30 * Math.pow(1.16, floor - 1));
   const r = simulateBattle(team, CONFIG.train.beasts[floor % CONFIG.train.beasts.length], ep); T.left.trial--;
-  if (r.win){ T.trialFloor = floor; T.wins++; if (floor === 10) chronicle('trial10', '青云试炼登第十层，弟子们初露锋芒。'); Ledger.transact({ coin: 15 * floor, reason: 'trial' });
+  if (r.win){ T.trialFloor = floor; T.wins++; if (floor === 10) chronicle('trial10', '青云试炼登第十层，弟子们初露锋芒。'); Ledger.transact({ coin: 15 * floor * (eventToday() === 'chongceng' ? 2 : 1), reason: 'trial' });
     let rw = '灵石 +' + (15 * floor); if (floor % 5 === 0){ artState().frags += 3; rw += ' · 仙器碎片 +3'; }
     r.log.push('首通第 ' + floor + ' 层奖励：' + rw + '。'); }
   trainLog = r; markDirty(); Save.save(); if (r.win) Audio8.play('success'); else beep(); render(); }
@@ -1117,9 +1126,9 @@ function doTower(){ const T = trainState();
 
 /* ---------------- 山下集市·宝匣（厚度批：概率公示、10 匣保底、每日首匣半价） ---------------- */
 function rollMarketDay(){ const k = dayKey(); if (S.market.dateKey !== k){ S.market.dateKey = k; S.market.openedToday = 0; markDirty(); } }
-function chestPrice(){ rollMarketDay(); return S.market.openedToday === 0 ? CONFIG.market.firstPrice : CONFIG.market.price; }
+function chestPrice(){ rollMarketDay(); const base = S.market.openedToday === 0 ? CONFIG.market.firstPrice : CONFIG.market.price; return eventToday() === 'kaishi' ? Math.floor(base / 2) : base; }
 function openChest(){ const M = CONFIG.market; rollMarketDay();
-  const price = S.market.openedToday === 0 ? M.firstPrice : M.price;
+  const price = chestPrice();   // 价格单点（含开市日半价）
   if (!Ledger.transact({ coin: -price, reason: 'chest' })){ toast('开匣需要 ' + price + ' 灵石，家底还不够'); return; }
   S.market.openedToday++; bumpDaily('chest');
   const missing = CONFIG.treasures.filter(t => !S.treasures.owned[t.id]);
@@ -1147,12 +1156,12 @@ function genRush(){ const k = dayKey();
     if (S.rush.done && (S.rush.seq || 1) < 2 && S.rush.nextAt && nowMs() >= S.rush.nextAt && !S.rush.secondMade){
       const pool = CONFIG.orders.pools.timed, o = pool[S.day.index % pool.length];
       const eod = new Date(); eod.setHours(24, 0, 0, 0);
-      S.rush = { dateKey: k, seq: 2, needs: Object.assign({}, o.needs), baseReward: o.reward, reward: o.reward * 2,
+      S.rush = { dateKey: k, seq: 2, needs: Object.assign({}, o.needs), baseReward: o.reward, reward: o.reward * (eventToday() === 'dachou' ? 3 : 2),
                  expiresAt: eod.getTime(), done: false, expired: false }; markDirty(); }
     return; }
   const pool = CONFIG.orders.pools.timed, o = pool[(S.day.index - 1) % pool.length];
   const eod = new Date(); eod.setHours(24, 0, 0, 0);   // 时长保底批：急单改「当日有效」——回访节奏慢的玩家也吃得到，不再 30 分钟作废
-  S.rush = { dateKey: k, seq: 1, needs: Object.assign({}, o.needs), baseReward: o.reward, reward: o.reward * 2,
+  S.rush = { dateKey: k, seq: 1, needs: Object.assign({}, o.needs), baseReward: o.reward, reward: o.reward * (eventToday() === 'dachou' ? 3 : 2),
              expiresAt: eod.getTime(), done: false, expired: false }; markDirty(); }
 function deliverRush(){ const r = S.rush; if (!r || r.done) return;
   if (nowMs() > r.expiresAt){ r.expired = true; toast('急单已过期作废'); markDirty(); Save.save(); render(); return; }
@@ -1160,8 +1169,8 @@ function deliverRush(){ const r = S.rush; if (!r || r.done) return;
   Ledger.transact(Object.assign({ reason: 'rush' }, txOf({ items: r.needs }, -1)));
   Ledger.transact({ coin: r.reward, reason: 'rush' });
   r.done = true; S.stats.orders++; bumpDaily('order'); r.doubleInfo = { reward: r.reward, doubled: false };
-  if ((r.seq || 1) < 2){ r.nextAt = nowMs() + 4 * 3600 * 1000; toast('急单赶上了！奖励 ' + r.reward + ' 灵石（×2）；约 4 小时后还有一张'); }
-  else toast('急单赶上了！奖励 ' + r.reward + ' 灵石（×2）');
+  if ((r.seq || 1) < 2){ const hrs = eventToday() === 'dachou' ? 1 : 4; r.nextAt = nowMs() + hrs * 3600 * 1000; toast('急单赶上了！奖励 ' + r.reward + ' 灵石；约 ' + hrs + ' 小时后还有一张'); }
+  else toast('急单赶上了！奖励 ' + r.reward + ' 灵石');
   maybeEvent(); markDirty(); Save.save(); beep(); render(); }
 
 /* ---------------- 大宗订单（时长保底批）：每日 1 张常驻大单，当日有效、交掉为止，给全天生产一个总目标 ---------------- */
@@ -1540,7 +1549,8 @@ function viewSetup(){
         '<li>历练（底部新栏目）：弟子组队打青云试炼、古修洞府、镇妖塔，赢灵石、材料与仙器碎片。</li>' +
         '<li>广告补强：离线双倍不再被挤占、日课与急单也能双倍、订单刷新保底高价单、工坊一键全加速。</li>' +
         '<li>天象与编年史（提前开启）：每日天象影响生产与派遣；宗门大事自动记入编年史（宗门页）。</li>' +
-        '<li>灵石包（弟子页）：每日 3 次，看广告领 40 灵石。</li></ul>' : '') +
+        '<li>灵石包（弟子页）：每日 3 次，看广告领 40 灵石。</li>' +
+        '<li>运营期活动日：11/20 开阁礼、11/22 丰收翻倍、11/23 试炼冲层、11/24 急单大酬、11/26 宝匣半价、11/29 起山门同庆——到日子看各页牌子。</li></ul>' : '') +
       '<div class="btnrow">' + (introOpen ? '' : '<button class="btn sm" onclick="introOpen=true;render()">展开看看</button>') +
       '<button class="btn sm" onclick="dismissIntro()">知道了</button></div></div>';
   }
@@ -1890,6 +1900,11 @@ function viewHome(){
   let h = subBar('home', [['today', '今日'], ['story', '手记']]);
   { const w = weatherToday();
     h += '<div class="card"><p class="small">' + icn('home') + '今日天象：<b>' + w.name + '</b> · ' + w.desc + '</p></div>'; }
+  { const ev = eventToday();
+    if (ev === 'kaige') h += '<div class="card"><h3>' + icn('bag') + '仙器开阁日</h3><p class="small">今日开阁：登录礼仙器碎片 ×5，领了去宝库开仙器包。</p>' +
+      ((S.event && S.event.dayGift === '2026-11-20') ? '<p class="small">开阁礼已领取。</p>' : '<div class="btnrow"><button class="btn pri sm" onclick="claimDayGift()">领开阁礼（碎片 ×5）</button></div>') + '</div>';
+    else if (ev === 'fengshou') h += '<div class="card"><p class="small">' + icn('home') + '<b>灵雨丰收日</b>：今日生产与离线产出翻倍，多种多收。</p></div>';
+    else if (ev === 'tongqing') h += '<div class="card"><p class="small">' + icn('home') + '<b>山门同庆</b>：收官同庆，离线产率 +30%。</p></div>'; }
   if (sub.home === 'today'){
   /* 今日清单（联赛口径）：今天能领能做的放最前——可领取＋掌门日课同组，日课不再埋在手记里 */
 
@@ -2002,6 +2017,7 @@ function viewProd(){ let h = subBar('prod', [['farm', '种植'], ['order', '订�
     '<div class="btnrow"><button class="btn sm" onclick="orderRefreshAd()">广告刷新订单（保底高价单）</button></div></div>';
   genRush();   // 连环急单到点生成（幂等守卫在内）
   const r = S.rush;   // 限时急单卡（订单墙之后渲染，不与日常单按钮混排）
+  if (eventToday() === 'dachou') h += '<div class="card"><p class="small"><b>急单大酬日</b>：今日急单奖励 ×3、连环急单 1 小时即到。</p></div>';
   h += '<div class="card"><h3>' + icn('order') + '限时急单</h3>';
   if (!r || r.done) h += '<p class="muted">' + (r && r.done
     ? ((r.seq || 1) < 2 && r.nextAt && nowMs() < r.nextAt) ? '第一张急单已交付，下一张约 ' + fmtDur(r.nextAt - nowMs()) + ' 后送到。'
@@ -2011,7 +2027,7 @@ function viewProd(){ let h = subBar('prod', [['farm', '种植'], ['order', '订�
   else { const ok = canAffordEff({ items: r.needs });
     h += '<div class="row"><span>' + needsText(r.needs) + '<br><span class="small">现有：' +
       Object.keys(r.needs).map(k => itemName(k) + ' ' + inv(k)).join('、') + ' · 还剩 <b>' + fmtDur(r.expiresAt - nowMs()) + '</b></span></span>' +
-      '<span><b>' + r.reward + ' 灵石</b><span class="tag">×2</span> <button class="btn sm" ' + (ok ? '' : 'disabled') + ' onclick="deliverRush()">交付急单</button></span></div>' +
+      '<span><b>' + r.reward + ' 灵石</b><span class="tag">×' + (eventToday() === 'dachou' ? 3 : 2) + '</span> <button class="btn sm" ' + (ok ? '' : 'disabled') + ' onclick="deliverRush()">交付急单</button></span></div>' +
       '<p class="small">每日 1 张，当天内交付都算，过期作废。</p>'; }
   if (r && r.done && r.doubleInfo && !r.doubleInfo.doubled)
     h += '<div class="btnrow"><button class="btn sm" onclick="rushDoubleAd()">看广告·急单奖励再领一份（' + r.doubleInfo.reward + ' 灵石）</button></div>';
@@ -2122,7 +2138,7 @@ function viewTrain(){
     '<p class="small">先种田攒建设度升品级，再把弟子练起来、仙器佩起来，到时候直接开打。</p></div>';
   validTrainTeam();
   const st = sub.train || 'trial';
-  let h = '<div class="subtabs">' + [['trial', '青云试炼'], ['cave', '古修洞府'], ['tower', '镇妖塔']].map(x =>
+  let h = (eventToday() === 'chongceng' ? '<div class="card"><p class="small"><b>青云冲层日</b>：今日试炼次数 +3、首通奖励翻倍，冲！</p></div>' : '') + '<div class="subtabs">' + [['trial', '青云试炼'], ['cave', '古修洞府'], ['tower', '镇妖塔']].map(x =>
     '<button class="' + (st === x[0] ? 'on' : '') + '" onclick="setSub(\'train\',\'' + x[0] + '\')">' + x[1] + '</button>').join('') + '</div>';
   h += '<div class="card"><h3>' + icn('dispatch') + '出战小队（点弟子选人，最多 3 人）</h3>' +
     (S.disciples.length ? S.disciples.map(d => { const on = trainTeam.indexOf(d.id) >= 0;
@@ -2199,6 +2215,7 @@ function viewSect(){
       '<button class="btn sm" onclick="doTechnique2()">参悟下一层（' + T2.costs[S.technique2.level] + ' 灵石）</button>') + '</div></div>';
   } else if (sub.sect === 'vault'){
   const M = CONFIG.market, price = chestPrice();
+  if (eventToday() === 'kaishi') h += '<div class="card"><p class="small"><b>宝匣开市日</b>：今日宝匣全场半价（首匣 20、其后 40）。</p></div>';
   h += '<div class="card"><h3>' + icn('bag') + '山下集市 · 宝匣</h3>' +
     '<p class="small">开匣必出宝物或碎片。概率公示：整件 60% · 碎片 ×2 占 40%；每开 10 匣必出 1 件未拥有整件（保底）。每日首匣半价 ' + M.firstPrice + ' 灵石，其后 ' + M.price + ' 灵石/匣。</p>' +
     '<p>保底进度 <b>' + S.market.pity + '/' + M.pityMax + '</b> · 今日已开 ' + S.market.openedToday + ' 匣 · 宝物碎片 <b>' + (S.treasures.shards || 0) + '</b></p>' +
@@ -2372,6 +2389,7 @@ function viewSet(){
   return h; }
 /* 更新公告（玩家点击查看，禁进门自动弹）：只写已上线内容，不写未兑现承诺、不带任何码 */
 const CHANGELOG = [
+  { v: '运营期活动日', items: ['11/20 仙器开阁日（登录领仙器碎片 ×5）、11/22 灵雨丰收日（生产与离线翻倍）、11/23 青云冲层日（试炼次数 +3、首通翻倍）、11/24 急单大酬日（急单 ×3、连环 1 小时）、11/26 宝匣开市日（宝匣半价）、11/29–30 山门同庆（离线 +30%）'] },
   { v: '广告补强', items: ['离线双倍独立计数：不被其他广告挤掉倍率，结算卡直接写明翻倍后总数；离线满半小时、金额不足 30 灵石时按 30 保底翻倍（每日 2 次）', '日课双倍：日课与进阶日课领完奖，看广告再领一份', '急单双倍：限时急单交付后，看广告再领一份急单奖励', '订单刷新保底高价单；工坊加速改为全部在制工单一起完成'] },
   { v: '互鉴更新 · 一（天象与编年史提前开启）', items: ['天象灵气潮汐：每日天象（灵雨/晴空/雾锁/灵潮…）影响生产与派遣灵石，总览页顶部晨间播报，全服同象', '宗门编年史（宗门页新子栏目）：开宗、晋阶、得仙器、破镇妖塔等大事自动成页收藏'] },
   { v: '历练更新', items: ['历练栏目开打：弟子组队自动战斗——青云试炼爬层、古修洞府刷材料、镇妖塔冲 30 层，产灵石、材料与仙器碎片；掌门坐镇不下场', '战力公示：历练阶＋根骨悟性手艺＋品质＋所佩仙器，佩满仙器再战打不过的层', '副本每日次数固定，看广告每条线可补 1 次'] },
